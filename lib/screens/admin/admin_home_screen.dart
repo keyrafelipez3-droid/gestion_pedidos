@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'clientes_screen.dart';
+import 'empleados_screen.dart';
+import 'negocio_screen.dart';
 import 'roles_permisos_screen.dart';
 
 /// Panel de administración: punto de entrada a las pantallas exclusivas
@@ -28,20 +31,29 @@ class AdminHomeScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const RolesPermisosScreen()),
             ),
           ),
-          const _TarjetaAdmin(
+          _TarjetaAdmin(
             icono: Icons.badge_outlined,
             titulo: 'Empleados',
-            subtitulo: 'HU-05 · próximamente',
+            subtitulo: 'HU-05',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const EmpleadosScreen()),
+            ),
           ),
-          const _TarjetaAdmin(
+          _TarjetaAdmin(
             icono: Icons.people_outline,
             titulo: 'Clientes',
-            subtitulo: 'HU-04 · próximamente',
+            subtitulo: 'HU-04',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ClientesScreen()),
+            ),
           ),
-          const _TarjetaAdmin(
+          _TarjetaAdmin(
             icono: Icons.storefront_outlined,
             titulo: 'Datos del negocio',
-            subtitulo: 'HU-07 · próximamente',
+            subtitulo: 'HU-07',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NegocioScreen()),
+            ),
           ),
         ],
       ),
