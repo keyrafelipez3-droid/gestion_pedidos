@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
 import 'admin/admin_home_screen.dart';
+import 'cuenta/mi_cuenta_screen.dart';
 
 /// Pantalla mostrada justo después de iniciar sesión / registrarse.
 /// Si el usuario es Administrador, muestra además un acceso al panel de
-/// administración (HU-03/04/05/07).
+/// administración (HU-03/04/05/07). El acceso a "Mi cuenta" (HU-06) está
+/// disponible para cualquier usuario logueado, sin importar el rol.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -29,12 +31,26 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _abrirMiCuenta() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MiCuentaScreen()),
+    );
+    // Si el usuario cambió su nombre en "Mi cuenta", refresca esta pantalla
+    // para mostrarlo actualizado.
+    _reintentar();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Pedidos'),
         actions: [
+          IconButton(
+            tooltip: 'Mi cuenta',
+            icon: const Icon(Icons.manage_accounts_outlined),
+            onPressed: _abrirMiCuenta,
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),
@@ -101,8 +117,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Conectado a Firebase ✅',
                     style: TextStyle(fontSize: 16, color: Colors.green),
                   ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.manage_accounts_outlined),
+                    label: const Text('Mi cuenta'),
+                    onPressed: _abrirMiCuenta,
+                  ),
                   if (usuario.esAdministrador) ...[
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     FilledButton.icon(
                       icon: const Icon(Icons.admin_panel_settings),
                       label: const Text('Panel de administración'),

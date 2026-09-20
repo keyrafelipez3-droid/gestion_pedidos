@@ -95,6 +95,72 @@ class AuthService {
 
   Future<void> cerrarSesion() => _auth.signOut();
 
+  /// HU-06 — Modificar nombre y teléfono del propio usuario logueado
+  /// (cualquier rol: Cliente, Administrador, Cajero, Cocina, Repartidor).
+  /// Usa update() en vez de set(toMap()) para no pisar campos que no se
+  /// están editando aquí (rol, estado, fechaRegistro, etc.).
+  Future<String?> actualizarPerfil({
+    required String nombre,
+    required String telefono,
+  }) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return 'No hay una sesión activa.';
+    try {
+      await _db.collection('usuarios').doc(uid).update({
+        'nombre': nombre.trim(),
+        'telefono': telefono.trim(),
+      });
+      // Mantiene el nombre visible de Firebase Auth sincronizado (igual que
+      // en el registro), aunque el dato "real" vive en Firestore.
+      await _auth.currentUser?.updateDisplayName(nombre.trim());
+      return null;
+    } catch (e) {
+      return 'No se pudo actualizar el perfil. Intenta de nuevo.';
+    }
+  }
+
+  /// HU-06 — Activar/desactivar las notificaciones del usuario.
+  Future<String?> actualizarNotificaciones(bool activas) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return 'No hay una sesión activa.';
+    try {
+      await _db.collection('usuarios').doc(uid).update({
+        'notificacionesActivas': activas,
+      });
+      return null;
+    } catch (e) {
+      return 'No se pudo guardar la preferencia. Intenta de nuevo.';
+    }
+  }
+
+  /// HU-06 — Cambiar la contraseña del usuario logueado.
+  /// Firebase exige "reautenticar" (volver a confirmar la contraseña
+  /// actual) antes de permitir cambiarla, por seguridad: si el usuario dejó
+  /// la sesión abierta en un dispositivo y alguien más la usa, no puede
+  /// cambiar la contraseña sin saber la actual.
+  Future<String?> cambiarPassword({
+    required String passwordActual,
+    required String passwordNueva,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      return 'No hay una sesión activa.';
+    }
+    try {
+      final credencial = EmailAuthProvider.credential(
+        email: user.email!,
+        password: passwordActual,
+      );
+      await user.reauthenticateWithCredential(credencial);
+      await user.updatePassword(passwordNueva);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _mensajeError(e.code);
+    } catch (e) {
+      return 'Ocurrió un error inesperado. Intenta de nuevo.';
+    }
+  }
+
   /// Traduce los códigos de error de Firebase Auth a mensajes en español.
   String _mensajeError(String codigo) {
     switch (codigo) {
@@ -114,6 +180,8 @@ class AuthService {
         return 'Demasiados intentos. Espera un momento y vuelve a intentar.';
       case 'network-request-failed':
         return 'Sin conexión a internet. Revisa tu red.';
+      case 'requires-recent-login':
+        return 'Por seguridad, vuelve a iniciar sesión e intenta de nuevo.';
       default:
         return 'Error de autenticación ($codigo).';
     }

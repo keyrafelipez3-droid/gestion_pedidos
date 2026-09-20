@@ -38,6 +38,12 @@ class UsuarioModel {
   final String? idSucursal; // solo aplica a empleados (Cajero/Cocina/Repartidor)
   final bool estado; // activo / inactivo
   final DateTime? fechaRegistro;
+  // HU-06: preferencia de notificaciones del propio usuario. No forma parte
+  // del esquema original documentado en diseno-base-de-datos.md (que solo
+  // define la subcolección usuarios/{id}/notificaciones para el historial
+  // de notificaciones en sí), pero es el campo natural para guardar si el
+  // usuario quiere recibirlas o no. Por defecto activo.
+  final bool notificacionesActivas;
 
   const UsuarioModel({
     required this.idUsuario,
@@ -49,6 +55,7 @@ class UsuarioModel {
     this.idSucursal,
     this.estado = true,
     this.fechaRegistro,
+    this.notificacionesActivas = true,
   });
 
   bool get esCliente => rol == Rol.cliente;
@@ -56,6 +63,12 @@ class UsuarioModel {
   bool get esPersonalDelNegocio => Rol.staff.contains(rol);
 
   /// Datos a escribir en Firestore al crear el documento (registro).
+  /// OJO: usa FieldValue.serverTimestamp() en fechaRegistro, así que este
+  /// mapa es solo para CREAR el documento por primera vez — nunca para
+  /// actualizar un usuario ya existente (eso pisaría su fecha de registro
+  /// original). Para editar datos de un usuario ya creado, usar
+  /// AuthService.actualizarPerfil()/actualizarNotificaciones(), que hacen
+  /// update() solo de los campos que cambian.
   Map<String, dynamic> toMap() {
     return {
       'nombre': nombre,
@@ -66,6 +79,7 @@ class UsuarioModel {
       'idSucursal': idSucursal,
       'estado': estado,
       'fechaRegistro': FieldValue.serverTimestamp(),
+      'notificacionesActivas': notificacionesActivas,
     };
   }
 
@@ -81,6 +95,7 @@ class UsuarioModel {
       idSucursal: data['idSucursal'] as String?,
       estado: (data['estado'] ?? true) as bool,
       fechaRegistro: ts?.toDate(),
+      notificacionesActivas: (data['notificacionesActivas'] ?? true) as bool,
     );
   }
 
