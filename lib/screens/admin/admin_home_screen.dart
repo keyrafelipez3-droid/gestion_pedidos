@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'catalogo_screen.dart';
 import 'clientes_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
 import 'roles_permisos_screen.dart';
+import 'sucursales_screen.dart';
 
 /// Panel de administración: punto de entrada a las pantallas exclusivas
-/// del rol Administrador (HU-03, HU-04, HU-05, HU-07...).
-/// Las tarjetas sin pantalla todavía implementada quedan deshabilitadas
-/// ("Próximamente") y se activan a medida que se construye cada historia.
+/// del rol Administrador (HU-03 a HU-15).
 class AdminHomeScreen extends StatelessWidget {
   const AdminHomeScreen({super.key});
 
@@ -53,6 +53,38 @@ class AdminHomeScreen extends StatelessWidget {
             subtitulo: 'HU-07',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const NegocioScreen()),
+            ),
+          ),
+          _TarjetaAdmin(
+            icono: Icons.location_city_outlined,
+            titulo: 'Sucursales',
+            subtitulo: 'HU-08',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SucursalesScreen()),
+            ),
+          ),
+          _TarjetaAdmin(
+            icono: Icons.schedule_outlined,
+            titulo: 'Horarios',
+            subtitulo: 'HU-09',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SucursalesScreen()),
+            ),
+          ),
+          _TarjetaAdmin(
+            icono: Icons.palette_outlined,
+            titulo: 'Personalización',
+            subtitulo: 'HU-10',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NegocioScreen()),
+            ),
+          ),
+          _TarjetaAdmin(
+            icono: Icons.inventory_2_outlined,
+            titulo: 'Catálogo',
+            subtitulo: 'HU-11 a HU-15',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CatalogoScreen()),
             ),
           ),
         ],

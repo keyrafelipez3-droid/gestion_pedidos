@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/negocio_model.dart';
+import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
 
 /// HU-07 — Pantalla para que el Administrador configure la información
@@ -87,6 +88,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
 
     try {
       await NegocioService.instancia.guardarNegocio(negocio);
+      AppThemeController.instancia.actualizar(negocio);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

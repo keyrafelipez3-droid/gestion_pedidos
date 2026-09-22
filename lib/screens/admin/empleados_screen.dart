@@ -20,12 +20,15 @@ class EmpleadosScreen extends StatelessWidget {
         title: Text('Rol de ${empleado.nombre}'),
         children: Rol.staff
             .map(
-              (r) => RadioListTile<String>(
+              (r) => ListTile(
+                leading: Icon(
+                  r == empleado.rol
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                ),
                 title: Text(r),
-                value: r,
-                // ignore: deprecated_member_use
-                groupValue: empleado.rol,
-                onChanged: (v) => Navigator.of(context).pop(v),
+                trailing: r == empleado.rol ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.of(context).pop(r),
               ),
             )
             .toList(),
