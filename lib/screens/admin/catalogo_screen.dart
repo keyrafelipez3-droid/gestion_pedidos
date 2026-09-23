@@ -142,9 +142,11 @@ class _CategoriasTab extends StatelessWidget {
         ],
       ),
     );
-    nombre.dispose();
-    descripcion.dispose();
-    imagen.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nombre.dispose();
+      descripcion.dispose();
+      imagen.dispose();
+    });
   }
 
   @override
@@ -238,6 +240,9 @@ class _ProductosTab extends StatefulWidget {
 
 class _ProductosTabState extends State<_ProductosTab> {
   final _busqueda = TextEditingController();
+  // Se guarda una sola vez el stream (no se crea de nuevo en cada build),
+  // así escribir en el buscador no reinicia la lista ni pierde el foco.
+  late final _streamProductos = CatalogoService.instancia.streamProductos();
   String _filtroTexto = '';
   _FiltroDisponibilidad _filtro = _FiltroDisponibilidad.todos;
 
@@ -300,9 +305,12 @@ class _ProductosTabState extends State<_ProductosTab> {
                         prefixText: 'Bs ',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (v) => double.tryParse((v ?? '').replaceAll(',', '.')) == null
-                          ? 'Precio no válido'
-                          : null,
+                      validator: (v) {
+                        final parsed = double.tryParse((v ?? '').replaceAll(',', '.'));
+                        if (parsed == null) return 'Precio no válido';
+                        if (parsed < 0) return 'El precio no puede ser negativo';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -372,10 +380,12 @@ class _ProductosTabState extends State<_ProductosTab> {
         ),
       ),
     );
-    nombre.dispose();
-    descripcion.dispose();
-    precio.dispose();
-    imagen.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nombre.dispose();
+      descripcion.dispose();
+      precio.dispose();
+      imagen.dispose();
+    });
   }
 
   Future<void> _eliminar(BuildContext context, ProductoModel item) async {
@@ -404,7 +414,7 @@ class _ProductosTabState extends State<_ProductosTab> {
   @override
   Widget build(BuildContext context) => Scaffold(
         body: StreamBuilder<List<ProductoModel>>(
-          stream: CatalogoService.instancia.streamProductos(),
+          stream: _streamProductos,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -614,9 +624,12 @@ class _ComplementosTab extends StatelessWidget {
                     prefixText: 'Bs ',
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => double.tryParse((v ?? '').replaceAll(',', '.')) == null
-                      ? 'Precio no válido'
-                      : null,
+                  validator: (v) {
+                    final parsed = double.tryParse((v ?? '').replaceAll(',', '.'));
+                    if (parsed == null) return 'Precio no válido';
+                    if (parsed < 0) return 'El precio no puede ser negativo';
+                    return null;
+                  },
                 ),
               ],
             ),
@@ -650,9 +663,11 @@ class _ComplementosTab extends StatelessWidget {
         ],
       ),
     );
-    nombre.dispose();
-    descripcion.dispose();
-    precio.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nombre.dispose();
+      descripcion.dispose();
+      precio.dispose();
+    });
   }
 
   @override
@@ -784,9 +799,12 @@ class _VariantesTab extends StatelessWidget {
                       prefixText: 'Bs ',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) => double.tryParse((v ?? '').replaceAll(',', '.')) == null
-                        ? 'Precio no válido'
-                        : null,
+                    validator: (v) {
+                      final parsed = double.tryParse((v ?? '').replaceAll(',', '.'));
+                      if (parsed == null) return 'Precio no válido';
+                      if (parsed < 0) return 'El precio no puede ser negativo';
+                      return null;
+                    },
                   ),
                   SwitchListTile(
                     title: const Text('Activa'),
@@ -826,8 +844,10 @@ class _VariantesTab extends StatelessWidget {
         ),
       ),
     );
-    nombre.dispose();
-    precio.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nombre.dispose();
+      precio.dispose();
+    });
   }
 
   @override

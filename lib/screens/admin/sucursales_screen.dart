@@ -23,6 +23,9 @@ class SucursalesScreen extends StatefulWidget {
 class _SucursalesScreenState extends State<SucursalesScreen> {
   final _busqueda = TextEditingController();
   String _filtro = '';
+  // Igual que en Productos: se guarda el stream una sola vez para que
+  // el buscador no reinicie la lista con cada letra.
+  late final _streamSucursales = SucursalService.instancia.streamSucursales();
 
   @override
   void dispose() {
@@ -116,10 +119,12 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
         ),
       ),
     );
-    nombre.dispose();
-    direccion.dispose();
-    telefono.dispose();
-    imagen.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nombre.dispose();
+      direccion.dispose();
+      telefono.dispose();
+      imagen.dispose();
+    });
   }
 
   @override
@@ -131,7 +136,7 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
         title: const Text('Sucursales · HU-08'),
       ),
       body: StreamBuilder<List<SucursalModel>>(
-        stream: SucursalService.instancia.streamSucursales(),
+        stream: _streamSucursales,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
