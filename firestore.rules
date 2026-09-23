@@ -15,9 +15,12 @@ service cloud.firestore {
     match /usuarios/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.rol == 'Cliente'
-        && request.resource.data.estado == true;
+        && (
+          (request.auth.uid == userId
+            && request.resource.data.rol == 'Cliente'
+            && request.resource.data.estado == true)
+          || isAdmin()
+        );
       allow update: if isAdmin()
         || (signedIn()
           && request.auth.uid == userId

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../models/sucursal_model.dart';
 import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
+import '../../services/sucursal_service.dart';
 
 /// HU-05 — Formulario para que un Administrador cree la cuenta de un
 /// empleado y le asigne su rol (y opcionalmente su sucursal).
@@ -19,9 +21,9 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
   final _emailCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _idSucursalCtrl = TextEditingController();
 
   String _rolSeleccionado = Rol.cajero;
+  String? _idSucursalSeleccionada;
   bool _cargando = false;
   bool _verPassword = false;
 
@@ -35,7 +37,6 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
     _passwordCtrl.dispose();
-    _idSucursalCtrl.dispose();
     super.dispose();
   }
 
@@ -51,7 +52,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
       telefono: _telefonoCtrl.text,
       password: _passwordCtrl.text,
       rol: _rolSeleccionado,
-      idSucursal: _idSucursalCtrl.text,
+      idSucursal: _idSucursalSeleccionada,
     );
 
     if (!mounted) return;
@@ -176,14 +177,36 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    TextFormField(
-                      controller: _idSucursalCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'ID de sucursal (opcional)',
-                        helperText: 'Déjalo vacío si aún no hay sucursales creadas',
-                        prefixIcon: Icon(Icons.store_outlined),
-                        border: OutlineInputBorder(),
-                      ),
+                    StreamBuilder<List<SucursalModel>>(
+                      stream: SucursalService.instancia.streamSucursales(),
+                      builder: (context, snapshot) {
+                        final sucursales = snapshot.data ?? [];
+                        return DropdownButtonFormField<String?>(
+                          initialValue: _idSucursalSeleccionada,
+                          decoration: InputDecoration(
+                            labelText: 'Sucursal (opcional)',
+                            helperText: sucursales.isEmpty
+                                ? 'Todavía no hay sucursales creadas'
+                                : 'Déjalo sin asignar si aún no corresponde',
+                            prefixIcon: const Icon(Icons.store_outlined),
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Sin asignar'),
+                            ),
+                            ...sucursales.map(
+                              (s) => DropdownMenuItem<String?>(
+                                value: s.id,
+                                child: Text(s.nombre),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _idSucursalSeleccionada = v),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
 

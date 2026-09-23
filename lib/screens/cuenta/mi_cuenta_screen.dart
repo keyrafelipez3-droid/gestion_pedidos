@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../models/usuario_model.dart';
 import '../../services/auth_service.dart';
+import '../../theme/design_tokens.dart';
+import '../../widgets/app_status_badge.dart';
 
 /// HU-06 — "Como usuario, quiero modificar mis datos de cuenta, contraseña,
 /// notificaciones y preferencias."
 /// Disponible para CUALQUIER usuario logueado (Cliente, Administrador,
 /// Cajero, Cocina, Repartidor) — no es exclusiva del panel de admin.
+///
+/// Fase 4: la misma información se reorganizó en tres secciones con
+/// tarjetas (Perfil / Seguridad / Notificaciones) para que sea más fácil
+/// de escanear — toda la lógica de guardado sigue igual.
 class MiCuentaScreen extends StatefulWidget {
-  const MiCuentaScreen({super.key});
+  final bool incrustada;
+  const MiCuentaScreen({super.key, this.incrustada = false});
 
   @override
   State<MiCuentaScreen> createState() => _MiCuentaScreenState();
@@ -253,115 +260,201 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
       );
     }
 
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Mi cuenta')),
+      appBar: AppBar(
+        automaticallyImplyLeading: !widget.incrustada,
+        title: const Text('Mi cuenta'),
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Datos de la cuenta',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextFormField(
-                      controller: _nombreCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre completo',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: scheme.primaryContainer,
+                        foregroundColor: scheme.onPrimaryContainer,
+                        child: Text(
+                          usuario.nombre.isNotEmpty
+                              ? usuario.nombre[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Ingresa tu nombre'
-                          : null,
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              usuario.nombre,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            AppStatusBadge(
+                              label: usuario.rol,
+                              tone: AppStatusTone.neutral,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+
+                  _SeccionCuenta(
+                    icono: Icons.person_outline,
+                    titulo: 'Perfil',
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
+                            controller: _nombreCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre completo',
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Ingresa tu nombre'
+                                : null,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          TextFormField(
+                            controller: _telefonoCtrl,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Teléfono',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Ingresa tu teléfono'
+                                : null,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          // El correo no se puede editar acá: cambiar el
+                          // email de Firebase Auth requiere un flujo de
+                          // verificación aparte (fuera del alcance de esta
+                          // historia).
+                          TextFormField(
+                            initialValue: usuario.email,
+                            enabled: false,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo electrónico',
+                              prefixIcon: Icon(Icons.email_outlined),
+                              helperText: 'El correo no se puede modificar aquí',
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          FilledButton(
+                            onPressed:
+                                _guardandoPerfil ? null : _guardarPerfil,
+                            child: _guardandoPerfil
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Guardar cambios'),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _telefonoCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Teléfono',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Ingresa tu teléfono'
-                          : null,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  _SeccionCuenta(
+                    icono: Icons.lock_outline,
+                    titulo: 'Seguridad',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.password_outlined),
+                      title: const Text('Cambiar contraseña'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _abrirDialogoCambiarPassword,
                     ),
-                    const SizedBox(height: 12),
-                    // El correo no se puede editar acá: cambiar el email de
-                    // Firebase Auth requiere un flujo de verificación aparte
-                    // (fuera del alcance de esta historia).
-                    TextFormField(
-                      initialValue: usuario.email,
-                      enabled: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo electrónico',
-                        prefixIcon: Icon(Icons.email_outlined),
-                        border: OutlineInputBorder(),
-                        helperText: 'El correo no se puede modificar aquí',
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: _guardandoPerfil ? null : _guardarPerfil,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _guardandoPerfil
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  _SeccionCuenta(
+                    icono: Icons.notifications_outlined,
+                    titulo: 'Notificaciones',
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: _guardandoNotificaciones
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Guardar cambios'),
+                          : const Icon(Icons.notifications_active_outlined),
+                      title: const Text('Recibir notificaciones'),
+                      subtitle: const Text(
+                        'Avisos sobre el estado de tus pedidos',
+                      ),
+                      value: usuario.notificacionesActivas,
+                      onChanged: _guardandoNotificaciones
+                          ? null
+                          : (v) => _cambiarNotificaciones(v),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 28),
-              const Divider(),
-              const SizedBox(height: 12),
-              Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.lock_outline),
-                title: const Text('Cambiar contraseña'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _abrirDialogoCambiarPassword,
-              ),
-              const SizedBox(height: 20),
-              const Divider(),
-              const SizedBox(height: 12),
-              Text('Preferencias', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: _guardandoNotificaciones
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.notifications_outlined),
-                title: const Text('Notificaciones'),
-                subtitle: const Text(
-                  'Recibir avisos sobre el estado de tus pedidos',
-                ),
-                value: usuario.notificacionesActivas,
-                onChanged: _guardandoNotificaciones
-                    ? null
-                    : (v) => _cambiarNotificaciones(v),
-              ),
-            ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SeccionCuenta extends StatelessWidget {
+  final IconData icono;
+  final String titulo;
+  final Widget child;
+
+  const _SeccionCuenta({
+    required this.icono,
+    required this.titulo,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icono, size: 20, color: scheme.primary),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  titulo,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            child,
+          ],
         ),
       ),
     );

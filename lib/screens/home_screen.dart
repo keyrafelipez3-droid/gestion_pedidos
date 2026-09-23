@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/app_status_badge.dart';
 import 'admin/admin_home_screen.dart';
 import 'cuenta/mi_cuenta_screen.dart';
 
@@ -74,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('No se pudo cargar tu perfil todavía.'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   FilledButton(
                     onPressed: _reintentar,
                     child: const Text('Reintentar'),
@@ -84,62 +86,139 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }
 
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 36,
-                    child: Text(
-                      usuario.nombre.isNotEmpty
-                          ? usuario.nombre[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(fontSize: 28),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '¡Bienvenido/a, ${usuario.nombre}!',
-                    style: Theme.of(context).textTheme.titleLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Chip(label: Text(usuario.rol)),
-                  const SizedBox(height: 8),
-                  Text(
-                    usuario.email,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Conectado a Firebase ✅',
-                    style: TextStyle(fontSize: 16, color: Colors.green),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.manage_accounts_outlined),
-                    label: const Text('Mi cuenta'),
-                    onPressed: _abrirMiCuenta,
-                  ),
-                  if (usuario.esAdministrador) ...[
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      icon: const Icon(Icons.admin_panel_settings),
-                      label: const Text('Panel de administración'),
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AdminHomeScreen(),
-                        ),
+          final ancho = MediaQuery.sizeOf(context).width;
+          final esAmplio = AppBreakpoints.isExpanded(ancho);
+          final scheme = Theme.of(context).colorScheme;
+
+          return SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: esAmplio ? 480 : 440),
+                  child: Column(
+                    children: [
+                      _TarjetaBienvenida(usuario: usuario, scheme: scheme),
+                      const SizedBox(height: AppSpacing.lg),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.manage_accounts_outlined),
+                              label: const Text('Mi cuenta'),
+                              onPressed: _abrirMiCuenta,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ],
+                      if (usuario.esAdministrador) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.admin_panel_settings),
+                                label: const Text('Panel de administración'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const AdminHomeScreen(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _TarjetaBienvenida extends StatelessWidget {
+  final UsuarioModel usuario;
+  final ColorScheme scheme;
+
+  const _TarjetaBienvenida({required this.usuario, required this.scheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.xl,
+              horizontal: AppSpacing.lg,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  scheme.primary,
+                  scheme.primary.withValues(alpha: 0.78),
+                ],
+              ),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Colors.white.withValues(alpha: 0.25),
+                  foregroundColor: Colors.white,
+                  child: Text(
+                    usuario.nombre.isNotEmpty
+                        ? usuario.nombre[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '¡Bienvenido/a, ${usuario.nombre}!',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  usuario.email,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
+                const SizedBox(width: AppSpacing.sm),
+                AppStatusBadge(
+                  label: 'Conectado a Firebase',
+                  tone: AppStatusTone.success,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

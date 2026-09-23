@@ -4,18 +4,21 @@ class CategoriaModel {
   final String id;
   final String nombre;
   final String descripcion;
+  final String imagenUrl;
   final bool estado;
 
   const CategoriaModel({
     required this.id,
     required this.nombre,
     this.descripcion = '',
+    this.imagenUrl = '',
     this.estado = true,
   });
 
   Map<String, dynamic> toMap() => {
         'nombre': nombre,
         'descripcion': descripcion,
+        'imagenUrl': imagenUrl,
         'estado': estado,
       };
 
@@ -25,6 +28,7 @@ class CategoriaModel {
       id: doc.id,
       nombre: data['nombre'] as String? ?? '',
       descripcion: data['descripcion'] as String? ?? '',
+      imagenUrl: data['imagenUrl'] as String? ?? '',
       estado: data['estado'] as bool? ?? true,
     );
   }

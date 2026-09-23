@@ -29,6 +29,10 @@ class MyApp extends StatelessWidget {
               : 'Gestión de Pedidos',
           debugShowCheckedModeBanner: false,
           theme: AppThemeController.instancia.buildTheme(Brightness.light),
+          // HU-10 (Fase 5): "Modo" (claro/oscuro) es una preferencia del
+          // negocio, guardada junto con el resto de la personalización.
+          darkTheme: AppThemeController.instancia.buildTheme(Brightness.dark),
+          themeMode: negocio?.modoOscuro == true ? ThemeMode.dark : ThemeMode.light,
           home: const AuthGate(),
         );
       },

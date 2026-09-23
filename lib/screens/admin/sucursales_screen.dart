@@ -2,15 +2,39 @@ import 'package:flutter/material.dart';
 
 import '../../models/sucursal_model.dart';
 import '../../services/sucursal_service.dart';
+import '../../theme/design_tokens.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_search_field.dart';
+import '../../widgets/app_status_badge.dart';
 import 'horarios_screen.dart';
 
-class SucursalesScreen extends StatelessWidget {
-  const SucursalesScreen({super.key});
+class SucursalesScreen extends StatefulWidget {
+  /// true cuando la pantalla vive incrustada dentro del panel de
+  /// administración (escritorio, con el sidebar siempre visible) en vez de
+  /// abrirse en pantalla completa.
+  final bool incrustada;
+
+  const SucursalesScreen({super.key, this.incrustada = false});
+
+  @override
+  State<SucursalesScreen> createState() => _SucursalesScreenState();
+}
+
+class _SucursalesScreenState extends State<SucursalesScreen> {
+  final _busqueda = TextEditingController();
+  String _filtro = '';
+
+  @override
+  void dispose() {
+    _busqueda.dispose();
+    super.dispose();
+  }
 
   Future<void> _editar(BuildContext context, {SucursalModel? sucursal}) async {
     final nombre = TextEditingController(text: sucursal?.nombre ?? '');
     final direccion = TextEditingController(text: sucursal?.direccion ?? '');
     final telefono = TextEditingController(text: sucursal?.telefono ?? '');
+    final imagen = TextEditingController(text: sucursal?.imagenUrl ?? '');
     final key = GlobalKey<FormState>();
     var guardando = false;
 
@@ -28,27 +52,26 @@ class SucursalesScreen extends StatelessWidget {
                 children: [
                   TextFormField(
                     controller: nombre,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Nombre'),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     controller: direccion,
-                    decoration: const InputDecoration(
-                      labelText: 'Dirección',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Dirección'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     controller: telefono,
                     keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: 'Teléfono'),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: imagen,
                     decoration: const InputDecoration(
-                      labelText: 'Teléfono',
-                      border: OutlineInputBorder(),
+                      labelText: 'URL de foto (opcional)',
+                      prefixIcon: Icon(Icons.image_outlined),
                     ),
                   ),
                 ],
@@ -71,6 +94,7 @@ class SucursalesScreen extends StatelessWidget {
                         nombre: nombre.text.trim(),
                         direccion: direccion.text.trim(),
                         telefono: telefono.text.trim(),
+                        imagenUrl: imagen.text.trim(),
                         estado: sucursal?.estado ?? true,
                         horarios: sucursal?.horarios ?? SucursalModel.horariosPorDefecto(),
                       );
@@ -95,12 +119,17 @@ class SucursalesScreen extends StatelessWidget {
     nombre.dispose();
     direccion.dispose();
     telefono.dispose();
+    imagen.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Sucursales · HU-08')),
+      appBar: AppBar(
+        automaticallyImplyLeading: !widget.incrustada,
+        title: const Text('Sucursales · HU-08'),
+      ),
       body: StreamBuilder<List<SucursalModel>>(
         stream: SucursalService.instancia.streamSucursales(),
         builder: (context, snapshot) {
@@ -108,42 +137,141 @@ class SucursalesScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-          final items = snapshot.data ?? [];
-          if (items.isEmpty) {
-            return const Center(child: Text('No hay sucursales. Crea la primera con +.'));
+          final todas = snapshot.data ?? [];
+          if (todas.isEmpty) {
+            return AppEmptyState(
+              icon: Icons.location_city_outlined,
+              title: 'No hay sucursales todavía',
+              message: 'Crea la primera sucursal para empezar a organizar tu negocio.',
+              actionLabel: 'Nueva sucursal',
+              onAction: () => _editar(context),
+            );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final s = items[i];
-              return Card(
-                child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.store_outlined)),
-                  title: Text(s.nombre),
-                  subtitle: Text([s.direccion, s.telefono].where((e) => e.isNotEmpty).join(' · ')),
-                  onTap: () => _editar(context, sucursal: s),
-                  trailing: Wrap(
-                    spacing: 4,
-                    children: [
-                      IconButton(
-                        tooltip: 'Horarios',
-                        icon: const Icon(Icons.schedule_outlined),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => HorariosScreen(sucursal: s)),
-                        ),
-                      ),
-                      Switch(
-                        value: s.estado,
-                        onChanged: (v) => SucursalService.instancia.cambiarEstado(s.id, v),
-                      ),
-                    ],
-                  ),
+
+          final filtro = _filtro.trim().toLowerCase();
+          final items = filtro.isEmpty
+              ? todas
+              : todas
+                  .where((s) =>
+                      s.nombre.toLowerCase().contains(filtro) ||
+                      s.direccion.toLowerCase().contains(filtro))
+                  .toList();
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm,
                 ),
-              );
-            },
+                child: AppSearchField(
+                  controller: _busqueda,
+                  hint: 'Buscar sucursal por nombre o dirección',
+                  onChanged: (v) => setState(() => _filtro = v),
+                ),
+              ),
+              Expanded(
+                child: items.isEmpty
+                    ? const AppEmptyState(
+                        icon: Icons.search_off,
+                        title: 'Ninguna sucursal coincide con la búsqueda',
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md, 0, AppSpacing.md, AppSpacing.md,
+                        ),
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                        itemBuilder: (context, i) {
+                          final s = items[i];
+                          return Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: scheme.primaryContainer,
+                                    foregroundColor: scheme.onPrimaryContainer,
+                                    backgroundImage: s.imagenUrl.trim().isNotEmpty
+                                        ? NetworkImage(s.imagenUrl.trim())
+                                        : null,
+                                    child: s.imagenUrl.trim().isEmpty
+                                        ? const Icon(Icons.store_outlined)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          s.nombre,
+                                          style: Theme.of(context).textTheme.titleSmall,
+                                        ),
+                                        if ([s.direccion, s.telefono].any((e) => e.isNotEmpty))
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              [s.direccion, s.telefono]
+                                                  .where((e) => e.isNotEmpty)
+                                                  .join(' · '),
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                    color: scheme.onSurfaceVariant,
+                                                  ),
+                                            ),
+                                          ),
+                                        const SizedBox(height: AppSpacing.xs),
+                                        AppStatusBadge(
+                                          label: s.estado ? 'Activa' : 'Inactiva',
+                                          tone: s.estado
+                                              ? AppStatusTone.success
+                                              : AppStatusTone.neutral,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    onSelected: (accion) {
+                                      switch (accion) {
+                                        case 'editar':
+                                          _editar(context, sucursal: s);
+                                          break;
+                                        case 'horarios':
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => HorariosScreen(sucursal: s),
+                                            ),
+                                          );
+                                          break;
+                                        case 'estado':
+                                          SucursalService.instancia
+                                              .cambiarEstado(s.id, !s.estado);
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(
+                                        value: 'editar',
+                                        child: Text('Editar'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'horarios',
+                                        child: Text('Horarios'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'estado',
+                                        child: Text(s.estado ? 'Desactivar' : 'Activar'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           );
         },
       ),

@@ -25,6 +25,7 @@ class SucursalModel {
   final String nombre;
   final String direccion;
   final String telefono;
+  final String imagenUrl;
   final bool estado;
   final Map<String, HorarioDia> horarios;
 
@@ -33,6 +34,7 @@ class SucursalModel {
     required this.nombre,
     this.direccion = '',
     this.telefono = '',
+    this.imagenUrl = '',
     this.estado = true,
     this.horarios = const {},
   });
@@ -55,6 +57,7 @@ class SucursalModel {
         'nombre': nombre,
         'direccion': direccion,
         'telefono': telefono,
+        'imagenUrl': imagenUrl,
         'estado': estado,
         'horarios': {
           for (final entry in horarios.entries) entry.key: entry.value.toMap(),
@@ -79,6 +82,7 @@ class SucursalModel {
       nombre: data['nombre'] as String? ?? '',
       direccion: data['direccion'] as String? ?? '',
       telefono: data['telefono'] as String? ?? '',
+      imagenUrl: data['imagenUrl'] as String? ?? '',
       estado: data['estado'] as bool? ?? true,
       horarios: horarios.isEmpty ? horariosPorDefecto() : horarios,
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/sucursal_model.dart';
 import '../../services/sucursal_service.dart';
+import '../../theme/design_tokens.dart';
+import '../../widgets/app_status_badge.dart';
 
 class HorariosScreen extends StatefulWidget {
   final SucursalModel sucursal;
@@ -73,21 +75,31 @@ class _HorariosScreenState extends State<HorariosScreen> {
       );
     }
 
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: Text('Horarios · ${widget.sucursal.nombre}')),
       body: ListView.separated(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.md),
         itemCount: SucursalModel.dias.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
         itemBuilder: (context, i) {
           final dia = SucursalModel.dias[i];
           final h = _horarios[dia]!;
           return Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: Column(
                 children: [
                   SwitchListTile(
+                    secondary: CircleAvatar(
+                      backgroundColor: h.activo
+                          ? scheme.primary.withValues(alpha: 0.15)
+                          : scheme.surfaceContainerHighest,
+                      foregroundColor:
+                          h.activo ? scheme.primary : scheme.onSurfaceVariant,
+                      child: const Icon(Icons.calendar_today, size: 18),
+                    ),
                     title: Text(dia[0].toUpperCase() + dia.substring(1)),
                     value: h.activo,
                     onChanged: (v) => setState(() {
@@ -99,25 +111,47 @@ class _HorariosScreenState extends State<HorariosScreen> {
                     }),
                   ),
                   if (h.activo)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ListTile(
-                            leading: const Icon(Icons.login),
-                            title: const Text('Apertura'),
-                            subtitle: Text(h.apertura),
-                            onTap: () => _elegirHora(dia, apertura: true),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        left: AppSpacing.md,
+                        right: AppSpacing.md,
+                        bottom: AppSpacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _ChipHora(
+                              icono: Icons.login,
+                              etiqueta: 'Apertura',
+                              hora: h.apertura,
+                              onTap: () => _elegirHora(dia, apertura: true),
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: ListTile(
-                            leading: const Icon(Icons.logout),
-                            title: const Text('Cierre'),
-                            subtitle: Text(h.cierre),
-                            onTap: () => _elegirHora(dia, apertura: false),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: _ChipHora(
+                              icono: Icons.logout,
+                              etiqueta: 'Cierre',
+                              hora: h.cierre,
+                              onTap: () => _elegirHora(dia, apertura: false),
+                            ),
                           ),
+                        ],
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        left: AppSpacing.md,
+                        bottom: AppSpacing.sm,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: AppStatusBadge(
+                          label: 'Cerrado',
+                          tone: AppStatusTone.neutral,
                         ),
-                      ],
+                      ),
                     ),
                 ],
               ),
@@ -127,7 +161,7 @@ class _HorariosScreenState extends State<HorariosScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: FilledButton(
             onPressed: _guardando ? null : _guardar,
             child: _guardando
@@ -138,6 +172,63 @@ class _HorariosScreenState extends State<HorariosScreen> {
                   )
                 : const Text('Guardar horarios'),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChipHora extends StatelessWidget {
+  final IconData icono;
+  final String etiqueta;
+  final String hora;
+  final VoidCallback onTap;
+
+  const _ChipHora({
+    required this.icono,
+    required this.etiqueta,
+    required this.hora,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.mdAll,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow,
+          borderRadius: AppRadius.mdAll,
+        ),
+        child: Row(
+          children: [
+            Icon(icono, size: 18, color: scheme.primary),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    etiqueta,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  Text(
+                    hora,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

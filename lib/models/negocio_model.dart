@@ -1,35 +1,77 @@
 /// Representa el documento único de la colección raíz `negocios`.
 /// El sistema es para UN negocio (no multi-tenant), así que en la práctica
 /// solo existe un documento en esta colección.
+///
+/// Fase 5 (HU-10, personalización): se agregaron 3 campos nuevos —
+/// `colorFondo`, `bannerUrl` y `modoOscuro` — para cubrir lo que pide el
+/// mockup de Susan (Fondo, Imagen principal/Banner, Modo claro/oscuro).
+/// Son aditivos y con default seguro: un documento viejo que no los tenga
+/// sigue funcionando exactamente igual que antes.
 class NegocioModel {
   final String idNegocio;
   final String nombre;
   final String logoUrl;
+  final String bannerUrl;
   final String descripcion;
   final String telefono;
   final String colorPrimario; // hex, ej. "#E65100"
   final String colorSecundario; // hex, ej. "#FFF3E0"
+  final String colorFondo; // hex, o '' = usar el fondo por defecto del tema
+  final bool modoOscuro;
   final bool estado;
 
   const NegocioModel({
     required this.idNegocio,
     required this.nombre,
     this.logoUrl = '',
+    this.bannerUrl = '',
     this.descripcion = '',
     this.telefono = '',
-    this.colorPrimario = '#E65100',
+    this.colorPrimario = '#FF7A00',
     this.colorSecundario = '#FFF3E0',
+    this.colorFondo = '',
+    this.modoOscuro = false,
     this.estado = true,
   });
+
+  NegocioModel copyWith({
+    String? nombre,
+    String? logoUrl,
+    String? bannerUrl,
+    String? descripcion,
+    String? telefono,
+    String? colorPrimario,
+    String? colorSecundario,
+    String? colorFondo,
+    bool? modoOscuro,
+    bool? estado,
+  }) {
+    return NegocioModel(
+      idNegocio: idNegocio,
+      nombre: nombre ?? this.nombre,
+      logoUrl: logoUrl ?? this.logoUrl,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
+      descripcion: descripcion ?? this.descripcion,
+      telefono: telefono ?? this.telefono,
+      colorPrimario: colorPrimario ?? this.colorPrimario,
+      colorSecundario: colorSecundario ?? this.colorSecundario,
+      colorFondo: colorFondo ?? this.colorFondo,
+      modoOscuro: modoOscuro ?? this.modoOscuro,
+      estado: estado ?? this.estado,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
       'nombre': nombre,
       'logoUrl': logoUrl,
+      'bannerUrl': bannerUrl,
       'descripcion': descripcion,
       'telefono': telefono,
       'colorPrimario': colorPrimario,
       'colorSecundario': colorSecundario,
+      'colorFondo': colorFondo,
+      'modoOscuro': modoOscuro,
       'estado': estado,
     };
   }
@@ -39,10 +81,13 @@ class NegocioModel {
       idNegocio: idNegocio,
       nombre: (data['nombre'] ?? '') as String,
       logoUrl: (data['logoUrl'] ?? '') as String,
+      bannerUrl: (data['bannerUrl'] ?? '') as String,
       descripcion: (data['descripcion'] ?? '') as String,
       telefono: (data['telefono'] ?? '') as String,
-      colorPrimario: (data['colorPrimario'] ?? '#E65100') as String,
+      colorPrimario: (data['colorPrimario'] ?? '#FF7A00') as String,
       colorSecundario: (data['colorSecundario'] ?? '#FFF3E0') as String,
+      colorFondo: (data['colorFondo'] ?? '') as String,
+      modoOscuro: (data['modoOscuro'] ?? false) as bool,
       estado: (data['estado'] ?? true) as bool,
     );
   }

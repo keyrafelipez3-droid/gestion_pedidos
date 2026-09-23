@@ -4,35 +4,69 @@ import 'package:flutter/material.dart';
 
 import '../../models/catalogo_models.dart';
 import '../../services/catalogo_service.dart';
+import '../../theme/design_tokens.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_search_field.dart';
+import '../../widgets/app_status_badge.dart';
 
-class CatalogoScreen extends StatelessWidget {
-  const CatalogoScreen({super.key});
+class CatalogoScreen extends StatefulWidget {
+  /// Pestaña con la que se abre la pantalla (0=Categorías, 1=Productos,
+  /// 2=Complementos/Extras, 3=Variantes). Se usa para que el sidebar del
+  /// panel de administración pueda llevar directo a la sección elegida
+  /// (ver AdminHomeScreen) sin cambiar en nada la lógica de cada pestaña.
+  final int indiceInicial;
+
+  /// true cuando la pantalla vive incrustada dentro del panel de
+  /// administración (escritorio, con el sidebar siempre visible) en vez de
+  /// abrirse en pantalla completa — así no muestra una flecha de "atrás"
+  /// que cerraría todo el panel en vez de solo esta sección.
+  final bool incrustada;
+
+  const CatalogoScreen({super.key, this.indiceInicial = 0, this.incrustada = false});
+
+  @override
+  State<CatalogoScreen> createState() => _CatalogoScreenState();
+}
+
+class _CatalogoScreenState extends State<CatalogoScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _controller = TabController(
+    length: 4,
+    vsync: this,
+    initialIndex: widget.indiceInicial.clamp(0, 3),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Catálogo'),
-          bottom: const TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(text: 'Categorías'),
-              Tab(text: 'Productos'),
-              Tab(text: 'Extras'),
-              Tab(text: 'Variantes'),
-            ],
-          ),
-        ),
-        body: const TabBarView(
-          children: [
-            _CategoriasTab(),
-            _ProductosTab(),
-            _ComplementosTab(),
-            _VariantesTab(),
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: !widget.incrustada,
+        title: const Text('Catálogo'),
+        bottom: TabBar(
+          controller: _controller,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: 'Categorías'),
+            Tab(text: 'Productos'),
+            Tab(text: 'Extras'),
+            Tab(text: 'Variantes'),
           ],
         ),
+      ),
+      body: TabBarView(
+        controller: _controller,
+        children: const [
+          _CategoriasTab(),
+          _ProductosTab(),
+          _ComplementosTab(),
+          _VariantesTab(),
+        ],
       ),
     );
   }
@@ -44,6 +78,7 @@ class _CategoriasTab extends StatelessWidget {
   Future<void> _editar(BuildContext context, {CategoriaModel? item}) async {
     final nombre = TextEditingController(text: item?.nombre ?? '');
     final descripcion = TextEditingController(text: item?.descripcion ?? '');
+    final imagen = TextEditingController(text: item?.imagenUrl ?? '');
     final key = GlobalKey<FormState>();
     await showDialog<void>(
       context: context,
@@ -58,19 +93,21 @@ class _CategoriasTab extends StatelessWidget {
               children: [
                 TextFormField(
                   controller: nombre,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Nombre'),
                   validator: (v) => v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 TextFormField(
                   controller: descripcion,
                   maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Descripción'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextFormField(
+                  controller: imagen,
                   decoration: const InputDecoration(
-                    labelText: 'Descripción',
-                    border: OutlineInputBorder(),
+                    labelText: 'URL de imagen (opcional)',
+                    prefixIcon: Icon(Icons.image_outlined),
                   ),
                 ),
               ],
@@ -88,6 +125,7 @@ class _CategoriasTab extends StatelessWidget {
                     id: item?.id ?? '',
                     nombre: nombre.text.trim(),
                     descripcion: descripcion.text.trim(),
+                    imagenUrl: imagen.text.trim(),
                     estado: item?.estado ?? true,
                   ),
                 );
@@ -106,6 +144,7 @@ class _CategoriasTab extends StatelessWidget {
     );
     nombre.dispose();
     descripcion.dispose();
+    imagen.dispose();
   }
 
   @override
@@ -118,24 +157,63 @@ class _CategoriasTab extends StatelessWidget {
             }
             if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
             final items = snapshot.data ?? [];
-            if (items.isEmpty) return const Center(child: Text('No hay categorías.'));
-            return ListView.separated(
-              padding: const EdgeInsets.all(12),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final item = items[i];
-                return Card(
-                  child: ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.category_outlined)),
-                    title: Text(item.nombre),
-                    subtitle: Text(item.descripcion.isEmpty ? 'Sin descripción' : item.descripcion),
-                    onTap: () => _editar(context, item: item),
-                    trailing: Switch(
-                      value: item.estado,
-                      onChanged: (v) => CatalogoService.instancia.cambiarEstadoCategoria(item.id, v),
-                    ),
-                  ),
+            if (items.isEmpty) {
+              return AppEmptyState(
+                icon: Icons.category_outlined,
+                title: 'No hay categorías todavía',
+                message: 'Crea la primera categoría para empezar a organizar el menú.',
+                actionLabel: 'Nueva categoría',
+                onAction: () => _editar(context),
+              );
+            }
+            // El conteo de productos por categoría sale de streamProductos(),
+            // que ya existe — no se inventa ningún número.
+            return StreamBuilder<List<ProductoModel>>(
+              stream: CatalogoService.instancia.streamProductos(),
+              builder: (context, productosSnapshot) {
+                final productos = productosSnapshot.data ?? [];
+                final conteo = <String, int>{};
+                for (final p in productos) {
+                  conteo[p.idCategoria] = (conteo[p.idCategoria] ?? 0) + 1;
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, i) {
+                    final item = items[i];
+                    final cantidad = conteo[item.id] ?? 0;
+                    final tieneImagen = item.imagenUrl.trim().isNotEmpty;
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                          backgroundImage:
+                              tieneImagen ? NetworkImage(item.imagenUrl.trim()) : null,
+                          child: tieneImagen ? null : const Icon(Icons.category_outlined),
+                        ),
+                        title: Text(item.nombre),
+                        subtitle: Text(cantidad == 1 ? '1 producto' : '$cantidad productos'),
+                        onTap: () => _editar(context, item: item),
+                        trailing: Wrap(
+                          spacing: AppSpacing.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            AppStatusBadge(
+                              label: item.estado ? 'Activa' : 'Inactiva',
+                              tone: item.estado ? AppStatusTone.success : AppStatusTone.neutral,
+                            ),
+                            Switch(
+                              value: item.estado,
+                              onChanged: (v) =>
+                                  CatalogoService.instancia.cambiarEstadoCategoria(item.id, v),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             );
@@ -149,8 +227,25 @@ class _CategoriasTab extends StatelessWidget {
       );
 }
 
-class _ProductosTab extends StatelessWidget {
+enum _FiltroDisponibilidad { todos, disponibles, noDisponibles }
+
+class _ProductosTab extends StatefulWidget {
   const _ProductosTab();
+
+  @override
+  State<_ProductosTab> createState() => _ProductosTabState();
+}
+
+class _ProductosTabState extends State<_ProductosTab> {
+  final _busqueda = TextEditingController();
+  String _filtroTexto = '';
+  _FiltroDisponibilidad _filtro = _FiltroDisponibilidad.todos;
+
+  @override
+  void dispose() {
+    _busqueda.dispose();
+    super.dispose();
+  }
 
   Future<void> _editar(BuildContext context, {ProductoModel? item}) async {
     final categorias = await CatalogoService.instancia.streamCategorias().first;
@@ -165,6 +260,7 @@ class _ProductosTab extends StatelessWidget {
     var estado = item?.estado ?? true;
     var disponible = item?.disponible ?? true;
 
+    if (!context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -314,41 +410,131 @@ class _ProductosTab extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-            final items = snapshot.data ?? [];
-            if (items.isEmpty) return const Center(child: Text('No hay productos.'));
-            return ListView.separated(
-              padding: const EdgeInsets.all(12),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final item = items[i];
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Icon(item.disponible ? Icons.fastfood_outlined : Icons.visibility_off_outlined),
-                    ),
-                    title: Text(item.nombre),
-                    subtitle: Text(
-                      'Bs ${item.precio.toStringAsFixed(2)}${item.disponible ? ' · Disponible' : ' · No disponible'}',
-                    ),
-                    onTap: () => _editar(context, item: item),
-                    trailing: Wrap(
-                      spacing: 0,
-                      children: [
-                        IconButton(
-                          tooltip: 'Eliminar',
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _eliminar(context, item),
-                        ),
-                        Switch(
-                          value: item.disponible,
-                          onChanged: (v) => CatalogoService.instancia.cambiarDisponibilidadProducto(item.id, v),
-                        ),
-                      ],
-                    ),
+            final todos = snapshot.data ?? [];
+            if (todos.isEmpty) {
+              return AppEmptyState(
+                icon: Icons.fastfood_outlined,
+                title: 'No hay productos todavía',
+                message: 'Agrega tu primer producto para completar el menú.',
+                actionLabel: 'Nuevo producto',
+                onAction: () => _editar(context),
+              );
+            }
+
+            final texto = _filtroTexto.trim().toLowerCase();
+            final items = todos.where((p) {
+              if (texto.isNotEmpty && !p.nombre.toLowerCase().contains(texto)) return false;
+              return switch (_filtro) {
+                _FiltroDisponibilidad.todos => true,
+                _FiltroDisponibilidad.disponibles => p.disponible,
+                _FiltroDisponibilidad.noDisponibles => !p.disponible,
+              };
+            }).toList();
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm,
                   ),
-                );
-              },
+                  child: AppSearchField(
+                    controller: _busqueda,
+                    hint: 'Buscar productos...',
+                    onChanged: (v) => setState(() => _filtroTexto = v),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Row(
+                    children: [
+                      _ChipFiltro(
+                        label: 'Todos',
+                        seleccionado: _filtro == _FiltroDisponibilidad.todos,
+                        onTap: () => setState(() => _filtro = _FiltroDisponibilidad.todos),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      _ChipFiltro(
+                        label: 'Disponibles',
+                        seleccionado: _filtro == _FiltroDisponibilidad.disponibles,
+                        onTap: () => setState(() => _filtro = _FiltroDisponibilidad.disponibles),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      _ChipFiltro(
+                        label: 'No disponibles',
+                        seleccionado: _filtro == _FiltroDisponibilidad.noDisponibles,
+                        onTap: () =>
+                            setState(() => _filtro = _FiltroDisponibilidad.noDisponibles),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Expanded(
+                  child: items.isEmpty
+                      ? const AppEmptyState(
+                          icon: Icons.search_off,
+                          title: 'Ningún producto coincide con el filtro',
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md, 0, AppSpacing.md, AppSpacing.md,
+                          ),
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, i) {
+                            final item = items[i];
+                            final tieneImagen = item.imagenUrl.trim().isNotEmpty;
+                            return Card(
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage:
+                                      tieneImagen ? NetworkImage(item.imagenUrl.trim()) : null,
+                                  child: tieneImagen
+                                      ? null
+                                      : Icon(item.disponible
+                                          ? Icons.fastfood_outlined
+                                          : Icons.visibility_off_outlined),
+                                ),
+                                title: Text(item.nombre),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Text('Bs ${item.precio.toStringAsFixed(2)}'),
+                                      AppStatusBadge(
+                                        label:
+                                            item.disponible ? 'Disponible' : 'No disponible',
+                                        tone: item.disponible
+                                            ? AppStatusTone.success
+                                            : AppStatusTone.neutral,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                onTap: () => _editar(context, item: item),
+                                trailing: Wrap(
+                                  spacing: 0,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Eliminar',
+                                      icon: const Icon(Icons.delete_outline),
+                                      onPressed: () => _eliminar(context, item),
+                                    ),
+                                    Switch(
+                                      value: item.disponible,
+                                      onChanged: (v) => CatalogoService.instancia
+                                          .cambiarDisponibilidadProducto(item.id, v),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             );
           },
         ),
@@ -358,6 +544,27 @@ class _ProductosTab extends StatelessWidget {
           label: const Text('Nuevo producto'),
         ),
       );
+}
+
+class _ChipFiltro extends StatelessWidget {
+  final String label;
+  final bool seleccionado;
+  final VoidCallback onTap;
+
+  const _ChipFiltro({
+    required this.label,
+    required this.seleccionado,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: seleccionado,
+      onSelected: (_) => onTap(),
+    );
+  }
 }
 
 class _ComplementosTab extends StatelessWidget {
@@ -460,7 +667,13 @@ class _ComplementosTab extends StatelessWidget {
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           final items = snapshot.data ?? [];
           if (items.isEmpty) {
-            return const Center(child: Text('No hay complementos o extras.'));
+            return AppEmptyState(
+              icon: Icons.add_circle_outline,
+              title: 'No hay complementos todavía',
+              message: 'Agrega extras que tus clientes puedan sumar a sus productos.',
+              actionLabel: 'Nuevo extra',
+              onAction: () => _editar(context),
+            );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(12),
@@ -477,9 +690,20 @@ class _ComplementosTab extends StatelessWidget {
                     '${item.descripcion.isEmpty ? 'Sin descripción' : item.descripcion}',
                   ),
                   onTap: () => _editar(context, item: item),
-                  trailing: Switch(
-                    value: item.estado,
-                    onChanged: (v) => CatalogoService.instancia.cambiarEstadoComplemento(item.id, v),
+                  trailing: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      AppStatusBadge(
+                        label: item.estado ? 'Activo' : 'Inactivo',
+                        tone: item.estado ? AppStatusTone.success : AppStatusTone.neutral,
+                      ),
+                      Switch(
+                        value: item.estado,
+                        onChanged: (v) =>
+                            CatalogoService.instancia.cambiarEstadoComplemento(item.id, v),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -623,7 +847,15 @@ class _VariantesTab extends StatelessWidget {
             builder: (context, productSnapshot) {
               final products = productSnapshot.data ?? [];
               final names = {for (final p in products) p.id: p.nombre};
-              if (items.isEmpty) return const Center(child: Text('No hay variantes.'));
+              if (items.isEmpty) {
+                return AppEmptyState(
+                  icon: Icons.tune,
+                  title: 'No hay variantes todavía',
+                  message: 'Agrega variantes (tamaños, presentaciones) a tus productos.',
+                  actionLabel: 'Nueva variante',
+                  onAction: () => _editar(context),
+                );
+              }
 
               return ListView.separated(
                 padding: const EdgeInsets.all(12),
@@ -640,9 +872,20 @@ class _VariantesTab extends StatelessWidget {
                         '+Bs ${item.precioAdicional.toStringAsFixed(2)}',
                       ),
                       onTap: () => _editar(context, item: item),
-                      trailing: Switch(
-                        value: item.estado,
-                        onChanged: (v) => CatalogoService.instancia.cambiarEstadoVariante(item.id, v),
+                      trailing: Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          AppStatusBadge(
+                            label: item.estado ? 'Activa' : 'Inactiva',
+                            tone: item.estado ? AppStatusTone.success : AppStatusTone.neutral,
+                          ),
+                          Switch(
+                            value: item.estado,
+                            onChanged: (v) =>
+                                CatalogoService.instancia.cambiarEstadoVariante(item.id, v),
+                          ),
+                        ],
                       ),
                     ),
                   );
