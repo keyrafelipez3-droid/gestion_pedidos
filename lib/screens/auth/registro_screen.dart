@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../theme/design_tokens.dart';
 
 /// HU-01 — Pantalla de registro para Clientes.
 /// ("Registrarme con mis datos básicos")
+///
+/// Mismo tratamiento responsive que login_screen.dart (Fase 4): en
+/// ventanas anchas se muestra un panel de marca junto al formulario; en
+/// celular el formulario queda centrado como antes. Toda la lógica de
+/// registro (_registrar, validadores, controllers) se mantiene igual.
 class RegistroScreen extends StatefulWidget {
   const RegistroScreen({super.key});
 
@@ -66,143 +72,253 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final ancho = MediaQuery.sizeOf(context).width;
+    final esAmplio = AppBreakpoints.isExpanded(ancho);
+
+    final formulario = _Formulario(
+      formKey: _formKey,
+      nombreCtrl: _nombreCtrl,
+      emailCtrl: _emailCtrl,
+      telefonoCtrl: _telefonoCtrl,
+      passwordCtrl: _passwordCtrl,
+      confirmarCtrl: _confirmarCtrl,
+      verPassword: _verPassword,
+      cargando: _cargando,
+      onTogglePassword: () => setState(() => _verPassword = !_verPassword),
+      onSubmit: _registrar,
+      mostrarEncabezado: !esAmplio,
+    );
+
+    if (esAmplio) {
+      return Scaffold(
+        body: Row(
+          children: [
+            Expanded(child: _PanelMarca(color: scheme.primary)),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: formulario,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Crear cuenta')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Regístrate',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Crea tu cuenta de cliente para hacer pedidos.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-
-                    TextFormField(
-                      controller: _nombreCtrl,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre completo',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Ingresa tu nombre'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo electrónico',
-                        prefixIcon: Icon(Icons.email_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Ingresa tu correo';
-                        }
-                        final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                        if (!regex.hasMatch(v.trim())) {
-                          return 'Correo no válido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _telefonoCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Teléfono',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Ingresa tu teléfono'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _passwordCtrl,
-                      obscureText: !_verPassword,
-                      decoration: InputDecoration(
-                        labelText: 'Contraseña',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(_verPassword
-                              ? Icons.visibility_off
-                              : Icons.visibility),
-                          onPressed: () =>
-                              setState(() => _verPassword = !_verPassword),
-                        ),
-                      ),
-                      validator: (v) => (v == null || v.length < 6)
-                          ? 'Mínimo 6 caracteres'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _confirmarCtrl,
-                      obscureText: !_verPassword,
-                      decoration: const InputDecoration(
-                        labelText: 'Confirmar contraseña',
-                        prefixIcon: Icon(Icons.lock_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v != _passwordCtrl.text)
-                          ? 'Las contraseñas no coinciden'
-                          : null,
-                    ),
-                    const SizedBox(height: 24),
-
-                    FilledButton(
-                      onPressed: _cargando ? null : _registrar,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _cargando
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Crear cuenta'),
-                    ),
-                    const SizedBox(height: 12),
-
-                    TextButton(
-                      onPressed: _cargando
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      child: const Text('Ya tengo una cuenta'),
-                    ),
-                  ],
-                ),
-              ),
+              child: formulario,
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PanelMarca extends StatelessWidget {
+  final Color color;
+  const _PanelMarca({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: color,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(AppSpacing.xxl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_add_alt_1, size: 96, color: Colors.white),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'Únete a Gestión de Pedidos',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Crea tu cuenta y empieza a pedir en segundos.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Formulario extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController nombreCtrl;
+  final TextEditingController emailCtrl;
+  final TextEditingController telefonoCtrl;
+  final TextEditingController passwordCtrl;
+  final TextEditingController confirmarCtrl;
+  final bool verPassword;
+  final bool cargando;
+  final VoidCallback onTogglePassword;
+  final VoidCallback onSubmit;
+  final bool mostrarEncabezado;
+
+  const _Formulario({
+    required this.formKey,
+    required this.nombreCtrl,
+    required this.emailCtrl,
+    required this.telefonoCtrl,
+    required this.passwordCtrl,
+    required this.confirmarCtrl,
+    required this.verPassword,
+    required this.cargando,
+    required this.onTogglePassword,
+    required this.onSubmit,
+    required this.mostrarEncabezado,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Form(
+      key: formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (mostrarEncabezado) ...[
+            Icon(Icons.person_add_alt_1, size: 64, color: scheme.primary),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Regístrate',
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+          ] else ...[
+            Text(
+              'Regístrate',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+          Text(
+            'Crea tu cuenta de cliente para hacer pedidos.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+            textAlign: mostrarEncabezado ? TextAlign.center : TextAlign.start,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
+          TextFormField(
+            controller: nombreCtrl,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Nombre completo',
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingresa tu nombre' : null,
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          TextFormField(
+            controller: emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Correo electrónico',
+              prefixIcon: Icon(Icons.email_outlined),
+            ),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) {
+                return 'Ingresa tu correo';
+              }
+              final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+              if (!regex.hasMatch(v.trim())) {
+                return 'Correo no válido';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          TextFormField(
+            controller: telefonoCtrl,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              labelText: 'Teléfono',
+              prefixIcon: Icon(Icons.phone_outlined),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'Ingresa tu teléfono'
+                : null,
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          TextFormField(
+            controller: passwordCtrl,
+            obscureText: !verPassword,
+            decoration: InputDecoration(
+              labelText: 'Contraseña',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  verPassword ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: onTogglePassword,
+              ),
+            ),
+            validator: (v) =>
+                (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          TextFormField(
+            controller: confirmarCtrl,
+            obscureText: !verPassword,
+            decoration: const InputDecoration(
+              labelText: 'Confirmar contraseña',
+              prefixIcon: Icon(Icons.lock_outline),
+            ),
+            validator: (v) => (v != passwordCtrl.text)
+                ? 'Las contraseñas no coinciden'
+                : null,
+            onFieldSubmitted: (_) => onSubmit(),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          FilledButton(
+            onPressed: cargando ? null : onSubmit,
+            child: cargando
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Crear cuenta'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          TextButton(
+            onPressed: cargando ? null : () => Navigator.of(context).pop(),
+            child: const Text('Ya tengo una cuenta'),
+          ),
+        ],
       ),
     );
   }

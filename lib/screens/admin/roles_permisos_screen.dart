@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/usuario_model.dart';
+import '../../theme/design_tokens.dart';
 
 /// HU-03 — "Definir roles y permisos".
 ///
@@ -12,19 +13,32 @@ import '../../models/usuario_model.dart';
 /// botón de "guardar" porque no se edita nada: cambiar un permiso real
 /// implica editar `firestore.rules` en el proyecto de Firebase.
 class RolesPermisosScreen extends StatelessWidget {
-  const RolesPermisosScreen({super.key});
+  final bool incrustada;
+  const RolesPermisosScreen({super.key, this.incrustada = false});
 
   static const List<_RolInfo> _roles = [
+    _RolInfo(
+      rol: Rol.superAdmin,
+      icono: Icons.workspace_premium_outlined,
+      color: Colors.indigo,
+      descripcion: 'Gestiona TODOS los negocios del sistema (multi-tenant).',
+      permisos: [
+        'Crea negocios nuevos y personaliza cada uno (logo, colores, banner)',
+        'Edita los datos generales de cualquier negocio',
+        'Designa al Administrador de cada negocio',
+        'No gestiona la operación diaria de ningún negocio en particular',
+      ],
+    ),
     _RolInfo(
       rol: Rol.administrador,
       icono: Icons.admin_panel_settings,
       color: Colors.deepPurple,
-      descripcion: 'Control total del sistema.',
+      descripcion: 'Control total de SU negocio (asignado por el SuperAdmin).',
       permisos: [
-        'Gestiona usuarios: crea empleados y asigna sus roles (HU-05)',
+        'Gestiona empleados de su negocio: crea cuentas y asigna sus roles (HU-05)',
         'Gestiona clientes registrados (HU-04)',
-        'Configura el negocio, sucursales y horarios (HU-07 a HU-09)',
-        'Administra el catálogo: categorías, productos, extras, variantes',
+        'Configura sucursales y horarios de su negocio (HU-08, HU-09)',
+        'Administra el catálogo de su negocio: categorías, productos, extras, variantes',
         'Crea promociones, cupones y combos',
         'Ve el historial completo de pedidos y puede eliminarlos',
         'Consulta ventas, caja y reportes',
@@ -77,20 +91,29 @@ class RolesPermisosScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Roles y permisos')),
+      appBar: AppBar(
+        automaticallyImplyLeading: !incrustada,
+        title: const Text('Roles y permisos'),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         children: [
           Card(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Padding(
-              padding: EdgeInsets.all(16),
+            color: scheme.surfaceContainerHighest,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline),
-                  SizedBox(width: 12),
-                  Expanded(
+                  CircleAvatar(
+                    backgroundColor: scheme.primary.withValues(alpha: 0.15),
+                    foregroundColor: scheme.primary,
+                    child: const Icon(Icons.info_outline),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  const Expanded(
                     child: Text(
                       'Los permisos de cada rol se aplican automáticamente '
                       'en Firestore (reglas de seguridad); esta pantalla es '
@@ -101,7 +124,7 @@ class RolesPermisosScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           for (final r in _roles) _TarjetaRol(info: r),
         ],
       ),
@@ -133,20 +156,21 @@ class _TarjetaRol extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 CircleAvatar(
+                  radius: 22,
                   backgroundColor: info.color.withValues(alpha: 0.15),
                   foregroundColor: info.color,
                   child: Icon(info.icono),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,15 +188,15 @@ class _TarjetaRol extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             for (final permiso in info.permisos)
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.check, size: 16, color: info.color),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.xs + 4),
                     Expanded(child: Text(permiso)),
                   ],
                 ),

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_status_badge.dart';
 
 /// HU-04 — "Gestionar clientes registrados".
 /// Los clientes se registran solos desde la app (HU-01); aquí el
 /// Administrador solo puede CONSULTARLOS y activar/desactivar su cuenta
 /// (por ejemplo, ante un caso de abuso) — no crea ni edita sus datos.
 class ClientesScreen extends StatelessWidget {
-  const ClientesScreen({super.key});
+  final bool incrustada;
+  const ClientesScreen({super.key, this.incrustada = false});
 
   void _verDetalle(BuildContext context, UsuarioModel cliente) {
     showDialog(
@@ -46,7 +49,10 @@ class ClientesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Clientes')),
+      appBar: AppBar(
+        automaticallyImplyLeading: !incrustada,
+        title: const Text('Clientes'),
+      ),
       body: StreamBuilder<List<UsuarioModel>>(
         stream: AdminService.instancia.streamClientes(),
         builder: (context, snapshot) {
@@ -64,15 +70,10 @@ class ClientesScreen extends StatelessWidget {
 
           final clientes = snapshot.data ?? [];
           if (clientes.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Todavía no hay clientes registrados.\n'
-                  'Aparecerán aquí en cuanto alguien se registre desde la app.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            return const AppEmptyState(
+              icon: Icons.people_outline,
+              title: 'Todavía no hay clientes registrados',
+              message: 'Aparecerán aquí en cuanto alguien se registre desde la app.',
             );
           }
 
@@ -92,10 +93,20 @@ class ClientesScreen extends StatelessWidget {
                   title: Text(c.nombre),
                   subtitle: Text(c.email),
                   onTap: () => _verDetalle(context, c),
-                  trailing: Switch(
-                    value: c.estado,
-                    onChanged: (v) =>
-                        AdminService.instancia.cambiarEstado(c.idUsuario, v),
+                  trailing: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      AppStatusBadge(
+                        label: c.estado ? 'Activo' : 'Inactivo',
+                        tone: c.estado ? AppStatusTone.success : AppStatusTone.neutral,
+                      ),
+                      Switch(
+                        value: c.estado,
+                        onChanged: (v) =>
+                            AdminService.instancia.cambiarEstado(c.idUsuario, v),
+                      ),
+                    ],
                   ),
                 ),
               );

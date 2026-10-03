@@ -30,6 +30,11 @@ class AdminService {
     required String password,
     required String rol,
     String? idSucursal,
+    // Negocio al que queda asignado el empleado (multi-tenant). Para un
+    // Administrador que crea a su propio personal, es su propio
+    // idNegocio; para un SuperAdmin designando al Administrador de un
+    // negocio nuevo, es el idNegocio de ESE negocio.
+    String? idNegocio,
   }) async {
     FirebaseApp? appTemporal;
     try {
@@ -56,6 +61,7 @@ class AdminService {
         idSucursal: (idSucursal != null && idSucursal.trim().isNotEmpty)
             ? idSucursal.trim()
             : null,
+        idNegocio: idNegocio,
         estado: true,
       );
 
@@ -77,15 +83,47 @@ class AdminService {
     }
   }
 
-  /// Lista en tiempo real de todos los empleados (cualquier rol distinto de
-  /// Cliente), ordenados por nombre.
-  Stream<List<UsuarioModel>> streamEmpleados() {
+  /// Lista en tiempo real de los empleados de UN negocio (cualquier rol
+  /// distinto de Cliente), ordenados por nombre. Corrección pedida por el
+  /// docente: antes era global; ahora cada Administrador solo ve el
+  /// personal de su propio negocio. El filtro de rol y el orden se hacen
+  /// en Dart (no en la consulta) para que el único `where` a Firestore
+  /// sea una igualdad simple y no requiera crear un índice compuesto.
+  Stream<List<UsuarioModel>> streamEmpleados(String idNegocio) {
     return _db
         .collection('usuarios')
-        .where('rol', whereIn: Rol.staff)
-        .orderBy('nombre')
+        .where('idNegocio', isEqualTo: idNegocio)
         .snapshots()
-        .map((qs) => qs.docs.map(UsuarioModel.fromSnapshot).toList());
+        .map((qs) => qs.docs
+            .map(UsuarioModel.fromSnapshot)
+            .where((u) => Rol.staff.contains(u.rol))
+            .toList()
+          ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
+  }
+
+  /// Lista en tiempo real de TODOS los Administradores (de cualquier
+  /// negocio) — solo para el dashboard del SuperAdmin.
+  Stream<List<UsuarioModel>> streamAdministradores() {
+    return _db
+        .collection('usuarios')
+        .where('rol', isEqualTo: Rol.administrador)
+        .snapshots()
+        .map((qs) => qs.docs.map(UsuarioModel.fromSnapshot).toList()
+          ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
+  }
+
+  /// Lista en tiempo real de los Administradores asignados a UN negocio
+  /// — para el detalle de ese negocio en el panel del SuperAdmin.
+  Stream<List<UsuarioModel>> streamAdministradoresDeNegocio(String idNegocio) {
+    return _db
+        .collection('usuarios')
+        .where('idNegocio', isEqualTo: idNegocio)
+        .snapshots()
+        .map((qs) => qs.docs
+            .map(UsuarioModel.fromSnapshot)
+            .where((u) => u.rol == Rol.administrador)
+            .toList()
+          ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
   }
 
   /// HU-04 — Lista en tiempo real de todos los Clientes registrados

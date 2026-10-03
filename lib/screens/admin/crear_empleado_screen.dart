@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../../models/sucursal_model.dart';
 import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
+import '../../services/sucursal_service.dart';
+import '../../services/sesion_actual.dart';
 
 /// HU-05 — Formulario para que un Administrador cree la cuenta de un
 /// empleado y le asigne su rol (y opcionalmente su sucursal).
+///
+/// Corrección pedida por el docente: esta MISMA pantalla también la usa
+/// el SuperAdmin para designar al Administrador de un negocio (desde
+/// `superadmin_negocios_screen.dart`) — en ese caso llega con `rolFijo` =
+/// Administrador y `idNegocioFijo` = el negocio elegido, así que el rol
+/// no se elige (ya viene decidido) y no se muestra sucursal (un
+/// Administrador no queda atado a una sucursal, gestiona todo el
+/// negocio). Un Administrador normal, en cambio, ya NO puede crear a otro
+/// Administrador (eso ahora es exclusivo del SuperAdmin) — por eso
+/// `_rolesDisponibles` excluye ese rol cuando no viene fijo.
 class CrearEmpleadoScreen extends StatefulWidget {
-  const CrearEmpleadoScreen({super.key});
+  final String? rolFijo;
+  final String? idNegocioFijo;
+
+  const CrearEmpleadoScreen({super.key, this.rolFijo, this.idNegocioFijo});
 
   @override
   State<CrearEmpleadoScreen> createState() => _CrearEmpleadoScreenState();
@@ -19,15 +35,16 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
   final _emailCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _idSucursalCtrl = TextEditingController();
 
-  String _rolSeleccionado = Rol.cajero;
+  late String _rolSeleccionado =
+      widget.rolFijo ?? _rolesDisponibles.first;
+  String? _idSucursalSeleccionada;
   bool _cargando = false;
   bool _verPassword = false;
 
-  // El administrador puede crear cualquier rol de personal, incluyendo
-  // otro Administrador.
-  static const List<String> _rolesDisponibles = Rol.staff;
+  // Un Administrador ya no puede crear a otro Administrador — eso ahora
+  // lo hace exclusivamente el SuperAdmin (ver comentario de la clase).
+  static const List<String> _rolesDisponibles = Rol.staffOperativo;
 
   @override
   void dispose() {
@@ -35,7 +52,6 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
     _passwordCtrl.dispose();
-    _idSucursalCtrl.dispose();
     super.dispose();
   }
 
@@ -51,7 +67,8 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
       telefono: _telefonoCtrl.text,
       password: _passwordCtrl.text,
       rol: _rolSeleccionado,
-      idSucursal: _idSucursalCtrl.text,
+      idSucursal: _idSucursalSeleccionada,
+      idNegocio: widget.idNegocioFijo ?? SesionActual.instancia.idNegocio,
     );
 
     if (!mounted) return;
@@ -76,7 +93,11 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuevo empleado')),
+      appBar: AppBar(
+        title: Text(widget.rolFijo == Rol.administrador
+            ? 'Asignar administrador'
+            : 'Nuevo empleado'),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -160,31 +181,68 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    DropdownButtonFormField<String>(
-                      initialValue: _rolSeleccionado,
-                      decoration: const InputDecoration(
-                        labelText: 'Rol',
-                        prefixIcon: Icon(Icons.badge_outlined),
-                        border: OutlineInputBorder(),
+                    // Si el rol viene fijo (el SuperAdmin designando un
+                    // Administrador para un negocio), no hay nada que
+                    // elegir — se muestra solo como texto informativo.
+                    if (widget.rolFijo == null) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: _rolSeleccionado,
+                        decoration: const InputDecoration(
+                          labelText: 'Rol',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _rolesDisponibles
+                            .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _rolSeleccionado = v);
+                        },
                       ),
-                      items: _rolesDisponibles
-                          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) setState(() => _rolSeleccionado = v);
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    TextFormField(
-                      controller: _idSucursalCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'ID de sucursal (opcional)',
-                        helperText: 'Déjalo vacío si aún no hay sucursales creadas',
-                        prefixIcon: Icon(Icons.store_outlined),
-                        border: OutlineInputBorder(),
+                      // Un Administrador no queda atado a una sucursal
+                      // (gestiona todo el negocio), así que esta pregunta
+                      // solo aplica a Cajero/Cocina/Repartidor.
+                      StreamBuilder<List<SucursalModel>>(
+                        stream: SucursalService.instancia
+                            .streamSucursales(SesionActual.instancia.idNegocio!),
+                        builder: (context, snapshot) {
+                          final sucursales = snapshot.data ?? [];
+                          return DropdownButtonFormField<String?>(
+                            initialValue: _idSucursalSeleccionada,
+                            decoration: InputDecoration(
+                              labelText: 'Sucursal (opcional)',
+                              helperText: sucursales.isEmpty
+                                  ? 'Todavía no hay sucursales creadas'
+                                  : 'Déjalo sin asignar si aún no corresponde',
+                              prefixIcon: const Icon(Icons.store_outlined),
+                              border: const OutlineInputBorder(),
+                            ),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('Sin asignar'),
+                              ),
+                              ...sucursales.map(
+                                (s) => DropdownMenuItem<String?>(
+                                  value: s.id,
+                                  child: Text(s.nombre),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _idSucursalSeleccionada = v),
+                          );
+                        },
                       ),
-                    ),
+                    ] else
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.badge_outlined),
+                        title: const Text('Rol'),
+                        subtitle: Text(widget.rolFijo!),
+                      ),
                     const SizedBox(height: 24),
 
                     FilledButton(
