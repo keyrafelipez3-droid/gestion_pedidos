@@ -19,9 +19,18 @@ class AppThemeController {
 
   final ValueNotifier<NegocioModel?> negocio = ValueNotifier(null);
 
-  Future<void> cargar() async {
+  /// Corrección pedida por el docente (multi-tenant): ya no existe UN
+  /// negocio global, así que hay que indicar de cuál cargar el tema (el
+  /// del Administrador/empleado logueado). Sin `idNegocio` (antes de
+  /// iniciar sesión, o para un SuperAdmin que no tiene uno fijo) se queda
+  /// con el tema por defecto.
+  Future<void> cargar({String? idNegocio}) async {
+    if (idNegocio == null) {
+      negocio.value = null;
+      return;
+    }
     try {
-      negocio.value = await NegocioService.instancia.obtenerNegocio();
+      negocio.value = await NegocioService.instancia.obtenerNegocioPorId(idNegocio);
     } catch (_) {
       // Mantiene el tema por defecto si el negocio aún no puede consultarse.
     }

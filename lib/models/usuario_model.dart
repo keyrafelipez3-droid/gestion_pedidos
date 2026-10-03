@@ -2,14 +2,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Roles válidos del sistema (deben coincidir exactamente con los strings
 /// usados en las reglas de seguridad de Firestore: rolDe(uid) / tieneRol([...])).
+///
+/// SuperAdmin (requisito del docente, corrección post-defensa Sprint 1):
+/// es el único rol que personaliza TODOS los negocios (crea negocios,
+/// asigna/edita su Personalización y Datos del negocio) y designa a los
+/// Administradores de cada uno. Un Administrador ya NO personaliza el
+/// negocio: solo gestiona la operación (sucursales, catálogo, empleados,
+/// clientes) del negocio al que fue asignado (ver `idNegocio` abajo).
 class Rol {
+  static const String superAdmin = 'SuperAdmin';
   static const String cliente = 'Cliente';
   static const String administrador = 'Administrador';
   static const String cajero = 'Cajero';
   static const String cocina = 'Cocina';
   static const String repartidor = 'Repartidor';
 
-  /// Roles de personal del negocio (todo lo que no es Cliente).
+  /// Roles de personal de UN negocio (todo lo que no es Cliente ni
+  /// SuperAdmin) — todos quedan vinculados a un `idNegocio`.
   static const List<String> staff = [
     administrador,
     cajero,
@@ -17,7 +26,18 @@ class Rol {
     repartidor,
   ];
 
+  /// Personal operativo que un Administrador SÍ puede crear/reasignar
+  /// directamente (sin pasar por el SuperAdmin). Designar o reasignar a
+  /// un Administrador es exclusivo del SuperAdmin — ver
+  /// `crear_empleado_screen.dart` y `empleados_screen.dart`.
+  static const List<String> staffOperativo = [
+    cajero,
+    cocina,
+    repartidor,
+  ];
+
   static const List<String> todos = [
+    superAdmin,
     cliente,
     administrador,
     cajero,
@@ -36,6 +56,11 @@ class UsuarioModel {
   final String rol;
   final String fotoPerfil;
   final String? idSucursal; // solo aplica a empleados (Cajero/Cocina/Repartidor)
+  // Negocio al que pertenece este usuario — todo el personal de un negocio
+  // (Administrador, Cajero, Cocina, Repartidor) tiene el mismo idNegocio.
+  // El SuperAdmin no pertenece a ningún negocio en particular (null),
+  // porque gestiona todos. Se agregó para el requisito de multi-tenant.
+  final String? idNegocio;
   final bool estado; // activo / inactivo
   final DateTime? fechaRegistro;
   // HU-06: preferencia de notificaciones del propio usuario. No forma parte
@@ -53,11 +78,13 @@ class UsuarioModel {
     required this.rol,
     this.fotoPerfil = '',
     this.idSucursal,
+    this.idNegocio,
     this.estado = true,
     this.fechaRegistro,
     this.notificacionesActivas = true,
   });
 
+  bool get esSuperAdmin => rol == Rol.superAdmin;
   bool get esCliente => rol == Rol.cliente;
   bool get esAdministrador => rol == Rol.administrador;
   bool get esPersonalDelNegocio => Rol.staff.contains(rol);
@@ -77,6 +104,7 @@ class UsuarioModel {
       'rol': rol,
       'fotoPerfil': fotoPerfil,
       'idSucursal': idSucursal,
+      'idNegocio': idNegocio,
       'estado': estado,
       'fechaRegistro': FieldValue.serverTimestamp(),
       'notificacionesActivas': notificacionesActivas,
@@ -93,6 +121,7 @@ class UsuarioModel {
       rol: (data['rol'] ?? Rol.cliente) as String,
       fotoPerfil: (data['fotoPerfil'] ?? '') as String,
       idSucursal: data['idSucursal'] as String?,
+      idNegocio: data['idNegocio'] as String?,
       estado: (data['estado'] ?? true) as bool,
       fechaRegistro: ts?.toDate(),
       notificacionesActivas: (data['notificacionesActivas'] ?? true) as bool,

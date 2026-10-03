@@ -9,10 +9,22 @@ class SucursalService {
   final _db = FirebaseFirestore.instance;
   CollectionReference<Map<String, dynamic>> get _ref => _db.collection('sucursales');
 
-  Stream<List<SucursalModel>> streamSucursales() => _ref.snapshots().map(
+  /// Corrección pedida por el docente (multi-tenant): se filtra por el
+  /// negocio del Administrador logueado con un `where` de igualdad — el
+  /// orden sigue haciéndose en Dart para no requerir un índice compuesto
+  /// nuevo en Firestore.
+  Stream<List<SucursalModel>> streamSucursales(String idNegocio) => _ref
+      .where('idNegocio', isEqualTo: idNegocio)
+      .snapshots()
+      .map(
         (qs) => qs.docs.map(SucursalModel.fromSnapshot).toList()
           ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())),
       );
+
+  /// Genera un id de documento NUEVO sin crearlo todavía en Firestore —
+  /// se usa para poder subir la foto a Storage (que necesita una ruta
+  /// estable) ANTES de que la sucursal exista como documento.
+  String nuevoId() => _ref.doc().id;
 
   Future<void> guardar(SucursalModel sucursal) async {
     final doc = sucursal.id.isEmpty ? _ref.doc() : _ref.doc(sucursal.id);

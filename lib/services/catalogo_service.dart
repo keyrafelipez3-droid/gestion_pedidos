@@ -2,6 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/catalogo_models.dart';
 
+/// Corrección pedida por el docente (multi-tenant): cada stream ahora
+/// recibe el `idNegocio` del Administrador/personal logueado y filtra con
+/// un solo `where` de igualdad — el orden se sigue haciendo en Dart (como
+/// ya se hacía antes) para no obligar a crear un índice compuesto nuevo en
+/// Firestore que bloquearía la app hasta crearlo manualmente.
 class CatalogoService {
   CatalogoService._();
   static final instancia = CatalogoService._();
@@ -11,33 +16,51 @@ class CatalogoService {
   CollectionReference<Map<String, dynamic>> _collection(String nombre) =>
       _db.collection(nombre);
 
-  Stream<List<CategoriaModel>> streamCategorias() =>
-      _collection('categorias').snapshots().map((qs) {
+  Stream<List<CategoriaModel>> streamCategorias(String idNegocio) =>
+      _collection('categorias')
+          .where('idNegocio', isEqualTo: idNegocio)
+          .snapshots()
+          .map((qs) {
         final lista = qs.docs.map(CategoriaModel.fromSnapshot).toList();
         lista.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
         return lista;
       });
 
-  Stream<List<ProductoModel>> streamProductos() =>
-      _collection('productos').snapshots().map((qs) {
+  Stream<List<ProductoModel>> streamProductos(String idNegocio) =>
+      _collection('productos')
+          .where('idNegocio', isEqualTo: idNegocio)
+          .snapshots()
+          .map((qs) {
         final lista = qs.docs.map(ProductoModel.fromSnapshot).toList();
         lista.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
         return lista;
       });
 
-  Stream<List<ComplementoModel>> streamComplementos() =>
-      _collection('complementos').snapshots().map((qs) {
+  Stream<List<ComplementoModel>> streamComplementos(String idNegocio) =>
+      _collection('complementos')
+          .where('idNegocio', isEqualTo: idNegocio)
+          .snapshots()
+          .map((qs) {
         final lista = qs.docs.map(ComplementoModel.fromSnapshot).toList();
         lista.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
         return lista;
       });
 
-  Stream<List<VarianteModel>> streamVariantes() =>
-      _collection('variantes').snapshots().map((qs) {
+  Stream<List<VarianteModel>> streamVariantes(String idNegocio) =>
+      _collection('variantes')
+          .where('idNegocio', isEqualTo: idNegocio)
+          .snapshots()
+          .map((qs) {
         final lista = qs.docs.map(VarianteModel.fromSnapshot).toList();
         lista.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
         return lista;
       });
+
+  /// Igual que en sucursales: id de documento nuevo sin crear el
+  /// documento todavía, para poder subir la imagen a Storage antes de
+  /// guardar (misma ruta estable para la imagen y el documento final).
+  String nuevaIdCategoria() => _collection('categorias').doc().id;
+  String nuevaIdProducto() => _collection('productos').doc().id;
 
   Future<void> guardarCategoria(CategoriaModel item) async {
     final doc = item.id.isEmpty

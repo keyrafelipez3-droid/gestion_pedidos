@@ -18,15 +18,27 @@ class RolesPermisosScreen extends StatelessWidget {
 
   static const List<_RolInfo> _roles = [
     _RolInfo(
+      rol: Rol.superAdmin,
+      icono: Icons.workspace_premium_outlined,
+      color: Colors.indigo,
+      descripcion: 'Gestiona TODOS los negocios del sistema (multi-tenant).',
+      permisos: [
+        'Crea negocios nuevos y personaliza cada uno (logo, colores, banner)',
+        'Edita los datos generales de cualquier negocio',
+        'Designa al Administrador de cada negocio',
+        'No gestiona la operación diaria de ningún negocio en particular',
+      ],
+    ),
+    _RolInfo(
       rol: Rol.administrador,
       icono: Icons.admin_panel_settings,
       color: Colors.deepPurple,
-      descripcion: 'Control total del sistema.',
+      descripcion: 'Control total de SU negocio (asignado por el SuperAdmin).',
       permisos: [
-        'Gestiona usuarios: crea empleados y asigna sus roles (HU-05)',
+        'Gestiona empleados de su negocio: crea cuentas y asigna sus roles (HU-05)',
         'Gestiona clientes registrados (HU-04)',
-        'Configura el negocio, sucursales y horarios (HU-07 a HU-09)',
-        'Administra el catálogo: categorías, productos, extras, variantes',
+        'Configura sucursales y horarios de su negocio (HU-08, HU-09)',
+        'Administra el catálogo de su negocio: categorías, productos, extras, variantes',
         'Crea promociones, cupones y combos',
         'Ve el historial completo de pedidos y puede eliminarlos',
         'Consulta ventas, caja y reportes',

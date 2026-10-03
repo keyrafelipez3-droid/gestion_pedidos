@@ -6,6 +6,8 @@ import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_search_field.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/selector_imagen.dart';
+import '../../services/sesion_actual.dart';
 import 'horarios_screen.dart';
 
 class SucursalesScreen extends StatefulWidget {
@@ -25,7 +27,8 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
   String _filtro = '';
   // Igual que en Productos: se guarda el stream una sola vez para que
   // el buscador no reinicie la lista con cada letra.
-  late final _streamSucursales = SucursalService.instancia.streamSucursales();
+  late final _streamSucursales =
+      SucursalService.instancia.streamSucursales(SesionActual.instancia.idNegocio!);
 
   @override
   void dispose() {
@@ -40,6 +43,9 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
     final imagen = TextEditingController(text: sucursal?.imagenUrl ?? '');
     final key = GlobalKey<FormState>();
     var guardando = false;
+    // Id generado de una vez (aunque sea una sucursal nueva) para que la
+    // foto se suba a una ruta de Storage estable, ligada a este registro.
+    final idEfectivo = sucursal?.id ?? SucursalService.instancia.nuevoId();
 
     await showDialog<void>(
       context: context,
@@ -70,12 +76,11 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                     decoration: const InputDecoration(labelText: 'Teléfono'),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  TextFormField(
+                  SelectorImagen(
+                    etiqueta: 'Foto de la sucursal (opcional)',
                     controller: imagen,
-                    decoration: const InputDecoration(
-                      labelText: 'URL de foto (opcional)',
-                      prefixIcon: Icon(Icons.image_outlined),
-                    ),
+                    rutaStorage:
+                        'negocios/${SesionActual.instancia.idNegocio}/sucursales/$idEfectivo',
                   ),
                 ],
               ),
@@ -93,13 +98,14 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                       if (!key.currentState!.validate()) return;
                       setState(() => guardando = true);
                       final item = SucursalModel(
-                        id: sucursal?.id ?? '',
+                        id: idEfectivo,
                         nombre: nombre.text.trim(),
                         direccion: direccion.text.trim(),
                         telefono: telefono.text.trim(),
                         imagenUrl: imagen.text.trim(),
                         estado: sucursal?.estado ?? true,
                         horarios: sucursal?.horarios ?? SucursalModel.horariosPorDefecto(),
+                        idNegocio: sucursal?.idNegocio ?? SesionActual.instancia.idNegocio,
                       );
                       try {
                         await SucursalService.instancia.guardar(item);

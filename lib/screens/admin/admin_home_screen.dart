@@ -6,16 +6,17 @@ import '../../services/admin_service.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalogo_service.dart';
+import '../../services/negocio_service.dart';
+import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
 import '../cuenta/mi_cuenta_screen.dart';
+import '../superadmin/superadmin_negocios_screen.dart';
 import 'catalogo_screen.dart';
 import 'clientes_screen.dart';
 import 'empleados_screen.dart';
-import 'negocio_screen.dart';
-import 'personalizacion_screen.dart';
 import 'roles_permisos_screen.dart';
 import 'sucursales_screen.dart';
 
@@ -25,6 +26,11 @@ import 'sucursales_screen.dart';
 /// `_construirContenido`), así que este enum tiene un valor por ÍTEM del
 /// menú, no uno por pantalla, para que el resaltado del sidebar refleje lo
 /// que la persona tocó.
+///
+/// Corrección pedida por el docente: "Personalización" y "Datos del
+/// negocio" ya NO son secciones de este panel — ahora son del SuperAdmin,
+/// y viven dentro de "Negocios" (una por negocio, no una global), ver
+/// `superadmin_negocios_screen.dart`.
 enum _SeccionAdmin {
   inicio,
   sucursales,
@@ -35,15 +41,14 @@ enum _SeccionAdmin {
   variantes,
   disponibilidad,
   rolesPermisos,
-  personalizacion,
-  datosNegocio,
+  negocios,
   empleados,
   clientes,
   miCuenta,
 }
 
 /// Panel de administración: dashboard de inicio + navegación a las
-/// pantallas exclusivas del rol Administrador (HU-03 a HU-15).
+/// pantallas exclusivas de los roles Administrador y SuperAdmin.
 ///
 /// En pantallas anchas (escritorio/tablet grande) el sidebar se ve
 /// SIEMPRE en el mismo lugar — elegir una sección reemplaza la pantalla
@@ -82,7 +87,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _seccion = widget.seccionInicial;
   }
 
-  List<AppSidebarSection> _secciones(BuildContext context, {required bool esAmplio}) {
+  List<AppSidebarSection> _secciones(
+    BuildContext context, {
+    required bool esAmplio,
+    required UsuarioModel usuario,
+  }) {
     void ir(_SeccionAdmin destino, Widget Function() pantallaCompleta) {
       if (esAmplio) {
         // Se navega a una instancia nueva de este panel ya posicionada en
@@ -117,29 +126,58 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       }
     }
 
-    return [
-      AppSidebarSection(items: [
-        AppSidebarItem(
-          icon: Icons.home_outlined,
-          label: 'Inicio',
-          selected: _seccion == _SeccionAdmin.inicio,
-          onTap: () {
-            if (esAmplio) {
-              if (_seccion != _SeccionAdmin.inicio) {
-                Navigator.of(context).pushReplacement(
-                  PageRouteBuilder(
-                    pageBuilder: (_, __, ___) => const AdminHomeScreen(),
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                  ),
-                );
-              }
-            } else {
-              Navigator.of(context).pop();
+    final inicio = AppSidebarSection(items: [
+      AppSidebarItem(
+        icon: Icons.home_outlined,
+        label: 'Inicio',
+        selected: _seccion == _SeccionAdmin.inicio,
+        onTap: () {
+          if (esAmplio) {
+            if (_seccion != _SeccionAdmin.inicio) {
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) => const AdminHomeScreen(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             }
-          },
-        ),
-      ]),
+          } else {
+            Navigator.of(context).pop();
+          }
+        },
+      ),
+    ]);
+
+    // El SuperAdmin no tiene un negocio propio (gestiona todos), así que
+    // no ve las secciones de operación de UN negocio (Sucursales,
+    // Catálogo, Empleados) — solo "Negocios" (ahí vive la personalización
+    // de cada uno y la designación de sus Administradores) y su cuenta.
+    if (usuario.esSuperAdmin) {
+      return [
+        inicio,
+        AppSidebarSection(title: 'Negocios', items: [
+          AppSidebarItem(
+            icon: Icons.storefront_outlined,
+            label: 'Negocios',
+            selected: _seccion == _SeccionAdmin.negocios,
+            onTap: () =>
+                ir(_SeccionAdmin.negocios, () => const SuperAdminNegociosScreen()),
+          ),
+        ]),
+        AppSidebarSection(title: 'Usuarios', items: [
+          AppSidebarItem(
+            icon: Icons.manage_accounts_outlined,
+            label: 'Mi cuenta',
+            selected: _seccion == _SeccionAdmin.miCuenta,
+            onTap: () => ir(_SeccionAdmin.miCuenta, () => const MiCuentaScreen()),
+          ),
+        ]),
+      ];
+    }
+
+    return [
+      inicio,
       AppSidebarSection(title: 'Operación', items: [
         AppSidebarItem(
           icon: Icons.location_city_outlined,
@@ -206,19 +244,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           onTap: () => ir(_SeccionAdmin.rolesPermisos, () => const RolesPermisosScreen()),
         ),
         AppSidebarItem(
-          icon: Icons.palette_outlined,
-          label: 'Personalización',
-          selected: _seccion == _SeccionAdmin.personalizacion,
-          onTap: () =>
-              ir(_SeccionAdmin.personalizacion, () => const PersonalizacionScreen()),
-        ),
-        AppSidebarItem(
-          icon: Icons.storefront_outlined,
-          label: 'Datos del negocio',
-          selected: _seccion == _SeccionAdmin.datosNegocio,
-          onTap: () => ir(_SeccionAdmin.datosNegocio, () => const NegocioScreen()),
-        ),
-        AppSidebarItem(
           icon: Icons.badge_outlined,
           label: 'Empleados',
           selected: _seccion == _SeccionAdmin.empleados,
@@ -246,19 +271,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   /// — mismas pantallas que móvil abre con Navigator.push, solo que aquí
   /// se pasan con `incrustada: true` para que no dibujen su propia flecha
   /// de regreso (el sidebar ya cumple ese rol).
-  Widget _construirContenido(_SeccionAdmin seccion) {
+  Widget _construirContenido(_SeccionAdmin seccion, UsuarioModel usuario) {
     switch (seccion) {
       case _SeccionAdmin.inicio:
-        return _ContenidoDashboard(
-          onAbrirPersonalizacion: () => Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (_, __, ___) =>
-                  const AdminHomeScreen(seccionInicial: _SeccionAdmin.personalizacion),
-              transitionDuration: Duration.zero,
-              reverseTransitionDuration: Duration.zero,
-            ),
-          ),
-        );
+        return _ContenidoDashboard(usuario: usuario);
       case _SeccionAdmin.sucursales:
       case _SeccionAdmin.horarios:
         return const SucursalesScreen(incrustada: true);
@@ -273,10 +289,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const CatalogoScreen(indiceInicial: 3, incrustada: true);
       case _SeccionAdmin.rolesPermisos:
         return const RolesPermisosScreen(incrustada: true);
-      case _SeccionAdmin.personalizacion:
-        return const PersonalizacionScreen(incrustada: true);
-      case _SeccionAdmin.datosNegocio:
-        return const NegocioScreen(incrustada: true);
+      case _SeccionAdmin.negocios:
+        return const SuperAdminNegociosScreen(incrustada: true);
       case _SeccionAdmin.empleados:
         return const EmpleadosScreen(incrustada: true);
       case _SeccionAdmin.clientes:
@@ -292,16 +306,27 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final esAmplio = AppBreakpoints.isExpanded(ancho);
 
     return FutureBuilder<UsuarioModel?>(
-      future: AuthService.instancia.obtenerUsuarioActual(),
+      future: SesionActual.instancia.obtener(),
       builder: (context, snapshot) {
         final usuario = snapshot.data;
+        if (usuario == null) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
         final sidebar = AppSidebar(
-          tituloNegocio: usuario?.nombre.isNotEmpty == true
-              ? 'Hola, ${usuario!.nombre}'
-              : 'Panel de administración',
-          subtitulo: usuario?.rol,
-          secciones: _secciones(context, esAmplio: esAmplio),
-          onCerrarSesion: () => AuthService.instancia.cerrarSesion(),
+          tituloNegocio: 'Hola, ${usuario.nombre}',
+          subtitulo: usuario.rol,
+          secciones: _secciones(context, esAmplio: esAmplio, usuario: usuario),
+          onCerrarSesion: () {
+            // Esta pantalla se abre con Navigator.push() encima de
+            // HomeScreen, así que hay que volver primero a la raíz: si
+            // no, AuthGate cambia a LoginScreen por debajo pero esta
+            // pantalla se queda apilada encima (con sesión limpia),
+            // mostrando el spinner del FutureBuilder para siempre.
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            SesionActual.instancia.limpiar();
+            AuthService.instancia.cerrarSesion();
+          },
         );
 
         if (esAmplio) {
@@ -310,7 +335,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               children: [
                 SizedBox(width: 280, child: sidebar),
                 const VerticalDivider(width: 1),
-                Expanded(child: _construirContenido(_seccion)),
+                Expanded(child: _construirContenido(_seccion, usuario)),
               ],
             ),
           );
@@ -319,11 +344,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return Scaffold(
           appBar: AppBar(title: const Text('Panel de administración')),
           drawer: Drawer(width: 280, child: sidebar),
-          body: _ContenidoDashboard(
-            onAbrirPersonalizacion: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PersonalizacionScreen()),
-            ),
-          ),
+          body: _ContenidoDashboard(usuario: usuario),
         );
       },
     );
@@ -331,58 +352,42 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 }
 
 class _ContenidoDashboard extends StatelessWidget {
-  /// Qué hacer al tocar el engranaje de personalización: en escritorio
-  /// cambia la sección activa del sidebar (sin navegar); en móvil abre la
-  /// pantalla completa de siempre.
-  final VoidCallback onAbrirPersonalizacion;
+  final UsuarioModel usuario;
 
-  const _ContenidoDashboard({required this.onAbrirPersonalizacion});
+  const _ContenidoDashboard({required this.usuario});
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UsuarioModel?>(
-      future: AuthService.instancia.obtenerUsuarioActual(),
-      builder: (context, snapshot) {
-        final nombre = snapshot.data?.nombre ?? '';
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Panel de administración',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Personalización',
-                    icon: const Icon(Icons.settings_outlined),
-                    onPressed: onAbrirPersonalizacion,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              ValueListenableBuilder<NegocioModel?>(
-                valueListenable: AppThemeController.instancia.negocio,
-                builder: (context, negocio, _) => _BannerBienvenida(
-                  nombre: nombre,
-                  bannerUrl: negocio?.bannerUrl ?? '',
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Resumen del negocio',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const _FilaEstadisticas(),
-            ],
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Panel de administración',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-        );
-      },
+          const SizedBox(height: AppSpacing.sm),
+          usuario.esSuperAdmin
+              ? _BannerBienvenida(nombre: usuario.nombre, bannerUrl: '')
+              : ValueListenableBuilder<NegocioModel?>(
+                  valueListenable: AppThemeController.instancia.negocio,
+                  builder: (context, negocio, _) => _BannerBienvenida(
+                    nombre: usuario.nombre,
+                    bannerUrl: negocio?.bannerUrl ?? '',
+                  ),
+                ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            usuario.esSuperAdmin ? 'Resumen general' : 'Resumen del negocio',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          usuario.esSuperAdmin
+              ? const _FilaEstadisticasSuperAdmin()
+              : _FilaEstadisticas(idNegocio: usuario.idNegocio!),
+        ],
+      ),
     );
   }
 }
@@ -490,14 +495,17 @@ class _BannerBienvenida extends StatelessWidget {
   }
 }
 
-/// Tarjetas de estadísticas del dashboard. Cada una viene de un stream de
-/// Firestore que YA existe (mismo servicio que usa la pantalla completa de
-/// esa sección) — no se inventa ningún dato: si algo no existe todavía en
-/// el proyecto (por ejemplo "pedidos", que es de un sprint futuro), no se
-/// muestra ninguna tarjeta para eso, y no se calculan porcentajes de
-/// tendencia que requerirían un histórico que tampoco existe todavía.
+/// Tarjetas de estadísticas del dashboard de un Administrador (filtradas
+/// por SU negocio — corrección pedida por el docente). Cada una viene de
+/// un stream de Firestore que YA existe (mismo servicio que usa la
+/// pantalla completa de esa sección) — no se inventa ningún dato: si algo
+/// no existe todavía en el proyecto (por ejemplo "pedidos", que es de un
+/// sprint futuro), no se muestra ninguna tarjeta para eso, y no se
+/// calculan porcentajes de tendencia que requerirían un histórico que
+/// tampoco existe todavía.
 class _FilaEstadisticas extends StatelessWidget {
-  const _FilaEstadisticas();
+  final String idNegocio;
+  const _FilaEstadisticas({required this.idNegocio});
 
   @override
   Widget build(BuildContext context) {
@@ -511,13 +519,13 @@ class _FilaEstadisticas extends StatelessWidget {
           icon: Icons.fastfood_outlined,
           color: scheme.primary,
           etiqueta: 'Productos',
-          stream: CatalogoService.instancia.streamProductos().map((l) => l.length),
+          stream: CatalogoService.instancia.streamProductos(idNegocio).map((l) => l.length),
         ),
         AppStatCard(
           icon: Icons.category_outlined,
           color: scheme.tertiary,
           etiqueta: 'Categorías',
-          stream: CatalogoService.instancia.streamCategorias().map((l) => l.length),
+          stream: CatalogoService.instancia.streamCategorias(idNegocio).map((l) => l.length),
         ),
         AppStatCard(
           icon: Icons.people_outline,
@@ -529,13 +537,50 @@ class _FilaEstadisticas extends StatelessWidget {
           icon: Icons.badge_outlined,
           color: semantic.warning,
           etiqueta: 'Empleados',
-          stream: AdminService.instancia.streamEmpleados().map((l) => l.length),
+          stream: AdminService.instancia.streamEmpleados(idNegocio).map((l) => l.length),
         ),
         AppStatCard(
           icon: Icons.location_city_outlined,
           color: semantic.success,
           etiqueta: 'Sucursales',
-          stream: SucursalService.instancia.streamSucursales().map((l) => l.length),
+          stream: SucursalService.instancia.streamSucursales(idNegocio).map((l) => l.length),
+        ),
+      ],
+    );
+  }
+}
+
+/// Tarjetas de estadísticas del dashboard del SuperAdmin: como no
+/// pertenece a un negocio en particular (gestiona todos), ve números
+/// globales en vez de los de un negocio — igual de reales, nada inventado.
+class _FilaEstadisticasSuperAdmin extends StatelessWidget {
+  const _FilaEstadisticasSuperAdmin();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.md,
+      children: [
+        AppStatCard(
+          icon: Icons.storefront_outlined,
+          color: scheme.primary,
+          etiqueta: 'Negocios',
+          stream: NegocioService.instancia.streamNegocios().map((l) => l.length),
+        ),
+        AppStatCard(
+          icon: Icons.admin_panel_settings_outlined,
+          color: semantic.warning,
+          etiqueta: 'Administradores',
+          stream: AdminService.instancia.streamAdministradores().map((l) => l.length),
+        ),
+        AppStatCard(
+          icon: Icons.people_outline,
+          color: semantic.info,
+          etiqueta: 'Clientes',
+          stream: AdminService.instancia.streamClientes().map((l) => l.length),
         ),
       ],
     );

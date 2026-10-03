@@ -15,8 +15,12 @@ import '../../theme/design_tokens.dart';
 /// cargado para no pisar los datos de personalización que vive en el
 /// mismo documento de Firestore.
 class NegocioScreen extends StatefulWidget {
+  /// Corrección pedida por el docente: ya no hay un negocio único — esta
+  /// pantalla (ahora exclusiva del SuperAdmin) opera sobre UN negocio en
+  /// particular, elegido desde la lista de negocios.
+  final String idNegocio;
   final bool incrustada;
-  const NegocioScreen({super.key, this.incrustada = false});
+  const NegocioScreen({super.key, required this.idNegocio, this.incrustada = false});
 
   @override
   State<NegocioScreen> createState() => _NegocioScreenState();
@@ -42,7 +46,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
   }
 
   Future<void> _cargar() async {
-    final negocio = await NegocioService.instancia.obtenerNegocio();
+    final negocio = await NegocioService.instancia.obtenerNegocioPorId(widget.idNegocio);
     _nombreCtrl.text = negocio.nombre;
     _descripcionCtrl.text = negocio.descripcion;
     _telefonoCtrl.text = negocio.telefono;

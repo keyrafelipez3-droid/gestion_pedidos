@@ -1,6 +1,8 @@
-/// Representa el documento único de la colección raíz `negocios`.
-/// El sistema es para UN negocio (no multi-tenant), así que en la práctica
-/// solo existe un documento en esta colección.
+/// Representa UN documento de la colección raíz `negocios`.
+/// Desde la corrección pedida por el docente (multi-tenant real), pueden
+/// existir VARIOS negocios: el SuperAdmin los crea y personaliza todos, y
+/// cada Administrador queda asignado a uno solo (ver `idNegocio` en
+/// `UsuarioModel`) para gestionar su operación diaria.
 ///
 /// Fase 5 (HU-10, personalización): se agregaron 3 campos nuevos —
 /// `colorFondo`, `bannerUrl` y `modoOscuro` — para cubrir lo que pide el

@@ -28,6 +28,10 @@ class SucursalModel {
   final String imagenUrl;
   final bool estado;
   final Map<String, HorarioDia> horarios;
+  // Negocio al que pertenece esta sucursal (multi-tenant). Nullable solo
+  // por compatibilidad con documentos antiguos de antes de la corrección
+  // pedida por el docente; una sucursal nueva siempre lo trae.
+  final String? idNegocio;
 
   const SucursalModel({
     required this.id,
@@ -37,6 +41,7 @@ class SucursalModel {
     this.imagenUrl = '',
     this.estado = true,
     this.horarios = const {},
+    this.idNegocio,
   });
 
   static const dias = <String>[
@@ -59,6 +64,7 @@ class SucursalModel {
         'telefono': telefono,
         'imagenUrl': imagenUrl,
         'estado': estado,
+        'idNegocio': idNegocio,
         'horarios': {
           for (final entry in horarios.entries) entry.key: entry.value.toMap(),
         },
@@ -84,6 +90,7 @@ class SucursalModel {
       telefono: data['telefono'] as String? ?? '',
       imagenUrl: data['imagenUrl'] as String? ?? '',
       estado: data['estado'] as bool? ?? true,
+      idNegocio: data['idNegocio'] as String?,
       horarios: horarios.isEmpty ? horariosPorDefecto() : horarios,
     );
   }

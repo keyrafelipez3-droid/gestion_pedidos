@@ -8,6 +8,8 @@ import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_search_field.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../services/sesion_actual.dart';
+import '../../widgets/selector_imagen.dart';
 
 class CatalogoScreen extends StatefulWidget {
   /// Pestaña con la que se abre la pantalla (0=Categorías, 1=Productos,
@@ -80,6 +82,7 @@ class _CategoriasTab extends StatelessWidget {
     final descripcion = TextEditingController(text: item?.descripcion ?? '');
     final imagen = TextEditingController(text: item?.imagenUrl ?? '');
     final key = GlobalKey<FormState>();
+    final idEfectivo = item?.id ?? CatalogoService.instancia.nuevaIdCategoria();
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -103,12 +106,11 @@ class _CategoriasTab extends StatelessWidget {
                   decoration: const InputDecoration(labelText: 'Descripción'),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                TextFormField(
+                SelectorImagen(
+                  etiqueta: 'Imagen de la categoría (opcional)',
                   controller: imagen,
-                  decoration: const InputDecoration(
-                    labelText: 'URL de imagen (opcional)',
-                    prefixIcon: Icon(Icons.image_outlined),
-                  ),
+                  rutaStorage:
+                      'negocios/${SesionActual.instancia.idNegocio}/categorias/$idEfectivo',
                 ),
               ],
             ),
@@ -122,11 +124,12 @@ class _CategoriasTab extends StatelessWidget {
               try {
                 await CatalogoService.instancia.guardarCategoria(
                   CategoriaModel(
-                    id: item?.id ?? '',
+                    id: idEfectivo,
                     nombre: nombre.text.trim(),
                     descripcion: descripcion.text.trim(),
                     imagenUrl: imagen.text.trim(),
                     estado: item?.estado ?? true,
+                    idNegocio: SesionActual.instancia.idNegocio,
                   ),
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -152,7 +155,7 @@ class _CategoriasTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         body: StreamBuilder<List<CategoriaModel>>(
-          stream: CatalogoService.instancia.streamCategorias(),
+          stream: CatalogoService.instancia.streamCategorias(SesionActual.instancia.idNegocio!),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -171,7 +174,7 @@ class _CategoriasTab extends StatelessWidget {
             // El conteo de productos por categoría sale de streamProductos(),
             // que ya existe — no se inventa ningún número.
             return StreamBuilder<List<ProductoModel>>(
-              stream: CatalogoService.instancia.streamProductos(),
+              stream: CatalogoService.instancia.streamProductos(SesionActual.instancia.idNegocio!),
               builder: (context, productosSnapshot) {
                 final productos = productosSnapshot.data ?? [];
                 final conteo = <String, int>{};
@@ -242,7 +245,7 @@ class _ProductosTabState extends State<_ProductosTab> {
   final _busqueda = TextEditingController();
   // Se guarda una sola vez el stream (no se crea de nuevo en cada build),
   // así escribir en el buscador no reinicia la lista ni pierde el foco.
-  late final _streamProductos = CatalogoService.instancia.streamProductos();
+  late final _streamProductos = CatalogoService.instancia.streamProductos(SesionActual.instancia.idNegocio!);
   String _filtroTexto = '';
   _FiltroDisponibilidad _filtro = _FiltroDisponibilidad.todos;
 
@@ -253,7 +256,7 @@ class _ProductosTabState extends State<_ProductosTab> {
   }
 
   Future<void> _editar(BuildContext context, {ProductoModel? item}) async {
-    final categorias = await CatalogoService.instancia.streamCategorias().first;
+    final categorias = await CatalogoService.instancia.streamCategorias(SesionActual.instancia.idNegocio!).first;
     final nombre = TextEditingController(text: item?.nombre ?? '');
     final descripcion = TextEditingController(text: item?.descripcion ?? '');
     final precio = TextEditingController(
@@ -261,6 +264,7 @@ class _ProductosTabState extends State<_ProductosTab> {
     );
     final imagen = TextEditingController(text: item?.imagenUrl ?? '');
     final key = GlobalKey<FormState>();
+    final idEfectivo = item?.id ?? CatalogoService.instancia.nuevaIdProducto();
     var idCategoria = item?.idCategoria ?? '';
     var estado = item?.estado ?? true;
     var disponible = item?.disponible ?? true;
@@ -325,12 +329,11 @@ class _ProductosTabState extends State<_ProductosTab> {
                       onChanged: (v) => setState(() => idCategoria = v ?? ''),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
+                    SelectorImagen(
+                      etiqueta: 'Imagen del producto (opcional)',
                       controller: imagen,
-                      decoration: const InputDecoration(
-                        labelText: 'URL de imagen (opcional)',
-                        border: OutlineInputBorder(),
-                      ),
+                      rutaStorage:
+                          'negocios/${SesionActual.instancia.idNegocio}/productos/$idEfectivo',
                     ),
                     SwitchListTile(
                       title: const Text('Activo'),
@@ -356,7 +359,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                 try {
                   await CatalogoService.instancia.guardarProducto(
                     ProductoModel(
-                      id: item?.id ?? '',
+                      id: idEfectivo,
                       nombre: nombre.text.trim(),
                       descripcion: descripcion.text.trim(),
                       precio: valor,
@@ -364,6 +367,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                       imagenUrl: imagen.text.trim(),
                       estado: estado,
                       disponible: disponible,
+                      idNegocio: SesionActual.instancia.idNegocio,
                     ),
                   );
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -648,6 +652,7 @@ class _ComplementosTab extends StatelessWidget {
                     descripcion: descripcion.text.trim(),
                     precio: double.parse(precio.text.replaceAll(',', '.')),
                     estado: item?.estado ?? true,
+                    idNegocio: SesionActual.instancia.idNegocio,
                   ),
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -674,7 +679,7 @@ class _ComplementosTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: StreamBuilder<List<ComplementoModel>>(
-        stream: CatalogoService.instancia.streamComplementos(),
+        stream: CatalogoService.instancia.streamComplementos(SesionActual.instancia.idNegocio!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -741,7 +746,7 @@ class _VariantesTab extends StatelessWidget {
   Future<void> _editar(BuildContext context, {VarianteModel? item}) async {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
-    final productos = await CatalogoService.instancia.streamProductos().first;
+    final productos = await CatalogoService.instancia.streamProductos(SesionActual.instancia.idNegocio!).first;
     if (!navigator.mounted) return;
     if (productos.isEmpty) {
       messenger?.showSnackBar(
@@ -828,6 +833,7 @@ class _VariantesTab extends StatelessWidget {
                       nombre: nombre.text.trim(),
                       precioAdicional: double.parse(precio.text.replaceAll(',', '.')),
                       estado: estado,
+                      idNegocio: SesionActual.instancia.idNegocio,
                     ),
                   );
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -854,7 +860,7 @@ class _VariantesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: StreamBuilder<List<VarianteModel>>(
-        stream: CatalogoService.instancia.streamVariantes(),
+        stream: CatalogoService.instancia.streamVariantes(SesionActual.instancia.idNegocio!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -863,7 +869,7 @@ class _VariantesTab extends StatelessWidget {
           final items = snapshot.data ?? [];
 
           return StreamBuilder<List<ProductoModel>>(
-            stream: CatalogoService.instancia.streamProductos(),
+            stream: CatalogoService.instancia.streamProductos(SesionActual.instancia.idNegocio!),
             builder: (context, productSnapshot) {
               final products = productSnapshot.data ?? [];
               final names = {for (final p in products) p.id: p.nombre};

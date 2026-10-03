@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
+import '../../services/sesion_actual.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 import 'crear_empleado_screen.dart';
@@ -21,7 +22,7 @@ class EmpleadosScreen extends StatelessWidget {
       context: context,
       builder: (context) => SimpleDialog(
         title: Text('Rol de ${empleado.nombre}'),
-        children: Rol.staff
+        children: Rol.staffOperativo
             .map(
               (r) => ListTile(
                 leading: Icon(
@@ -56,7 +57,7 @@ class EmpleadosScreen extends StatelessWidget {
         title: const Text('Empleados'),
       ),
       body: StreamBuilder<List<UsuarioModel>>(
-        stream: AdminService.instancia.streamEmpleados(),
+        stream: AdminService.instancia.streamEmpleados(SesionActual.instancia.idNegocio!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -89,6 +90,13 @@ class EmpleadosScreen extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
               final e = empleados[i];
+              // No se permite que un Administrador se desactive o se
+              // cambie el rol a sí mismo: si lo hiciera quedaría fuera
+              // del panel de inmediato (y, en el caso del rol, sin forma
+              // de revertirlo él mismo — solo un SuperAdmin podría). Para
+              // eso tiene que pedírselo a otro Administrador o al
+              // SuperAdmin.
+              final esUnoMismo = e.idUsuario == SesionActual.instancia.actual?.idUsuario;
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
@@ -96,7 +104,7 @@ class EmpleadosScreen extends StatelessWidget {
                       e.nombre.isNotEmpty ? e.nombre[0].toUpperCase() : '?',
                     ),
                   ),
-                  title: Text(e.nombre),
+                  title: Text(esUnoMismo ? '${e.nombre} (Tú)' : e.nombre),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Wrap(
@@ -108,7 +116,20 @@ class EmpleadosScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  onTap: () => _cambiarRol(context, e),
+                  onTap: () {
+                    if (esUnoMismo) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'No puedes cambiar tu propio rol. Pídele a otro '
+                            'Administrador o al SuperAdmin que lo haga.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    _cambiarRol(context, e);
+                  },
                   trailing: Wrap(
                     spacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -119,8 +140,21 @@ class EmpleadosScreen extends StatelessWidget {
                       ),
                       Switch(
                         value: e.estado,
-                        onChanged: (v) =>
-                            AdminService.instancia.cambiarEstado(e.idUsuario, v),
+                        onChanged: (v) {
+                          if (esUnoMismo) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'No puedes desactivar tu propia cuenta. '
+                                  'Pídele a otro Administrador o al SuperAdmin '
+                                  'que lo haga.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          AdminService.instancia.cambiarEstado(e.idUsuario, v);
+                        },
                       ),
                     ],
                   ),

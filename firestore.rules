@@ -1,72 +1,160 @@
 rules_version = '2';
 
+// Corrección pedida por el docente (post-defensa Sprint 1): el sistema
+// ahora es multi-tenant. Un SuperAdmin personaliza TODOS los negocios y
+// designa al Administrador de cada uno; un Administrador ya no
+// personaliza nada — solo gestiona la operación (sucursales, catálogo,
+// empleados) del ÚNICO negocio al que fue asignado (usuarios/{uid}.idNegocio).
+//
+// NOTA de migración: los documentos creados ANTES de esta corrección no
+// tienen el campo `idNegocio`. Por eso todo acceso a ese campo usa
+// `.get('idNegocio', null)` en vez de `.idNegocio` — así no se rompen con
+// un error de evaluación, simplemente no hacen match con ningún negocio
+// hasta que se migren (ver guía al final de este cambio en el chat).
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {
       return request.auth != null;
     }
 
+    function datosDe(uid) {
+      return get(/databases/$(database)/documents/usuarios/$(uid)).data;
+    }
+
+    function datosUsuarioActual() {
+      return datosDe(request.auth.uid);
+    }
+
+    function idNegocioActual() {
+      return datosUsuarioActual().get('idNegocio', null);
+    }
+
+    function isSuperAdmin() {
+      return signedIn()
+        && datosUsuarioActual().rol == 'SuperAdmin'
+        && datosUsuarioActual().estado == true;
+    }
+
     function isAdmin() {
       return signedIn()
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'Administrador'
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.estado == true;
+        && datosUsuarioActual().rol == 'Administrador'
+        && datosUsuarioActual().estado == true;
     }
 
     match /usuarios/{userId} {
-      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow read: if signedIn()
+        && (
+          request.auth.uid == userId
+          || isSuperAdmin()
+          || (isAdmin() && (
+                resource.data.rol == 'Cliente'
+                || resource.data.get('idNegocio', null) == idNegocioActual()
+              ))
+        );
+
       allow create: if signedIn()
         && (
           (request.auth.uid == userId
             && request.resource.data.rol == 'Cliente'
             && request.resource.data.estado == true)
-          || isAdmin()
+          || isSuperAdmin()
+          || (isAdmin()
+              && request.resource.data.get('idNegocio', null) == idNegocioActual()
+              && request.resource.data.rol in ['Cajero', 'Cocina', 'Repartidor'])
         );
-      allow update: if isAdmin()
+
+      // Nota: un Administrador puede actualizar (activar/desactivar,
+      // cambiar rol) a su propio personal, pero NUNCA puede ascender a
+      // nadie a 'Administrador' ni a 'SuperAdmin' — designar
+      // Administradores es exclusivo del SuperAdmin.
+      // Nota (encontrado al revisar junto con Alaitz): un Administrador
+      // NUNCA puede modificar su PROPIO documento por esta rama, aunque
+      // técnicamente cumpliera las condiciones — si no, podría
+      // desactivarse o cambiarse el rol a sí mismo y quedar bloqueado del
+      // panel sin que nadie más lo note. Para su propio documento solo
+      // aplica la rama de "signedIn()" de más abajo, que no deja tocar
+      // rol/estado/email.
+      allow update: if isSuperAdmin()
+        || (isAdmin() && userId != request.auth.uid && (
+              (resource.data.rol == 'Cliente' && request.resource.data.rol == 'Cliente')
+              || (resource.data.get('idNegocio', null) == idNegocioActual()
+                  && request.resource.data.rol in ['Cajero', 'Cocina', 'Repartidor'])
+            ))
         || (signedIn()
           && request.auth.uid == userId
           && request.resource.data.rol == resource.data.rol
           && request.resource.data.estado == resource.data.estado
           && request.resource.data.email == resource.data.email);
-      allow delete: if isAdmin();
+
+      // Mismo criterio que en "update": un Administrador no puede
+      // borrar su PROPIO documento (se bloquearía a sí mismo del panel).
+      allow delete: if isSuperAdmin()
+        || (isAdmin() && userId != request.auth.uid && (
+              resource.data.rol == 'Cliente'
+              || resource.data.get('idNegocio', null) == idNegocioActual()
+            ));
 
       match /{subcollection}/{documentId} {
-        allow read, write: if isAdmin() || (signedIn() && request.auth.uid == userId);
+        allow read, write: if isSuperAdmin()
+          || (isAdmin() && (
+                datosDe(userId).rol == 'Cliente'
+                || datosDe(userId).get('idNegocio', null) == idNegocioActual()
+              ))
+          || (signedIn() && request.auth.uid == userId);
       }
     }
 
     match /sucursales/{sucursalId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create, update: if isSuperAdmin()
+        || (isAdmin() && request.resource.data.get('idNegocio', null) == idNegocioActual());
+      allow delete: if isSuperAdmin()
+        || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
 
       match /horarios/{horarioId} {
         allow read: if signedIn();
-        allow write: if isAdmin();
+        allow write: if isSuperAdmin()
+          || (isAdmin()
+              && get(/databases/$(database)/documents/sucursales/$(sucursalId))
+                  .data.get('idNegocio', null) == idNegocioActual());
       }
     }
 
     match /categorias/{documentId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create, update: if isSuperAdmin()
+        || (isAdmin() && request.resource.data.get('idNegocio', null) == idNegocioActual());
+      allow delete: if isSuperAdmin()
+        || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
 
     match /productos/{documentId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create, update: if isSuperAdmin()
+        || (isAdmin() && request.resource.data.get('idNegocio', null) == idNegocioActual());
+      allow delete: if isSuperAdmin()
+        || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
 
     match /complementos/{documentId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create, update: if isSuperAdmin()
+        || (isAdmin() && request.resource.data.get('idNegocio', null) == idNegocioActual());
+      allow delete: if isSuperAdmin()
+        || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
 
     match /variantes/{documentId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create, update: if isSuperAdmin()
+        || (isAdmin() && request.resource.data.get('idNegocio', null) == idNegocioActual());
+      allow delete: if isSuperAdmin()
+        || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
 
     match /negocios/{documentId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /{document=**} {

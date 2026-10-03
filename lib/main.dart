@@ -11,7 +11,10 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await AppThemeController.instancia.cargar();
+  // Corrección pedida por el docente (multi-tenant): ya no hay un negocio
+  // único que cargar al arrancar — el tema de cada Administrador/empleado
+  // se carga recién al iniciar sesión (ver SesionActual.cargar()), según
+  // a qué negocio pertenezca. Antes de eso se usa el tema por defecto.
   runApp(const MyApp());
 }
 

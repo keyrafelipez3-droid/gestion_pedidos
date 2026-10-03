@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/selector_imagen.dart';
 
 /// HU-10 — "Personalizar la apariencia del negocio" (Fase 5).
 ///
@@ -16,8 +18,11 @@ import '../../theme/design_tokens.dart';
 /// mecanismo nuevo, solo se ampliaron los campos ya explicados en
 /// `negocio_model.dart`.
 class PersonalizacionScreen extends StatefulWidget {
+  /// Corrección pedida por el docente: la personalización ahora es
+  /// exclusiva del SuperAdmin y se hace POR negocio, no de forma global.
+  final String idNegocio;
   final bool incrustada;
-  const PersonalizacionScreen({super.key, this.incrustada = false});
+  const PersonalizacionScreen({super.key, required this.idNegocio, this.incrustada = false});
 
   @override
   State<PersonalizacionScreen> createState() => _PersonalizacionScreenState();
@@ -74,7 +79,7 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
   }
 
   Future<void> _cargar() async {
-    final negocio = await NegocioService.instancia.obtenerNegocio();
+    final negocio = await NegocioService.instancia.obtenerNegocioPorId(widget.idNegocio);
     _logoUrlCtrl.text = negocio.logoUrl;
     _bannerUrlCtrl.text = negocio.bannerUrl;
     _colorPrimario = _colorDesdeHex(negocio.colorPrimario) ?? _colorPrimario;
@@ -227,6 +232,7 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
       colorSecundario: _colorSecundario,
       colorFondo: _colorFondo,
       onElegirColor: _elegirColor,
+      idNegocio: widget.idNegocio,
       logoUrlCtrl: _logoUrlCtrl,
       bannerUrlCtrl: _bannerUrlCtrl,
       modoOscuro: _modoOscuro,
@@ -305,6 +311,7 @@ class _FormularioPersonalizacion extends StatelessWidget {
   final Color colorSecundario;
   final Color? colorFondo;
   final ValueChanged<_TipoColor> onElegirColor;
+  final String idNegocio;
   final TextEditingController logoUrlCtrl;
   final TextEditingController bannerUrlCtrl;
   final bool modoOscuro;
@@ -318,6 +325,7 @@ class _FormularioPersonalizacion extends StatelessWidget {
     required this.colorSecundario,
     required this.colorFondo,
     required this.onElegirColor,
+    required this.idNegocio,
     required this.logoUrlCtrl,
     required this.bannerUrlCtrl,
     required this.modoOscuro,
@@ -373,22 +381,16 @@ class _FormularioPersonalizacion extends StatelessWidget {
 
         Text('Imágenes', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
-        TextFormField(
+        SelectorImagen(
+          etiqueta: 'Logo',
           controller: logoUrlCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Logo (URL de la imagen)',
-            helperText: 'Por ahora se guarda como link a una imagen',
-            prefixIcon: Icon(Icons.image_outlined),
-          ),
+          rutaStorage: 'negocios/$idNegocio/logo',
         ),
         const SizedBox(height: AppSpacing.md),
-        TextFormField(
+        SelectorImagen(
+          etiqueta: 'Imagen principal / banner',
           controller: bannerUrlCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Imagen principal / banner (URL)',
-            helperText: 'Se usará como portada del negocio',
-            prefixIcon: Icon(Icons.panorama_outlined),
-          ),
+          rutaStorage: 'negocios/$idNegocio/banner',
         ),
         const SizedBox(height: AppSpacing.xl),
 
@@ -626,6 +628,30 @@ class _DialogoColorState extends State<_DialogoColor> {
                   );
                 }),
               ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'O elige el color exacto en la paleta:',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ColorPicker(
+              // Mientras no haya un color válido (ej. recién se tocó
+              // "Automático" en fondo), la rueda arranca en un gris neutro;
+              // no afecta nada hasta que el usuario la toque.
+              pickerColor: hexValido ?? const Color(0xFF9E9E9E),
+              onColorChanged: (color) {
+                setState(() {
+                  _hexCtrl.text = (color.toARGB32() & 0xFFFFFF)
+                      .toRadixString(16)
+                      .padLeft(6, '0')
+                      .toUpperCase();
+                });
+              },
+              enableAlpha: false,
+              displayThumbColor: true,
+              labelTypes: const [],
+              pickerAreaHeightPercent: 0.6,
             ),
             const SizedBox(height: AppSpacing.md),
             Text(

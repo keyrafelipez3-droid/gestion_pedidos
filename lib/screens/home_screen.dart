@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
+import '../services/sesion_actual.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_status_badge.dart';
 import 'admin/admin_home_screen.dart';
@@ -24,12 +25,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _usuarioFuture = AuthService.instancia.obtenerUsuarioActual();
+    // SesionActual.obtener() hace lo mismo que antes (trae el documento
+    // usuarios/{uid}) y además deja el usuario en memoria para el resto
+    // de pantallas (ej. Sucursales/Catálogo necesitan su idNegocio) y
+    // carga el tema del negocio correspondiente.
+    _usuarioFuture = SesionActual.instancia.obtener();
   }
 
   void _reintentar() {
     setState(() {
-      _usuarioFuture = AuthService.instancia.obtenerUsuarioActual();
+      _usuarioFuture = SesionActual.instancia.obtener();
     });
   }
 
@@ -56,7 +61,10 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),
-            onPressed: () => AuthService.instancia.cerrarSesion(),
+            onPressed: () {
+              SesionActual.instancia.limpiar();
+              AuthService.instancia.cerrarSesion();
+            },
           ),
         ],
       ),
@@ -111,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      if (usuario.esAdministrador) ...[
+                      if (usuario.esAdministrador || usuario.esSuperAdmin) ...[
                         const SizedBox(height: AppSpacing.sm),
                         Row(
                           children: [
