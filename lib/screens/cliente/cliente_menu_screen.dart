@@ -1,0 +1,403 @@
+import 'package:flutter/material.dart';
+
+import '../../models/carrito_models.dart';
+import '../../models/catalogo_models.dart';
+import '../../models/negocio_model.dart';
+import '../../models/sucursal_model.dart';
+import '../../services/carrito_service.dart';
+import '../../services/catalogo_service.dart';
+import '../../services/favoritos_service.dart';
+import '../../services/sesion_actual.dart';
+import '../../services/sucursal_service.dart';
+import '../../theme/design_tokens.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_search_field.dart';
+import 'carrito_screen.dart';
+
+/// HU-16/17/18/19/20/21: menú digital de un negocio — ver, buscar,
+/// filtrar por categoría, marcar favoritos y agregar al carrito.
+class ClienteMenuScreen extends StatefulWidget {
+  final NegocioModel negocio;
+
+  const ClienteMenuScreen({super.key, required this.negocio});
+
+  @override
+  State<ClienteMenuScreen> createState() => _ClienteMenuScreenState();
+}
+
+class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
+  final _buscadorCtrl = TextEditingController();
+  String _busqueda = '';
+  String? _idCategoriaSeleccionada; // null = "Todas"
+  String? _idSucursal;
+
+  String get _uid => SesionActual.instancia.actual!.idUsuario;
+  String get _idNegocio => widget.negocio.idNegocio;
+
+  @override
+  void dispose() {
+    _buscadorCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.negocio.nombre)),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.sm,
+            ),
+            child: AppSearchField(
+              controller: _buscadorCtrl,
+              hint: 'Buscar en el menú...',
+              onChanged: (v) => setState(() => _busqueda = v.trim().toLowerCase()),
+            ),
+          ),
+          _SelectorSucursalCompacto(
+            idNegocio: _idNegocio,
+            seleccionado: _idSucursal,
+            onChanged: (id) => setState(() => _idSucursal = id),
+          ),
+          _FiltroCategorias(
+            idNegocio: _idNegocio,
+            seleccionada: _idCategoriaSeleccionada,
+            onChanged: (id) => setState(() => _idCategoriaSeleccionada = id),
+          ),
+          Expanded(
+            child: StreamBuilder<List<ProductoModel>>(
+              stream: CatalogoService.instancia.streamProductos(_idNegocio),
+              builder: (context, snapProductos) {
+                if (!snapProductos.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                var productos = snapProductos.data!
+                    .where((p) => p.estado && p.disponible)
+                    .toList();
+                if (_idCategoriaSeleccionada != null) {
+                  productos = productos
+                      .where((p) => p.idCategoria == _idCategoriaSeleccionada)
+                      .toList();
+                }
+                if (_busqueda.isNotEmpty) {
+                  productos = productos
+                      .where((p) => p.nombre.toLowerCase().contains(_busqueda))
+                      .toList();
+                }
+                if (productos.isEmpty) {
+                  return const AppEmptyState(
+                    icon: Icons.restaurant_menu_outlined,
+                    title: 'No encontramos productos',
+                    message: 'Prueba con otra búsqueda o categoría.',
+                  );
+                }
+                return StreamBuilder<Set<String>>(
+                  stream: FavoritosService.instancia.streamIdsFavoritos(_uid),
+                  builder: (context, snapFavoritos) {
+                    final favoritos = snapFavoritos.data ?? {};
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        0,
+                        AppSpacing.md,
+                        96, // deja espacio para la barra flotante del carrito
+                      ),
+                      itemCount: productos.length,
+                      itemBuilder: (context, i) => _TarjetaProducto(
+                        producto: productos[i],
+                        esFavorito: favoritos.contains(productos[i].id),
+                        onFavorito: () => FavoritosService.instancia.alternarFavorito(
+                          uid: _uid,
+                          idProducto: productos[i].id,
+                          idNegocio: _idNegocio,
+                          esFavoritoActual: favoritos.contains(productos[i].id),
+                        ),
+                        onAgregar: () => CarritoService.instancia.agregarAlCarrito(
+                          _uid,
+                          CarritoItemModel(
+                            id: '',
+                            idProducto: productos[i].id,
+                            nombreProducto: productos[i].nombre,
+                            imagenUrl: productos[i].imagenUrl,
+                            precioUnitario: productos[i].precio,
+                            idNegocio: _idNegocio,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomSheet: _BarraCarrito(
+        idNegocio: _idNegocio,
+        uid: _uid,
+        idSucursal: _idSucursal,
+        negocio: widget.negocio,
+      ),
+    );
+  }
+}
+
+class _SelectorSucursalCompacto extends StatelessWidget {
+  final String idNegocio;
+  final String? seleccionado;
+  final ValueChanged<String?> onChanged;
+
+  const _SelectorSucursalCompacto({
+    required this.idNegocio,
+    required this.seleccionado,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<SucursalModel>>(
+      stream: SucursalService.instancia.streamSucursales(idNegocio),
+      builder: (context, snapshot) {
+        final sucursales = (snapshot.data ?? []).where((s) => s.estado).toList();
+        if (sucursales.isEmpty) return const SizedBox.shrink();
+        // Preselecciona la primera sucursal automáticamente si todavía
+        // no hay ninguna elegida (caso más común: un solo local).
+        if (seleccionado == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(sucursales.first.id));
+        }
+        if (sucursales.length == 1) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+            child: Row(
+              children: [
+                Icon(Icons.storefront_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text(sucursales.first.nombre, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+          child: DropdownButton<String>(
+            isExpanded: true,
+            value: seleccionado,
+            hint: const Text('Elige una sucursal'),
+            items: sucursales
+                .map((s) => DropdownMenuItem(value: s.id, child: Text(s.nombre)))
+                .toList(),
+            onChanged: onChanged,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FiltroCategorias extends StatelessWidget {
+  final String idNegocio;
+  final String? seleccionada;
+  final ValueChanged<String?> onChanged;
+
+  const _FiltroCategorias({
+    required this.idNegocio,
+    required this.seleccionada,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<CategoriaModel>>(
+      stream: CatalogoService.instancia.streamCategorias(idNegocio),
+      builder: (context, snapshot) {
+        final categorias = (snapshot.data ?? []).where((c) => c.estado).toList();
+        if (categorias.isEmpty) return const SizedBox.shrink();
+        return SizedBox(
+          height: 44,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.xs),
+                child: ChoiceChip(
+                  label: const Text('Todas'),
+                  selected: seleccionada == null,
+                  onSelected: (_) => onChanged(null),
+                ),
+              ),
+              for (final c in categorias)
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.xs),
+                  child: ChoiceChip(
+                    label: Text(c.nombre),
+                    selected: seleccionada == c.id,
+                    onSelected: (_) => onChanged(c.id),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TarjetaProducto extends StatelessWidget {
+  final ProductoModel producto;
+  final bool esFavorito;
+  final VoidCallback onFavorito;
+  final VoidCallback onAgregar;
+
+  const _TarjetaProducto({
+    required this.producto,
+    required this.esFavorito,
+    required this.onFavorito,
+    required this.onAgregar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: AppRadius.smAll,
+              child: producto.imagenUrl.isEmpty
+                  ? Container(
+                      width: 64,
+                      height: 64,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.fastfood_outlined),
+                    )
+                  : Image.network(
+                      producto.imagenUrl,
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 64,
+                        height: 64,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(producto.nombre, style: Theme.of(context).textTheme.titleSmall),
+                  if (producto.descripcion.isNotEmpty)
+                    Text(
+                      producto.descripcion,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Bs ${producto.precio.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    esFavorito ? Icons.favorite : Icons.favorite_border,
+                    color: esFavorito ? Colors.red : null,
+                  ),
+                  onPressed: onFavorito,
+                ),
+                IconButton.filled(
+                  icon: const Icon(Icons.add),
+                  onPressed: onAgregar,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BarraCarrito extends StatelessWidget {
+  final String idNegocio;
+  final String uid;
+  final String? idSucursal;
+  final NegocioModel negocio;
+
+  const _BarraCarrito({
+    required this.idNegocio,
+    required this.uid,
+    required this.idSucursal,
+    required this.negocio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<CarritoItemModel>>(
+      stream: CarritoService.instancia.streamCarrito(uid, idNegocio),
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? [];
+        if (items.isEmpty) return const SizedBox.shrink();
+        final cantidad = items.fold<int>(0, (acc, i) => acc + i.cantidad);
+        final total = CarritoService.instancia.calcularTotal(items);
+        final scheme = Theme.of(context).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              ),
+              onPressed: idSucursal == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => CarritoScreen(
+                            negocio: negocio,
+                            idSucursal: idSucursal!,
+                          ),
+                        ),
+                      ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.shopping_cart_outlined),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text('Ver carrito ($cantidad)'),
+                    ],
+                  ),
+                  Text(
+                    'Bs ${total.toStringAsFixed(2)}',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onPrimary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

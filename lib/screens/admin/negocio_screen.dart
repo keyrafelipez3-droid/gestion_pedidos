@@ -4,6 +4,7 @@ import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/selector_imagen.dart';
 
 /// HU-07 — Pantalla para que el Administrador configure la información
 /// general del negocio (nombre, descripción, teléfono, si está activo).
@@ -32,6 +33,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
   final _nombreCtrl = TextEditingController();
   final _descripcionCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
+  final _qrPagoUrlCtrl = TextEditingController();
 
   NegocioModel? _negocioActual;
   bool _activo = true;
@@ -50,6 +52,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
     _nombreCtrl.text = negocio.nombre;
     _descripcionCtrl.text = negocio.descripcion;
     _telefonoCtrl.text = negocio.telefono;
+    _qrPagoUrlCtrl.text = negocio.qrPagoUrl;
     _activo = negocio.estado;
     if (mounted) {
       setState(() {
@@ -72,6 +75,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
       nombre: _nombreCtrl.text.trim(),
       descripcion: _descripcionCtrl.text.trim(),
       telefono: _telefonoCtrl.text.trim(),
+      qrPagoUrl: _qrPagoUrlCtrl.text.trim(),
       estado: _activo,
     );
 
@@ -101,6 +105,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
     _nombreCtrl.dispose();
     _descripcionCtrl.dispose();
     _telefonoCtrl.dispose();
+    _qrPagoUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -158,6 +163,24 @@ class _NegocioScreenState extends State<NegocioScreen> {
                         labelText: 'Teléfono de contacto',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    Text(
+                      'QR de pago',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Los clientes lo verán en el checkout al elegir pagar '
+                      'con QR, para escanearlo antes de subir su comprobante.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    SelectorImagen(
+                      etiqueta: 'QR de pago (opcional)',
+                      controller: _qrPagoUrlCtrl,
+                      rutaStorage: 'negocios/${widget.idNegocio}/qrPago',
                     ),
                     const SizedBox(height: AppSpacing.md),
 

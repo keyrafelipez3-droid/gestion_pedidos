@@ -102,6 +102,7 @@ class AuthService {
   Future<String?> actualizarPerfil({
     required String nombre,
     required String telefono,
+    String? fotoPerfil,
   }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return 'No hay una sesión activa.';
@@ -109,6 +110,9 @@ class AuthService {
       await _db.collection('usuarios').doc(uid).update({
         'nombre': nombre.trim(),
         'telefono': telefono.trim(),
+        // fotoPerfil es opcional: si no se pasa (pantallas que todavía no
+        // la editan) no se toca el campo ya guardado.
+        if (fotoPerfil != null) 'fotoPerfil': fotoPerfil.trim(),
       });
       // Mantiene el nombre visible de Firebase Auth sincronizado (igual que
       // en el registro), aunque el dato "real" vive en Firestore.

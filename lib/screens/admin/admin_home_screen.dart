@@ -17,6 +17,7 @@ import '../superadmin/superadmin_negocios_screen.dart';
 import 'catalogo_screen.dart';
 import 'clientes_screen.dart';
 import 'empleados_screen.dart';
+import 'negocio_screen.dart';
 import 'roles_permisos_screen.dart';
 import 'sucursales_screen.dart';
 
@@ -27,14 +28,21 @@ import 'sucursales_screen.dart';
 /// menú, no uno por pantalla, para que el resaltado del sidebar refleje lo
 /// que la persona tocó.
 ///
-/// Corrección pedida por el docente: "Personalización" y "Datos del
-/// negocio" ya NO son secciones de este panel — ahora son del SuperAdmin,
-/// y viven dentro de "Negocios" (una por negocio, no una global), ver
-/// `superadmin_negocios_screen.dart`.
+/// Corrección pedida por el docente: "Personalización" (logo/banner/
+/// colores) sigue siendo exclusiva del SuperAdmin, y vive dentro de
+/// "Negocios" (una por negocio, no una global), ver
+/// `superadmin_negocios_screen.dart`. "Datos del negocio" (nombre,
+/// descripción, teléfono, QR de pago) en cambio SÍ la necesita el
+/// Administrador en el día a día (ej. subir su propio QR de pago), así
+/// que también quedó accesible desde este panel, no solo desde SuperAdmin.
+///
+/// "Horarios" ya no es un ítem aparte: se editaba desde el mismo lugar que
+/// "Sucursales" (el reloj dentro de cada tarjeta), así que el acceso
+/// duplicado se quitó para no confundir.
 enum _SeccionAdmin {
   inicio,
   sucursales,
-  horarios,
+  datosNegocio,
   categorias,
   productos,
   complementos,
@@ -186,14 +194,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           onTap: () => ir(_SeccionAdmin.sucursales, () => const SucursalesScreen()),
         ),
         AppSidebarItem(
-          // Los horarios se editan por sucursal (icono de reloj dentro de
-          // cada tarjeta), no hay una pantalla de horarios "global" propia
-          // todavía, así que este acceso lleva al mismo lugar que
-          // "Sucursales" — es intencional, no un enlace roto.
-          icon: Icons.schedule_outlined,
-          label: 'Horarios',
-          selected: _seccion == _SeccionAdmin.horarios,
-          onTap: () => ir(_SeccionAdmin.horarios, () => const SucursalesScreen()),
+          icon: Icons.storefront_outlined,
+          label: 'Datos del negocio',
+          selected: _seccion == _SeccionAdmin.datosNegocio,
+          onTap: () => ir(
+            _SeccionAdmin.datosNegocio,
+            () => NegocioScreen(idNegocio: usuario.idNegocio!),
+          ),
         ),
       ]),
       AppSidebarSection(title: 'Catálogo', items: [
@@ -276,8 +283,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       case _SeccionAdmin.inicio:
         return _ContenidoDashboard(usuario: usuario);
       case _SeccionAdmin.sucursales:
-      case _SeccionAdmin.horarios:
         return const SucursalesScreen(incrustada: true);
+      case _SeccionAdmin.datosNegocio:
+        return NegocioScreen(idNegocio: usuario.idNegocio!, incrustada: true);
       case _SeccionAdmin.categorias:
         return const CatalogoScreen(indiceInicial: 0, incrustada: true);
       case _SeccionAdmin.productos:

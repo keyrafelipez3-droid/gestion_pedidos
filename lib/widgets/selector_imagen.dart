@@ -145,6 +145,14 @@ class _SelectorImagenState extends State<SelectorImagen> {
                     decoration: const InputDecoration(
                       isDense: true,
                       labelText: 'O pega un link',
+                      // El link tiene que ser el archivo de imagen en sí
+                      // (ej. termina en .jpg/.png), no la página que lo
+                      // muestra — un link de Pinterest, Google Imágenes o
+                      // Instagram apunta a una página, no a la imagen, y
+                      // no se puede mostrar aquí.
+                      helperText: 'Debe ser el link directo a la imagen, '
+                          'no el de una página que la contiene',
+                      helperMaxLines: 2,
                     ),
                     onChanged: (_) => setState(() {}),
                   ),

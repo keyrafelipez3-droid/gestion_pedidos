@@ -11,6 +11,12 @@ rules_version = '2';
 // `.get('idNegocio', null)` en vez de `.idNegocio` — así no se rompen con
 // un error de evaluación, simplemente no hacen match con ningún negocio
 // hasta que se migren (ver guía al final de este cambio en el chat).
+//
+// Sprint 2 (HU-24 a HU-32, bloque pedidos): se agregan los roles de
+// personal operativo Cajero/Cocina (ya existían en UsuarioModel.Rol, pero
+// no tenían funciones propias en las reglas) y las colecciones
+// `sucursales/{id}/mesas` y `pedidos` (con sus subcolecciones `detalle` e
+// `historialEstados`).
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {
@@ -39,6 +45,27 @@ service cloud.firestore {
       return signedIn()
         && datosUsuarioActual().rol == 'Administrador'
         && datosUsuarioActual().estado == true;
+    }
+
+    // Personal operativo (Sprint 2): Cajero registra/consulta pedidos
+    // recibidos y gestiona mesas (HU-29, HU-32); Cocina consulta pedidos
+    // pendientes y actualiza el estado de preparación (HU-30, HU-31).
+    function isCajero() {
+      return signedIn()
+        && datosUsuarioActual().rol == 'Cajero'
+        && datosUsuarioActual().estado == true;
+    }
+
+    function isCocina() {
+      return signedIn()
+        && datosUsuarioActual().rol == 'Cocina'
+        && datosUsuarioActual().estado == true;
+    }
+
+    // Cualquier miembro del personal (no Cliente) de un negocio, para no
+    // repetir `isAdmin() || isCajero() || isCocina()` en cada regla.
+    function esPersonalDelNegocio() {
+      return isAdmin() || isCajero() || isCocina();
     }
 
     match /usuarios/{userId} {
@@ -94,6 +121,12 @@ service cloud.firestore {
               || resource.data.get('idNegocio', null) == idNegocioActual()
             ));
 
+      // Subcolecciones propias del cliente/usuario: direcciones,
+      // favoritos, notificaciones, carritoItems, etc. El dueño siempre
+      // puede leer/escribir las suyas; el Administrador de un negocio (o
+      // cualquier Administrador si el dueño es Cliente) y el SuperAdmin
+      // también, igual que ya pasaba antes de Sprint 2 — por eso
+      // favoritos/carritoItems no necesitaron una regla nueva aparte.
       match /{subcollection}/{documentId} {
         allow read, write: if isSuperAdmin()
           || (isAdmin() && (
@@ -115,6 +148,16 @@ service cloud.firestore {
         allow read: if signedIn();
         allow write: if isSuperAdmin()
           || (isAdmin()
+              && get(/databases/$(database)/documents/sucursales/$(sucursalId))
+                  .data.get('idNegocio', null) == idNegocioActual());
+      }
+
+      // HU-32: Cajero gestiona mesas y pedidos desde mesa (además del
+      // Administrador/SuperAdmin). Cocina NO necesita tocar mesas.
+      match /mesas/{mesaId} {
+        allow read: if signedIn();
+        allow write: if isSuperAdmin()
+          || ((isAdmin() || isCajero())
               && get(/databases/$(database)/documents/sucursales/$(sucursalId))
                   .data.get('idNegocio', null) == idNegocioActual());
       }
@@ -154,7 +197,98 @@ service cloud.firestore {
 
     match /negocios/{documentId} {
       allow read: if signedIn();
-      allow write: if isSuperAdmin();
+      // Sprint 2: el Administrador ahora edita "Datos del negocio" (HU-24,
+      // QR de pago incluido) desde su propio panel, no solo el SuperAdmin
+      // — pero SOLO puede actualizar el negocio al que está asignado, y no
+      // puede crear negocios nuevos ni borrarlos (eso sigue siendo
+      // exclusivo del SuperAdmin, que es quien da de alta cada negocio).
+      allow update: if isSuperAdmin()
+        || (isAdmin() && idNegocioActual() == documentId);
+      allow create, delete: if isSuperAdmin();
+    }
+
+    // Sprint 2, HU-24 a HU-31: pedidos del cliente.
+    //
+    // - El Cliente SOLO puede crear su propio pedido (idCliente ==
+    //   su uid) y con estado inicial 'Pendiente' — así no puede
+    //   crearlo ya 'Entregado' o manipular el flujo. Una vez creado, el
+    //   cliente ya NO puede modificarlo (evita que cambie el total o el
+    //   estado él mismo); solo puede leerlo (HU-28: consultar detalle).
+    // - El personal del negocio (Administrador/Cajero/Cocina) y el
+    //   SuperAdmin pueden leer y actualizar (cambiar estado, etc.) los
+    //   pedidos de SU negocio. No se distingue aquí qué estados puede
+    //   poner cada rol (ej. que Cocina no marque "Entregado") porque
+    //   Firestore Rules no valida transiciones de máquina de estados de
+    //   forma práctica sin duplicar mucha lógica; esa validación queda
+    //   del lado de la app (servicios), como ya se hace con otros flujos.
+    // - Nadie borra pedidos (ni Admin): quedan como historial. Solo
+    //   SuperAdmin puede, por si hace falta limpiar datos de prueba.
+    match /pedidos/{pedidoId} {
+      allow read: if isSuperAdmin()
+        || (signedIn() && resource.data.idCliente == request.auth.uid)
+        || (esPersonalDelNegocio() && resource.data.get('idNegocio', null) == idNegocioActual());
+
+      allow create: if signedIn()
+        && request.resource.data.idCliente == request.auth.uid
+        && request.resource.data.estado == 'Pendiente';
+
+      allow update: if isSuperAdmin()
+        || (esPersonalDelNegocio()
+            && resource.data.get('idNegocio', null) == idNegocioActual());
+
+      allow delete: if isSuperAdmin();
+
+      // DetallePedido: las líneas del pedido (productos, cantidades,
+      // variantes/complementos, precios "congelados" al confirmar).
+      // Se crean junto con el pedido y no se vuelven a editar, así que
+      // el cliente solo necesita leerlas (HU-28); el personal del
+      // negocio también las puede crear (ej. Cajero registra un pedido
+      // telefónico) y leer.
+      match /detalle/{detalleId} {
+        allow read: if isSuperAdmin()
+          || (signedIn()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
+          || (esPersonalDelNegocio()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+
+        allow create: if isSuperAdmin()
+          || (signedIn()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
+          || (esPersonalDelNegocio()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+
+        allow update, delete: if isSuperAdmin()
+          || (esPersonalDelNegocio()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+      }
+
+      // HistorialEstadoPedido: un renglón por cada cambio de estado
+      // (HU-30/HU-31: Cocina consulta pendientes y actualiza
+      // preparación; HU-29: Cajero registra/consulta). Es un historial,
+      // así que nunca se edita ni se borra, solo se agrega.
+      match /historialEstados/{historialId} {
+        allow read: if isSuperAdmin()
+          || (signedIn()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
+          || (esPersonalDelNegocio()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+
+        // Bug encontrado probando (Alaitz, cuenta Cliente real): faltaba
+        // dejar que el Cliente dueño del pedido cree el PRIMER renglón
+        // del historial ('Pendiente') al confirmar su propio pedido —
+        // antes solo se lo permitía a personal del negocio/SuperAdmin,
+        // así que PedidoService.confirmarPedido() fallaba completo para
+        // cualquier Cliente real (funcionaba de casualidad probando con
+        // una cuenta Administrador, porque esa sí cae en
+        // esPersonalDelNegocio()).
+        allow create: if isSuperAdmin()
+          || (signedIn()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
+          || (esPersonalDelNegocio()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+
+        allow update, delete: if isSuperAdmin();
+      }
     }
 
     match /{document=**} {

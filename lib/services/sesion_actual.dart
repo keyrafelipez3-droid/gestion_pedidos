@@ -55,4 +55,11 @@ class SesionActual {
   bool get esSuperAdmin => actual?.esSuperAdmin ?? false;
   bool get esAdministrador => actual?.esAdministrador ?? false;
   String? get idNegocio => actual?.idNegocio;
+  // Sprint 2 (Cajero/Cocina): su sucursal asignada, para que sus
+  // pantallas (mesas, pedidos) no tengan que volver a consultar
+  // Firestore solo para saber dónde trabajan.
+  String? get idSucursal => actual?.idSucursal;
+  bool get esCajero => actual?.rol == Rol.cajero;
+  bool get esCocina => actual?.rol == Rol.cocina;
+  bool get esCliente => actual?.esCliente ?? false;
 }

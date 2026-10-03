@@ -6,6 +6,11 @@ import '../services/sesion_actual.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_status_badge.dart';
 import 'admin/admin_home_screen.dart';
+import 'cajero/cajero_mesas_screen.dart';
+import 'cajero/cajero_pedidos_screen.dart';
+import 'cliente/cliente_negocios_screen.dart';
+import 'cliente/mis_pedidos_screen.dart';
+import 'cocina/cocina_pedidos_screen.dart';
 import 'cuenta/mi_cuenta_screen.dart';
 
 /// Pantalla mostrada justo después de iniciar sesión / registrarse.
@@ -119,6 +124,84 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
+                      if (usuario.esCliente) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.restaurant_menu_outlined),
+                                label: const Text('Pedir ahora'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const ClienteNegociosScreen(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.receipt_long_outlined),
+                                label: const Text('Mis pedidos'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const MisPedidosScreen()),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (usuario.rol == Rol.cajero) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.point_of_sale_outlined),
+                                label: const Text('Pedidos recibidos'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const CajeroPedidosScreen()),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.table_bar_outlined),
+                                label: const Text('Mesas'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const CajeroMesasScreen()),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (usuario.rol == Rol.cocina) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.soup_kitchen_outlined),
+                                label: const Text('Pedidos pendientes'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const CocinaPedidosScreen()),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (usuario.esAdministrador || usuario.esSuperAdmin) ...[
                         const SizedBox(height: AppSpacing.sm),
                         Row(
