@@ -4,6 +4,7 @@ import '../../models/usuario_model.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/selector_imagen.dart';
 
 /// HU-06 — "Como usuario, quiero modificar mis datos de cuenta, contraseña,
 /// notificaciones y preferencias."
@@ -26,6 +27,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
   final _nombreCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
+  final _fotoPerfilCtrl = TextEditingController();
 
   UsuarioModel? _usuario;
   bool _cargando = true;
@@ -42,6 +44,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     final usuario = await AuthService.instancia.obtenerUsuarioActual();
     _nombreCtrl.text = usuario?.nombre ?? '';
     _telefonoCtrl.text = usuario?.telefono ?? '';
+    _fotoPerfilCtrl.text = usuario?.fotoPerfil ?? '';
     if (mounted) {
       setState(() {
         _usuario = usuario;
@@ -57,6 +60,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     final error = await AuthService.instancia.actualizarPerfil(
       nombre: _nombreCtrl.text,
       telefono: _telefonoCtrl.text,
+      fotoPerfil: _fotoPerfilCtrl.text,
     );
     if (!mounted) return;
     setState(() => _guardandoPerfil = false);
@@ -244,6 +248,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
   void dispose() {
     _nombreCtrl.dispose();
     _telefonoCtrl.dispose();
+    _fotoPerfilCtrl.dispose();
     super.dispose();
   }
 
@@ -282,14 +287,26 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         radius: 32,
                         backgroundColor: scheme.primaryContainer,
                         foregroundColor: scheme.onPrimaryContainer,
-                        child: Text(
-                          usuario.nombre.isNotEmpty
-                              ? usuario.nombre[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        // OJO: antes esto usaba `backgroundImage:
+                        // NetworkImage(...)`, que si la imagen falla al
+                        // cargar (ej. un link que no es una imagen directa,
+                        // como la URL de una página de Pinterest en vez del
+                        // archivo de imagen en sí) deja el círculo
+                        // completamente en blanco, sin foto NI inicial, sin
+                        // avisar nada. Con Image.network + errorBuilder acá
+                        // adentro sí cae de vuelta a la inicial cuando el
+                        // link no sirve.
+                        child: ClipOval(
+                          child: usuario.fotoPerfil.trim().isEmpty
+                              ? _InicialUsuario(nombre: usuario.nombre)
+                              : Image.network(
+                                  usuario.fotoPerfil.trim(),
+                                  width: 64,
+                                  height: 64,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _InicialUsuario(nombre: usuario.nombre),
+                                ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
@@ -321,6 +338,12 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          SelectorImagen(
+                            etiqueta: 'Foto de perfil (opcional)',
+                            controller: _fotoPerfilCtrl,
+                            rutaStorage: 'usuarios/${usuario.idUsuario}/perfil',
+                          ),
+                          const SizedBox(height: AppSpacing.md),
                           TextFormField(
                             controller: _nombreCtrl,
                             decoration: const InputDecoration(
@@ -417,6 +440,24 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Inicial del nombre sobre el color de marca — se usa como avatar por
+/// defecto (sin foto subida) y como respaldo si la foto de perfil no
+/// pudo cargar (ej. el link guardado no es una imagen directa válida).
+class _InicialUsuario extends StatelessWidget {
+  final String nombre;
+  const _InicialUsuario({required this.nombre});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
       ),
     );
   }

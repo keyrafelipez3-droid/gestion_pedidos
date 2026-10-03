@@ -21,6 +21,11 @@ class NegocioModel {
   final String colorFondo; // hex, o '' = usar el fondo por defecto del tema
   final bool modoOscuro;
   final bool estado;
+  // Sprint 2 (HU-24/25/26/27): imagen del QR de pago del negocio (ej. QR
+  // del banco), para que el cliente la vea y escanee al elegir "QR" como
+  // método de pago en el checkout, antes de subir su comprobante. '' =
+  // todavía no lo configuró el Administrador.
+  final String qrPagoUrl;
 
   const NegocioModel({
     required this.idNegocio,
@@ -34,6 +39,7 @@ class NegocioModel {
     this.colorFondo = '',
     this.modoOscuro = false,
     this.estado = true,
+    this.qrPagoUrl = '',
   });
 
   NegocioModel copyWith({
@@ -47,6 +53,7 @@ class NegocioModel {
     String? colorFondo,
     bool? modoOscuro,
     bool? estado,
+    String? qrPagoUrl,
   }) {
     return NegocioModel(
       idNegocio: idNegocio,
@@ -60,6 +67,7 @@ class NegocioModel {
       colorFondo: colorFondo ?? this.colorFondo,
       modoOscuro: modoOscuro ?? this.modoOscuro,
       estado: estado ?? this.estado,
+      qrPagoUrl: qrPagoUrl ?? this.qrPagoUrl,
     );
   }
 
@@ -75,6 +83,7 @@ class NegocioModel {
       'colorFondo': colorFondo,
       'modoOscuro': modoOscuro,
       'estado': estado,
+      'qrPagoUrl': qrPagoUrl,
     };
   }
 
@@ -91,6 +100,7 @@ class NegocioModel {
       colorFondo: (data['colorFondo'] ?? '') as String,
       modoOscuro: (data['modoOscuro'] ?? false) as bool,
       estado: (data['estado'] ?? true) as bool,
+      qrPagoUrl: (data['qrPagoUrl'] ?? '') as String,
     );
   }
 }
