@@ -5,6 +5,7 @@ import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/selector_imagen.dart';
+import '../../widgets/app_cargando.dart';
 
 /// HU-07 — Pantalla para que el Administrador configure la información
 /// general del negocio (nombre, descripción, teléfono, si está activo).
@@ -113,7 +114,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
   Widget build(BuildContext context) {
     if (_cargando) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: AppCargando(),
       );
     }
 

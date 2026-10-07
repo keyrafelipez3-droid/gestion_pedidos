@@ -18,15 +18,11 @@ import 'catalogo_screen.dart';
 import 'clientes_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
-import 'roles_permisos_screen.dart';
 import 'sucursales_screen.dart';
+import '../../widgets/app_cargando.dart';
 
-/// Identifica qué sección del panel está activa. Varios ítems del sidebar
-/// apuntan a la misma pantalla subyacente (ej. "Horarios" y "Sucursales",
-/// o "Disponibilidad" y "Productos" — ver los comentarios en
-/// `_construirContenido`), así que este enum tiene un valor por ÍTEM del
-/// menú, no uno por pantalla, para que el resaltado del sidebar refleje lo
-/// que la persona tocó.
+/// Identifica qué sección del panel está activa (un valor por ítem del
+/// sidebar, para que el resaltado refleje lo que la persona tocó).
 ///
 /// Corrección pedida por el docente: "Personalización" (logo/banner/
 /// colores) sigue siendo exclusiva del SuperAdmin, y vive dentro de
@@ -43,12 +39,7 @@ enum _SeccionAdmin {
   inicio,
   sucursales,
   datosNegocio,
-  categorias,
-  productos,
-  complementos,
-  variantes,
-  disponibilidad,
-  rolesPermisos,
+  catalogo,
   negocios,
   empleados,
   clientes,
@@ -202,54 +193,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             () => NegocioScreen(idNegocio: usuario.idNegocio!),
           ),
         ),
-      ]),
-      AppSidebarSection(title: 'Catálogo', items: [
         AppSidebarItem(
-          icon: Icons.category_outlined,
-          label: 'Categorías',
-          selected: _seccion == _SeccionAdmin.categorias,
+          // Categorías, productos, extras (complementos), variantes y la
+          // disponibilidad de cada producto viven en la misma pantalla
+          // "Catálogo", organizada en pestañas. Antes había un ítem de
+          // sidebar por cada pestaña (más "Disponibilidad", que abría la
+          // pestaña Productos), lo que repetía lo mismo cinco veces.
+          icon: Icons.restaurant_menu_outlined,
+          label: 'Catálogo',
+          selected: _seccion == _SeccionAdmin.catalogo,
           onTap: () =>
-              ir(_SeccionAdmin.categorias, () => const CatalogoScreen(indiceInicial: 0)),
-        ),
-        AppSidebarItem(
-          icon: Icons.fastfood_outlined,
-          label: 'Productos',
-          selected: _seccion == _SeccionAdmin.productos,
-          onTap: () =>
-              ir(_SeccionAdmin.productos, () => const CatalogoScreen(indiceInicial: 1)),
-        ),
-        AppSidebarItem(
-          icon: Icons.add_circle_outline,
-          label: 'Complementos',
-          selected: _seccion == _SeccionAdmin.complementos,
-          onTap: () =>
-              ir(_SeccionAdmin.complementos, () => const CatalogoScreen(indiceInicial: 2)),
-        ),
-        AppSidebarItem(
-          icon: Icons.tune,
-          label: 'Variantes',
-          selected: _seccion == _SeccionAdmin.variantes,
-          onTap: () =>
-              ir(_SeccionAdmin.variantes, () => const CatalogoScreen(indiceInicial: 3)),
-        ),
-        AppSidebarItem(
-          // La disponibilidad se activa/desactiva con el switch de cada
-          // producto — misma pantalla que "Productos", con el filtro
-          // "Disponibles/No disponibles" ya integrado ahí.
-          icon: Icons.toggle_on_outlined,
-          label: 'Disponibilidad',
-          selected: _seccion == _SeccionAdmin.disponibilidad,
-          onTap: () =>
-              ir(_SeccionAdmin.disponibilidad, () => const CatalogoScreen(indiceInicial: 1)),
+              ir(_SeccionAdmin.catalogo, () => const CatalogoScreen(indiceInicial: 0)),
         ),
       ]),
       AppSidebarSection(title: 'Configuración', items: [
-        AppSidebarItem(
-          icon: Icons.shield_outlined,
-          label: 'Roles y permisos',
-          selected: _seccion == _SeccionAdmin.rolesPermisos,
-          onTap: () => ir(_SeccionAdmin.rolesPermisos, () => const RolesPermisosScreen()),
-        ),
         AppSidebarItem(
           icon: Icons.badge_outlined,
           label: 'Empleados',
@@ -286,17 +243,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const SucursalesScreen(incrustada: true);
       case _SeccionAdmin.datosNegocio:
         return NegocioScreen(idNegocio: usuario.idNegocio!, incrustada: true);
-      case _SeccionAdmin.categorias:
+      case _SeccionAdmin.catalogo:
         return const CatalogoScreen(indiceInicial: 0, incrustada: true);
-      case _SeccionAdmin.productos:
-      case _SeccionAdmin.disponibilidad:
-        return const CatalogoScreen(indiceInicial: 1, incrustada: true);
-      case _SeccionAdmin.complementos:
-        return const CatalogoScreen(indiceInicial: 2, incrustada: true);
-      case _SeccionAdmin.variantes:
-        return const CatalogoScreen(indiceInicial: 3, incrustada: true);
-      case _SeccionAdmin.rolesPermisos:
-        return const RolesPermisosScreen(incrustada: true);
       case _SeccionAdmin.negocios:
         return const SuperAdminNegociosScreen(incrustada: true);
       case _SeccionAdmin.empleados:
@@ -315,10 +263,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
     return FutureBuilder<UsuarioModel?>(
       future: SesionActual.instancia.obtener(),
+      // El usuario ya está en memoria al cambiar de sección: se usa de
+      // inmediato para que el panel NO pase por un fotograma en blanco
+      // con spinner (era lo que se veía como parpadeo).
+      initialData: SesionActual.instancia.actual,
       builder: (context, snapshot) {
         final usuario = snapshot.data;
         if (usuario == null) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: AppCargando());
         }
 
         final sidebar = AppSidebar(
@@ -343,7 +295,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               children: [
                 SizedBox(width: 280, child: sidebar),
                 const VerticalDivider(width: 1),
-                Expanded(child: _construirContenido(_seccion, usuario)),
+                Expanded(
+                  // Cada sección es una instancia nueva de este panel (ver
+                  // el comentario de la clase), así que la transición es
+                  // una entrada con fundido: el sidebar queda quieto y solo
+                  // el contenido aparece suavemente, sin parpadeo.
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, valor, hijo) => Opacity(
+                      opacity: valor,
+                      child: Transform.translate(
+                        offset: Offset(12 * (1 - valor), 0),
+                        child: hijo,
+                      ),
+                    ),
+                    child: _construirContenido(_seccion, usuario),
+                  ),
+                ),
               ],
             ),
           );
@@ -442,7 +412,7 @@ class _BannerBienvenida extends StatelessWidget {
           children: [
             if (tieneImagen)
               Image.network(
-                bannerUrl.trim(),
+                bannerUrl.trim(), webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stack) => const SizedBox.shrink(),
                 loadingBuilder: (context, child, progress) =>

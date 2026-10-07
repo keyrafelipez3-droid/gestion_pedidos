@@ -149,28 +149,22 @@ class _PanelMarca extends StatelessWidget {
           // que alguien cargue una imagen primero.
           if (tieneImagenPropia)
             Image.network(
-              imagenUrl.trim(),
+              imagenUrl.trim(), webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stack) => Image.asset(
-                'assets/images/login_pattern.jpg',
-                fit: BoxFit.cover,
-              ),
+              errorBuilder: (context, error, stack) => const _FondoHero(),
               loadingBuilder: (context, child, progress) =>
                   progress == null ? child : const SizedBox.shrink(),
             )
           else
-            Image.asset(
-              'assets/images/login_pattern.jpg',
-              fit: BoxFit.cover,
-            ),
+            const _FondoHero(),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  color.withValues(alpha: 0.55),
-                  color.withValues(alpha: 0.78),
+                  color.withValues(alpha: 0.30),
+                  color.withValues(alpha: 0.72),
                 ],
               ),
             ),
@@ -208,6 +202,25 @@ class _PanelMarca extends StatelessWidget {
   }
 }
 
+/// Fondo del panel de marca: si existe `assets/images/login_hero.jpg`
+/// (una foto de comida del proyecto) se usa esa; si no, el patrón
+/// ilustrado de siempre. Así basta con copiar la foto a esa carpeta.
+class _FondoHero extends StatelessWidget {
+  const _FondoHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/images/login_hero.jpg',
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stack) => Image.asset(
+        'assets/images/login_pattern.jpg',
+        fit: BoxFit.cover,
+      ),
+    );
+  }
+}
+
 class _Formulario extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController emailCtrl;
@@ -238,8 +251,21 @@ class _Formulario extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (mostrarEncabezado) ...[
-            Icon(Icons.restaurant_menu, size: 64, color: scheme.primary),
-            const SizedBox(height: AppSpacing.sm),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.restaurant_menu,
+                  size: 48,
+                  color: scheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
             Text(
               'Gestión de Pedidos',
               style: Theme.of(context).textTheme.headlineSmall,

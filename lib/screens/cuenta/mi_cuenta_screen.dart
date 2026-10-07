@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/selector_imagen.dart';
+import '../../widgets/app_cargando.dart';
 
 /// HU-06 — "Como usuario, quiero modificar mis datos de cuenta, contraseña,
 /// notificaciones y preferencias."
@@ -255,7 +256,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
   @override
   Widget build(BuildContext context) {
     if (_cargando) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: AppCargando());
     }
 
     final usuario = _usuario;
@@ -300,7 +301,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           child: usuario.fotoPerfil.trim().isEmpty
                               ? _InicialUsuario(nombre: usuario.nombre)
                               : Image.network(
-                                  usuario.fotoPerfil.trim(),
+                                  usuario.fotoPerfil.trim(), webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                                   width: 64,
                                   height: 64,
                                   fit: BoxFit.cover,

@@ -4,6 +4,7 @@ import '../../models/pedido_models.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_status_badge.dart';
 
 /// HU-28: el Cliente consulta el detalle de su pedido.
@@ -22,9 +23,11 @@ class PedidoDetalleScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle del pedido')),
-      body: esPersonal
-          ? _DetalleViaNegocio(idPedido: idPedido, esPersonal: esPersonal)
-          : _DetalleViaCliente(idPedido: idPedido, esPersonal: esPersonal),
+      body: AppContenidoCentrado(
+        child: esPersonal
+            ? _DetalleViaNegocio(idPedido: idPedido, esPersonal: esPersonal)
+            : _DetalleViaCliente(idPedido: idPedido, esPersonal: esPersonal),
+      ),
     );
   }
 }
@@ -136,7 +139,10 @@ class _Detalle extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Pedido #${pedido.id.substring(0, 6)}',
-                        style: Theme.of(context).textTheme.titleMedium),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800)),
                     AppStatusBadge(label: pedido.estado, tone: _tonoEstado(pedido.estado)),
                   ],
                 ),
@@ -159,7 +165,8 @@ class _Detalle extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Text('Productos', style: Theme.of(context).textTheme.titleSmall),
+        Text('Productos',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: AppSpacing.sm),
         StreamBuilder<List<DetallePedidoModel>>(
           stream: PedidoService.instancia.streamDetalle(pedido.id),
@@ -169,7 +176,18 @@ class _Detalle extends StatelessWidget {
               children: items
                   .map((i) => Card(
                         child: ListTile(
-                          title: Text('${i.nombreProducto} x${i.cantidad}'),
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                            foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                            child: Text(
+                              '${i.cantidad}x',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                            ),
+                          ),
+                          title: Text(
+                            i.nombreProducto,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                           subtitle: [...i.variantes, ...i.complementos].isEmpty
                               ? null
                               : Text(
@@ -185,7 +203,8 @@ class _Detalle extends StatelessWidget {
           },
         ),
         const SizedBox(height: AppSpacing.md),
-        Text('Historial', style: Theme.of(context).textTheme.titleSmall),
+        Text('Historial',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: AppSpacing.sm),
         StreamBuilder<List<HistorialEstadoModel>>(
           stream: PedidoService.instancia.streamHistorial(pedido.id),
@@ -194,7 +213,11 @@ class _Detalle extends StatelessWidget {
             return Column(
               children: historial
                   .map((h) => ListTile(
-                        leading: const Icon(Icons.circle, size: 10),
+                        leading: Icon(
+                          Icons.check_circle,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         title: Text(h.estado),
                         subtitle: h.comentario.isEmpty ? null : Text(h.comentario),
                       ))

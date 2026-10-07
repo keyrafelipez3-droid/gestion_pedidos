@@ -5,6 +5,7 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
 import '../cliente/pedido_detalle_screen.dart';
 
@@ -89,8 +90,19 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
                         final p = filtrados[i];
                         return Card(
                           child: ListTile(
-                            title: Text('Pedido #${p.id.substring(0, 6)} · ${p.modalidad}'),
-                            subtitle: Text('Bs ${p.total.toStringAsFixed(2)}'),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.sm,
+                            ),
+                            leading: AvatarModalidad(modalidad: p.modalidad),
+                            title: Text(
+                              'Pedido #${p.id.substring(0, 6)} · ${p.modalidad}',
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            subtitle: Text(
+                              'Bs ${p.total.toStringAsFixed(2)}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
                             trailing: AppStatusBadge(label: p.estado, tone: _tono(p.estado)),
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(

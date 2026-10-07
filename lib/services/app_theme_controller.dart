@@ -86,22 +86,34 @@ class AppThemeController {
       scaffoldBackgroundColor: fondoPersonalizado ?? scheme.surface,
       textTheme: textTheme,
       extensions: [isDark ? AppSemanticColors.dark : AppSemanticColors.light],
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+        },
+      ),
 
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 2,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w800,
+          color: scheme.onSurface,
         ),
       ),
 
       cardTheme: CardThemeData(
-        elevation: 0,
         color: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.black.withValues(alpha: 0.18),
+        elevation: 1.5,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
         margin: EdgeInsets.zero,
       ),
@@ -138,8 +150,9 @@ class AppThemeController {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          minimumSize: const Size(0, 48),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
 
@@ -149,7 +162,8 @@ class AppThemeController {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+          minimumSize: const Size(0, 48),
+          shape: const StadiumBorder(),
           side: BorderSide(color: scheme.outlineVariant),
         ),
       ),
@@ -167,15 +181,16 @@ class AppThemeController {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primaryContainer,
         foregroundColor: scheme.onPrimaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
+        shape: const StadiumBorder(),
       ),
 
       chipTheme: ChipThemeData(
         backgroundColor: scheme.surfaceContainerHighest,
         selectedColor: scheme.primaryContainer,
         labelStyle: textTheme.labelLarge,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.smAll),
+        shape: const StadiumBorder(),
         side: BorderSide.none,
+        showCheckmark: false,
       ),
 
       tabBarTheme: TabBarThemeData(
@@ -222,8 +237,8 @@ class AppThemeController {
     final base =
         ThemeData(brightness: scheme.brightness, useMaterial3: true).textTheme;
     return base.copyWith(
-      headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-      titleLarge: base.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+      titleLarge: base.titleLarge?.copyWith(fontWeight: FontWeight.w800),
       titleMedium: base.titleMedium?.copyWith(fontWeight: FontWeight.w600),
       titleSmall: base.titleSmall?.copyWith(fontWeight: FontWeight.w600),
       labelLarge: base.labelLarge?.copyWith(fontWeight: FontWeight.w600),

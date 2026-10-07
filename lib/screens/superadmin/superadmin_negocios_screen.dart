@@ -4,8 +4,10 @@ import '../../models/negocio_model.dart';
 import '../../services/negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_status_badge.dart';
 import 'superadmin_negocio_detalle_screen.dart';
+import '../../widgets/app_cargando.dart';
 
 /// Corrección pedida por el docente: pantalla exclusiva del SuperAdmin
 /// para crear negocios y entrar a personalizar/gestionar cada uno. Es el
@@ -77,7 +79,7 @@ class SuperAdminNegociosScreen extends StatelessWidget {
         stream: NegocioService.instancia.streamNegocios(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppCargando();
           }
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
@@ -99,12 +101,11 @@ class SuperAdminNegociosScreen extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final n = negocios[i];
-              final tieneLogo = n.logoUrl.trim().isNotEmpty;
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: tieneLogo ? NetworkImage(n.logoUrl.trim()) : null,
-                    child: tieneLogo ? null : const Icon(Icons.storefront_outlined),
+                  leading: AvatarImagen(
+                    url: n.logoUrl,
+                    icono: Icons.storefront_outlined,
                   ),
                   title: Text(n.nombre.isEmpty ? '(sin nombre)' : n.nombre),
                   subtitle: Padding(

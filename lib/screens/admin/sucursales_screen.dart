@@ -5,10 +5,12 @@ import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_search_field.dart';
+import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../services/sesion_actual.dart';
 import 'horarios_screen.dart';
+import '../../widgets/app_cargando.dart';
 
 class SucursalesScreen extends StatefulWidget {
   /// true cuando la pantalla vive incrustada dentro del panel de
@@ -145,7 +147,7 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
         stream: _streamSucursales,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppCargando();
           }
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           final todas = snapshot.data ?? [];
@@ -199,15 +201,11 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                               padding: const EdgeInsets.all(AppSpacing.md),
                               child: Row(
                                 children: [
-                                  CircleAvatar(
+                                  AvatarImagen(
+                                    url: s.imagenUrl,
+                                    icono: Icons.store_outlined,
                                     backgroundColor: scheme.primaryContainer,
                                     foregroundColor: scheme.onPrimaryContainer,
-                                    backgroundImage: s.imagenUrl.trim().isNotEmpty
-                                        ? NetworkImage(s.imagenUrl.trim())
-                                        : null,
-                                    child: s.imagenUrl.trim().isEmpty
-                                        ? const Icon(Icons.store_outlined)
-                                        : null,
                                   ),
                                   const SizedBox(width: AppSpacing.md),
                                   Expanded(

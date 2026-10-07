@@ -6,6 +6,8 @@ import '../../services/carrito_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_imagen_red.dart';
 import 'checkout_screen.dart';
 
 /// HU-20/22/23: revisar el carrito, editar cantidades, quitar items y
@@ -22,7 +24,7 @@ class CarritoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Tu carrito')),
-      body: StreamBuilder<List<CarritoItemModel>>(
+      body: AppContenidoCentrado(child: StreamBuilder<List<CarritoItemModel>>(
         stream: CarritoService.instancia.streamCarrito(_uid, negocio.idNegocio),
         builder: (context, snapshot) {
           final items = snapshot.data ?? [];
@@ -89,7 +91,7 @@ class CarritoScreen extends StatelessWidget {
             ],
           );
         },
-      ),
+      )),
     );
   }
 }
@@ -107,11 +109,22 @@ class _TarjetaItemCarrito extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.sm),
         child: Row(
           children: [
+            ClipRRect(
+              borderRadius: AppRadius.mdAll,
+              child: AppImagenRed(url: item.imagenUrl, width: 64, height: 64),
+            ),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.nombreProducto, style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    item.nombreProducto,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
                   if (item.variantes.isNotEmpty || item.complementos.isNotEmpty)
                     Text(
                       [...item.variantes, ...item.complementos].map((o) => o.nombre).join(', '),
@@ -130,24 +143,39 @@ class _TarjetaItemCarrito extends StatelessWidget {
                 ],
               ),
             ),
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.remove_circle_outline),
-                  onPressed: () => CarritoService.instancia
-                      .actualizarCantidad(uid, item.id, item.cantidad - 1),
-                ),
-                Text('${item.cantidad}', style: Theme.of(context).textTheme.titleMedium),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: () => CarritoService.instancia
-                      .actualizarCantidad(uid, item.id, item.cantidad + 1),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => CarritoService.instancia.eliminarItem(uid, item.id),
-                ),
-              ],
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(32),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      item.cantidad <= 1 ? Icons.delete_outline : Icons.remove,
+                    ),
+                    onPressed: () => item.cantidad <= 1
+                        ? CarritoService.instancia.eliminarItem(uid, item.id)
+                        : CarritoService.instancia
+                            .actualizarCantidad(uid, item.id, item.cantidad - 1),
+                  ),
+                  Text(
+                    '${item.cantidad}',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.add),
+                    onPressed: () => CarritoService.instancia
+                        .actualizarCantidad(uid, item.id, item.cantidad + 1),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
