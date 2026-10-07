@@ -1,0 +1,106 @@
+/// Representa UN documento de la colección raíz `negocios`.
+/// Desde la corrección pedida por el docente (multi-tenant real), pueden
+/// existir VARIOS negocios: el SuperAdmin los crea y personaliza todos, y
+/// cada Administrador queda asignado a uno solo (ver `idNegocio` en
+/// `UsuarioModel`) para gestionar su operación diaria.
+///
+/// Fase 5 (HU-10, personalización): se agregaron 3 campos nuevos —
+/// `colorFondo`, `bannerUrl` y `modoOscuro` — para cubrir lo que pide el
+/// mockup de Susan (Fondo, Imagen principal/Banner, Modo claro/oscuro).
+/// Son aditivos y con default seguro: un documento viejo que no los tenga
+/// sigue funcionando exactamente igual que antes.
+class NegocioModel {
+  final String idNegocio;
+  final String nombre;
+  final String logoUrl;
+  final String bannerUrl;
+  final String descripcion;
+  final String telefono;
+  final String colorPrimario; // hex, ej. "#E65100"
+  final String colorSecundario; // hex, ej. "#FFF3E0"
+  final String colorFondo; // hex, o '' = usar el fondo por defecto del tema
+  final bool modoOscuro;
+  final bool estado;
+  // Sprint 2 (HU-24/25/26/27): imagen del QR de pago del negocio (ej. QR
+  // del banco), para que el cliente la vea y escanee al elegir "QR" como
+  // método de pago en el checkout, antes de subir su comprobante. '' =
+  // todavía no lo configuró el Administrador.
+  final String qrPagoUrl;
+
+  const NegocioModel({
+    required this.idNegocio,
+    required this.nombre,
+    this.logoUrl = '',
+    this.bannerUrl = '',
+    this.descripcion = '',
+    this.telefono = '',
+    this.colorPrimario = '#FF7A00',
+    this.colorSecundario = '#FFF3E0',
+    this.colorFondo = '',
+    this.modoOscuro = false,
+    this.estado = true,
+    this.qrPagoUrl = '',
+  });
+
+  NegocioModel copyWith({
+    String? nombre,
+    String? logoUrl,
+    String? bannerUrl,
+    String? descripcion,
+    String? telefono,
+    String? colorPrimario,
+    String? colorSecundario,
+    String? colorFondo,
+    bool? modoOscuro,
+    bool? estado,
+    String? qrPagoUrl,
+  }) {
+    return NegocioModel(
+      idNegocio: idNegocio,
+      nombre: nombre ?? this.nombre,
+      logoUrl: logoUrl ?? this.logoUrl,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
+      descripcion: descripcion ?? this.descripcion,
+      telefono: telefono ?? this.telefono,
+      colorPrimario: colorPrimario ?? this.colorPrimario,
+      colorSecundario: colorSecundario ?? this.colorSecundario,
+      colorFondo: colorFondo ?? this.colorFondo,
+      modoOscuro: modoOscuro ?? this.modoOscuro,
+      estado: estado ?? this.estado,
+      qrPagoUrl: qrPagoUrl ?? this.qrPagoUrl,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'nombre': nombre,
+      'logoUrl': logoUrl,
+      'bannerUrl': bannerUrl,
+      'descripcion': descripcion,
+      'telefono': telefono,
+      'colorPrimario': colorPrimario,
+      'colorSecundario': colorSecundario,
+      'colorFondo': colorFondo,
+      'modoOscuro': modoOscuro,
+      'estado': estado,
+      'qrPagoUrl': qrPagoUrl,
+    };
+  }
+
+  factory NegocioModel.fromMap(String idNegocio, Map<String, dynamic> data) {
+    return NegocioModel(
+      idNegocio: idNegocio,
+      nombre: (data['nombre'] ?? '') as String,
+      logoUrl: (data['logoUrl'] ?? '') as String,
+      bannerUrl: (data['bannerUrl'] ?? '') as String,
+      descripcion: (data['descripcion'] ?? '') as String,
+      telefono: (data['telefono'] ?? '') as String,
+      colorPrimario: (data['colorPrimario'] ?? '#FF7A00') as String,
+      colorSecundario: (data['colorSecundario'] ?? '#FFF3E0') as String,
+      colorFondo: (data['colorFondo'] ?? '') as String,
+      modoOscuro: (data['modoOscuro'] ?? false) as bool,
+      estado: (data['estado'] ?? true) as bool,
+      qrPagoUrl: (data['qrPagoUrl'] ?? '') as String,
+    );
+  }
+}
