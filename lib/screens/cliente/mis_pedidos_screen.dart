@@ -5,6 +5,8 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
 import 'pedido_detalle_screen.dart';
 
@@ -31,7 +33,7 @@ class MisPedidosScreen extends StatelessWidget {
     final uid = SesionActual.instancia.actual?.idUsuario ?? '';
     return Scaffold(
       appBar: AppBar(title: const Text('Mis pedidos')),
-      body: StreamBuilder<List<PedidoModel>>(
+      body: AppContenidoCentrado(child: StreamBuilder<List<PedidoModel>>(
         stream: PedidoService.instancia.streamPedidosCliente(uid),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -52,7 +54,15 @@ class MisPedidosScreen extends StatelessWidget {
               final p = pedidos[i];
               return Card(
                 child: ListTile(
-                  title: Text('Pedido #${p.id.substring(0, 6)}'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  leading: AvatarModalidad(modalidad: p.modalidad),
+                  title: Text(
+                    'Pedido #${p.id.substring(0, 6)}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   subtitle: Text('${p.modalidad} · Bs ${p.total.toStringAsFixed(2)}'),
                   trailing: AppStatusBadge(label: p.estado, tone: _tono(p.estado)),
                   onTap: () => Navigator.of(context).push(
@@ -63,7 +73,7 @@ class MisPedidosScreen extends StatelessWidget {
             },
           );
         },
-      ),
+      )),
     );
   }
 }

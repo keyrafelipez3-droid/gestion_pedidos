@@ -5,6 +5,8 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_iconos_pedido.dart';
+import '../../widgets/app_status_badge.dart';
 import '../cliente/pedido_detalle_screen.dart';
 
 /// HU-30/31: Cocina consulta los pedidos pendientes/en preparación y
@@ -57,8 +59,25 @@ class CocinaPedidosScreen extends StatelessWidget {
                     final enPreparacion = p.estado == PedidoEstado.enPreparacion;
                     return Card(
                       child: ListTile(
-                        title: Text('Pedido #${p.id.substring(0, 6)} · ${p.modalidad}'),
-                        subtitle: Text(p.estado),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
+                        ),
+                        leading: AvatarModalidad(modalidad: p.modalidad),
+                        title: Text(
+                          'Pedido #${p.id.substring(0, 6)} · ${p.modalidad}',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.xs),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: AppStatusBadge(
+                              label: p.estado,
+                              tone: enPreparacion ? AppStatusTone.warning : AppStatusTone.neutral,
+                            ),
+                          ),
+                        ),
                         trailing: FilledButton(
                           onPressed: () => _avanzar(
                             context,

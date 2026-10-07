@@ -11,6 +11,7 @@ import '../../services/mesa_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/selector_imagen.dart';
 import 'pedido_detalle_screen.dart';
 
@@ -79,7 +80,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Confirmar pedido')),
-      body: ListView(
+      body: AppContenidoCentrado(child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
           Text('1. ¿Cómo quieres tu pedido?', style: Theme.of(context).textTheme.titleSmall),
@@ -193,7 +194,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 : const Text('Confirmar pedido'),
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -267,7 +268,7 @@ class _QrDelNegocio extends StatelessWidget {
             ClipRRect(
               borderRadius: AppRadius.mdAll,
               child: Image.network(
-                qrUrl,
+                qrUrl, webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                 height: 220,
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => const SizedBox(

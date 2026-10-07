@@ -11,6 +11,8 @@ import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_search_field.dart';
 import 'carrito_screen.dart';
 
@@ -44,8 +46,11 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.negocio.nombre)),
-      body: Column(
+      body: AppContenidoCentrado(
+        maxWidth: 860,
+        child: Column(
         children: [
+          _CabeceraNegocio(negocio: widget.negocio),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -100,7 +105,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                   stream: FavoritosService.instancia.streamIdsFavoritos(_uid),
                   builder: (context, snapFavoritos) {
                     final favoritos = snapFavoritos.data ?? {};
-                    return ListView.builder(
+                    return ListView.separated(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
                         0,
@@ -108,6 +113,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                         96, // deja espacio para la barra flotante del carrito
                       ),
                       itemCount: productos.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, i) => _TarjetaProducto(
                         producto: productos[i],
                         esFavorito: favoritos.contains(productos[i].id),
@@ -136,7 +142,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
             ),
           ),
         ],
-      ),
+      )),
       bottomSheet: _BarraCarrito(
         idNegocio: _idNegocio,
         uid: _uid,
@@ -248,6 +254,70 @@ class _FiltroCategorias extends StatelessWidget {
   }
 }
 
+class _CabeceraNegocio extends StatelessWidget {
+  final NegocioModel negocio;
+
+  const _CabeceraNegocio({required this.negocio});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 0),
+      child: ClipRRect(
+        borderRadius: AppRadius.lgAll,
+        child: SizedBox(
+          height: 120,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AppImagenRed(
+                url: negocio.bannerUrl,
+                icono: Icons.storefront_outlined,
+                respaldoAsset: 'assets/images/comida_banner.jpg',
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x00000000), Color(0xB3000000)],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: AppSpacing.md,
+                right: AppSpacing.md,
+                bottom: AppSpacing.sm,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      negocio.nombre,
+                      style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
+                    ),
+                    if (negocio.descripcion.isNotEmpty)
+                      Text(
+                        negocio.descripcion,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila de producto: texto a la izquierda y foto a la derecha con el
+/// botón "+" flotando sobre la imagen y el corazón de favoritos arriba.
 class _TarjetaProducto extends StatelessWidget {
   final ProductoModel producto;
   final bool esFavorito;
@@ -263,76 +333,95 @@ class _TarjetaProducto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: AppRadius.smAll,
-              child: producto.imagenUrl.isEmpty
-                  ? Container(
-                      width: 64,
-                      height: 64,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.fastfood_outlined),
-                    )
-                  : Image.network(
-                      producto.imagenUrl,
-                      width: 64,
-                      height: 64,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 64,
-                        height: 64,
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.broken_image_outlined),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(producto.nombre, style: Theme.of(context).textTheme.titleSmall),
-                  if (producto.descripcion.isNotEmpty)
+                  Text(
+                    producto.nombre,
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Bs ${producto.precio.toStringAsFixed(2)}',
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  if (producto.descripcion.isNotEmpty) ...[
+                    const SizedBox(height: 4),
                     Text(
                       producto.descripcion,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Bs ${producto.precio.toStringAsFixed(2)}',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            Column(
+          ),
+          SizedBox(
+            width: 112,
+            height: 112,
+            child: Stack(
               children: [
-                IconButton(
-                  icon: Icon(
-                    esFavorito ? Icons.favorite : Icons.favorite_border,
-                    color: esFavorito ? Colors.red : null,
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: AppRadius.mdAll,
+                    child: AppImagenRed(url: producto.imagenUrl),
                   ),
-                  onPressed: onFavorito,
                 ),
-                IconButton.filled(
-                  icon: const Icon(Icons.add),
-                  onPressed: onAgregar,
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 1,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: onFavorito,
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: Icon(
+                          esFavorito ? Icons.favorite : Icons.favorite_border,
+                          size: 18,
+                          color: esFavorito ? theme.colorScheme.primary : Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 2,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: onAgregar,
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(Icons.add, size: 22, color: Colors.black87),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -362,7 +451,11 @@ class _BarraCarrito extends StatelessWidget {
         final total = CarritoService.instancia.calcularTotal(items);
         final scheme = Theme.of(context).colorScheme;
         return SafeArea(
-          child: Padding(
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: FilledButton(
               style: FilledButton.styleFrom(
@@ -394,6 +487,8 @@ class _BarraCarrito extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
             ),
           ),
         );

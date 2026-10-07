@@ -16,6 +16,11 @@ class AppSearchField extends StatelessWidget {
     this.hint = 'Buscar...',
   });
 
+  static final _borde = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(32),
+    borderSide: BorderSide.none,
+  );
+
   @override
   Widget build(BuildContext context) {
     return TextField(
@@ -26,6 +31,12 @@ class AppSearchField extends StatelessWidget {
         hintText: hint,
         prefixIcon: const Icon(Icons.search),
         isDense: true,
+        border: _borde,
+        enabledBorder: _borde,
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(32),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+        ),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(

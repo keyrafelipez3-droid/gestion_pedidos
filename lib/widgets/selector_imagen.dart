@@ -107,7 +107,7 @@ class _SelectorImagenState extends State<SelectorImagen> {
               child: urlActual.isEmpty
                   ? const Icon(Icons.image_outlined, color: Colors.black26)
                   : Image.network(
-                      urlActual,
+                      urlActual, webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) =>
                           const Icon(Icons.broken_image_outlined, color: Colors.black26),

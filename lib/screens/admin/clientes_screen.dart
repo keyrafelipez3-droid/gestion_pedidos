@@ -4,6 +4,7 @@ import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/app_cargando.dart';
 
 /// HU-04 — "Gestionar clientes registrados".
 /// Los clientes se registran solos desde la app (HU-01); aquí el
@@ -57,7 +58,7 @@ class ClientesScreen extends StatelessWidget {
         stream: AdminService.instancia.streamClientes(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppCargando();
           }
           if (snapshot.hasError) {
             return Center(

@@ -103,6 +103,66 @@ class _HomeScreenState extends State<HomeScreen> {
           final esAmplio = AppBreakpoints.isExpanded(ancho);
           final scheme = Theme.of(context).colorScheme;
 
+          final acciones = <_AccionHome>[
+            if (usuario.esCliente) ...[
+              _AccionHome(
+                icono: Icons.restaurant_menu_outlined,
+                titulo: 'Pedir ahora',
+                destacada: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ClienteNegociosScreen()),
+                ),
+              ),
+              _AccionHome(
+                icono: Icons.receipt_long_outlined,
+                titulo: 'Mis pedidos',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MisPedidosScreen()),
+                ),
+              ),
+            ],
+            if (usuario.rol == Rol.cajero) ...[
+              _AccionHome(
+                icono: Icons.point_of_sale_outlined,
+                titulo: 'Pedidos recibidos',
+                destacada: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CajeroPedidosScreen()),
+                ),
+              ),
+              _AccionHome(
+                icono: Icons.table_bar_outlined,
+                titulo: 'Mesas',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CajeroMesasScreen()),
+                ),
+              ),
+            ],
+            if (usuario.rol == Rol.cocina)
+              _AccionHome(
+                icono: Icons.soup_kitchen_outlined,
+                titulo: 'Pedidos pendientes',
+                destacada: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CocinaPedidosScreen()),
+                ),
+              ),
+            if (usuario.esAdministrador || usuario.esSuperAdmin)
+              _AccionHome(
+                icono: Icons.admin_panel_settings_outlined,
+                titulo: 'Panel de administración',
+                destacada: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+                ),
+              ),
+            _AccionHome(
+              icono: Icons.manage_accounts_outlined,
+              titulo: 'Mi cuenta',
+              onTap: _abrirMiCuenta,
+            ),
+          ];
+
           return SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -113,113 +173,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _TarjetaBienvenida(usuario: usuario, scheme: scheme),
                       const SizedBox(height: AppSpacing.lg),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.manage_accounts_outlined),
-                              label: const Text('Mi cuenta'),
-                              onPressed: _abrirMiCuenta,
-                            ),
-                          ),
-                        ],
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: AppSpacing.md,
+                        crossAxisSpacing: AppSpacing.md,
+                        childAspectRatio: 1.15,
+                        children: acciones,
                       ),
-                      if (usuario.esCliente) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                icon: const Icon(Icons.restaurant_menu_outlined),
-                                label: const Text('Pedir ahora'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const ClienteNegociosScreen(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.receipt_long_outlined),
-                                label: const Text('Mis pedidos'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const MisPedidosScreen()),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (usuario.rol == Rol.cajero) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                icon: const Icon(Icons.point_of_sale_outlined),
-                                label: const Text('Pedidos recibidos'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const CajeroPedidosScreen()),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.table_bar_outlined),
-                                label: const Text('Mesas'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const CajeroMesasScreen()),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (usuario.rol == Rol.cocina) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                icon: const Icon(Icons.soup_kitchen_outlined),
-                                label: const Text('Pedidos pendientes'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const CocinaPedidosScreen()),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (usuario.esAdministrador || usuario.esSuperAdmin) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                icon: const Icon(Icons.admin_panel_settings),
-                                label: const Text('Panel de administración'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const AdminHomeScreen(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -227,6 +189,70 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Acceso rápido de la pantalla principal: tarjeta grande con ícono. La
+/// acción principal del rol va rellena con el color de marca.
+class _AccionHome extends StatelessWidget {
+  final IconData icono;
+  final String titulo;
+  final VoidCallback onTap;
+  final bool destacada;
+
+  const _AccionHome({
+    required this.icono,
+    required this.titulo,
+    required this.onTap,
+    this.destacada = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fondo = destacada ? scheme.primary : scheme.surfaceContainerLow;
+    final texto = destacada ? scheme.onPrimary : scheme.onSurface;
+    return Material(
+      color: fondo,
+      elevation: destacada ? 3 : 1,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      borderRadius: AppRadius.xlAll,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                decoration: BoxDecoration(
+                  color: destacada
+                      ? Colors.white.withValues(alpha: 0.22)
+                      : scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icono,
+                  size: 30,
+                  color: destacada ? Colors.white : scheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                titulo,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: texto,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -303,7 +329,7 @@ class _TarjetaBienvenida extends StatelessWidget {
                 AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
                 const SizedBox(width: AppSpacing.sm),
                 AppStatusBadge(
-                  label: 'Conectado a Firebase',
+                  label: 'Sesión activa',
                   tone: AppStatusTone.success,
                 ),
               ],

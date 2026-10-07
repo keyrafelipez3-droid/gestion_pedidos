@@ -31,17 +31,19 @@ class AppEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.all(AppSpacing.lg + 4),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
+                color: scheme.primaryContainer.withValues(alpha: 0.6),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 36, color: scheme.onSurfaceVariant),
+              child: Icon(icon, size: 44, color: scheme.onPrimaryContainer),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
               textAlign: TextAlign.center,
             ),
             if (message != null) ...[

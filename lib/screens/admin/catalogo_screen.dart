@@ -7,9 +7,11 @@ import '../../services/catalogo_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_search_field.dart';
+import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../services/sesion_actual.dart';
 import '../../widgets/selector_imagen.dart';
+import '../../widgets/app_cargando.dart';
 
 class CatalogoScreen extends StatefulWidget {
   /// Pestaña con la que se abre la pantalla (0=Categorías, 1=Productos,
@@ -158,7 +160,7 @@ class _CategoriasTab extends StatelessWidget {
           stream: CatalogoService.instancia.streamCategorias(SesionActual.instancia.idNegocio!),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const AppCargando();
             }
             if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
             final items = snapshot.data ?? [];
@@ -188,15 +190,13 @@ class _CategoriasTab extends StatelessWidget {
                   itemBuilder: (context, i) {
                     final item = items[i];
                     final cantidad = conteo[item.id] ?? 0;
-                    final tieneImagen = item.imagenUrl.trim().isNotEmpty;
                     return Card(
                       child: ListTile(
-                        leading: CircleAvatar(
+                        leading: AvatarImagen(
+                          url: item.imagenUrl,
+                          icono: Icons.category_outlined,
                           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                           foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
-                          backgroundImage:
-                              tieneImagen ? NetworkImage(item.imagenUrl.trim()) : null,
-                          child: tieneImagen ? null : const Icon(Icons.category_outlined),
                         ),
                         title: Text(item.nombre),
                         subtitle: Text(cantidad == 1 ? '1 producto' : '$cantidad productos'),
@@ -421,7 +421,7 @@ class _ProductosTabState extends State<_ProductosTab> {
           stream: _streamProductos,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const AppCargando();
             }
             if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
             final todos = snapshot.data ?? [];
@@ -497,17 +497,13 @@ class _ProductosTabState extends State<_ProductosTab> {
                           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, i) {
                             final item = items[i];
-                            final tieneImagen = item.imagenUrl.trim().isNotEmpty;
                             return Card(
                               child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundImage:
-                                      tieneImagen ? NetworkImage(item.imagenUrl.trim()) : null,
-                                  child: tieneImagen
-                                      ? null
-                                      : Icon(item.disponible
-                                          ? Icons.fastfood_outlined
-                                          : Icons.visibility_off_outlined),
+                                leading: AvatarImagen(
+                                  url: item.imagenUrl,
+                                  icono: item.disponible
+                                      ? Icons.fastfood_outlined
+                                      : Icons.visibility_off_outlined,
                                 ),
                                 title: Text(item.nombre),
                                 subtitle: Padding(
@@ -682,7 +678,7 @@ class _ComplementosTab extends StatelessWidget {
         stream: CatalogoService.instancia.streamComplementos(SesionActual.instancia.idNegocio!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppCargando();
           }
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           final items = snapshot.data ?? [];
@@ -863,7 +859,7 @@ class _VariantesTab extends StatelessWidget {
         stream: CatalogoService.instancia.streamVariantes(SesionActual.instancia.idNegocio!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppCargando();
           }
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           final items = snapshot.data ?? [];

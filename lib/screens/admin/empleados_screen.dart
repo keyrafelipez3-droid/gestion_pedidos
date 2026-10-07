@@ -6,6 +6,8 @@ import '../../services/sesion_actual.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 import 'crear_empleado_screen.dart';
+import 'roles_permisos_screen.dart';
+import '../../widgets/app_cargando.dart';
 
 /// HU-05 — "Gestionar empleados y asignar roles".
 /// Lista en tiempo real de todo el personal (no Clientes), con acciones
@@ -55,12 +57,23 @@ class EmpleadosScreen extends StatelessWidget {
       appBar: AppBar(
         automaticallyImplyLeading: !incrustada,
         title: const Text('Empleados'),
+        actions: [
+          // La referencia de permisos por rol vive acá, donde se asignan
+          // los roles, en vez de ocupar un ítem propio en el menú.
+          IconButton(
+            tooltip: 'Ver permisos de cada rol',
+            icon: const Icon(Icons.shield_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RolesPermisosScreen()),
+            ),
+          ),
+        ],
       ),
       body: StreamBuilder<List<UsuarioModel>>(
         stream: AdminService.instancia.streamEmpleados(SesionActual.instancia.idNegocio!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppCargando();
           }
           if (snapshot.hasError) {
             return Center(
