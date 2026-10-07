@@ -5,6 +5,7 @@ import '../../services/negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
 import 'cliente_menu_screen.dart';
 
@@ -60,7 +61,7 @@ class ClienteNegociosScreen extends StatelessWidget {
                       crossAxisSpacing: AppSpacing.md,
                     ),
                     delegate: SliverChildBuilderDelegate(
-                      (context, i) => _TarjetaNegocio(negocio: negocios[i]),
+                      (context, i) => _TarjetaNegocio(negocio: negocios[i], indice: i),
                       childCount: negocios.length,
                     ),
                   ),
@@ -76,8 +77,9 @@ class ClienteNegociosScreen extends StatelessWidget {
 
 class _TarjetaNegocio extends StatelessWidget {
   final NegocioModel negocio;
+  final int indice;
 
-  const _TarjetaNegocio({required this.negocio});
+  const _TarjetaNegocio({required this.negocio, required this.indice});
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +89,12 @@ class _TarjetaNegocio extends StatelessWidget {
       child: InkWell(
         borderRadius: AppRadius.lgAll,
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ClienteMenuScreen(negocio: negocio)),
+          MaterialPageRoute(
+            builder: (_) => ClienteMenuScreen(
+              negocio: negocio,
+              fotoRespaldo: fotoComidaPorIndice(indice),
+            ),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +107,7 @@ class _TarjetaNegocio extends StatelessWidget {
                 child: AppImagenRed(
                   url: negocio.bannerUrl,
                   icono: Icons.storefront_outlined,
-                  respaldoAsset: 'assets/images/comida_banner.jpg',
+                  respaldoAsset: fotoComidaPorIndice(indice),
                 ),
               ),
             ),

@@ -134,33 +134,56 @@ class _PanelMarca extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: color,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.all(AppSpacing.xxl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.person_add_alt_1, size: 96, color: Colors.white),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Únete a Gestión de Pedidos',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Foto de comida de fondo (si faltara el archivo, queda el color
+        // de marca de siempre).
+        ColoredBox(color: color),
+        Image.asset(
+          'assets/images/comida_steak.jpg',
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                color.withValues(alpha: 0.30),
+                color.withValues(alpha: 0.72),
+              ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Crea tu cuenta y empieza a pedir en segundos.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.person_add_alt_1, size: 96, color: Colors.white),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Únete a Gestión de Pedidos',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Crea tu cuenta y empieza a pedir en segundos.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
