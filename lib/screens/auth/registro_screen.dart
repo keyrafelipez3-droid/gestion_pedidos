@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/app_pantalla_foto.dart';
 
 /// HU-01 — Pantalla de registro para Clientes.
 /// ("Registrarme con mis datos básicos")
@@ -111,18 +112,19 @@ class _RegistroScreenState extends State<RegistroScreen> {
       );
     }
 
+    // Celular: foto de comida a pantalla completa con el formulario encima
+    // y una barra transparente con la flecha de regreso.
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear cuenta')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: formulario,
-            ),
-          ),
-        ),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        title: const Text('Crear cuenta'),
+      ),
+      body: AppPantallaFoto(
+        asset: 'assets/images/comida_terraza.jpg',
+        formulario: formulario,
+        conAppBar: true,
       ),
     );
   }

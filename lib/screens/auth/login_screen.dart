@@ -4,6 +4,7 @@ import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/app_pantalla_foto.dart';
 import 'registro_screen.dart';
 
 /// HU-02 — Pantalla de inicio de sesión.
@@ -103,17 +104,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
 
+    // Celular: foto de comida a pantalla completa con el formulario encima.
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: formulario,
-            ),
-          ),
-        ),
+      body: AppPantallaFoto(
+        asset: 'assets/images/fondo_movil.jpg',
+        formulario: formulario,
       ),
     );
   }
