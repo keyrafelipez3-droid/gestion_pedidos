@@ -273,20 +273,61 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           return const Scaffold(body: AppCargando());
         }
 
+        void cerrarSesion() {
+          // Esta pantalla se abre con Navigator.push() encima de
+          // HomeScreen, así que hay que volver primero a la raíz: si
+          // no, AuthGate cambia a LoginScreen por debajo pero esta
+          // pantalla se queda apilada encima (con sesión limpia),
+          // mostrando el spinner del FutureBuilder para siempre.
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          SesionActual.instancia.limpiar();
+          AuthService.instancia.cerrarSesion();
+        }
+
+        // Un Administrador sin negocio asignado no tiene nada que
+        // administrar (y antes esto terminaba en una pantalla roja de
+        // "Unexpected null value"). Se avisa con claridad.
+        final idNegocio = usuario.idNegocio;
+        if (!usuario.esSuperAdmin && (idNegocio == null || idNegocio.isEmpty)) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Panel de administración')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.storefront_outlined, size: 56),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Tu cuenta no tiene un negocio asignado',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    const Text(
+                      'Pide al SuperAdmin que te asigne a un negocio '
+                      '(Negocios → elegir negocio → Asignar administrador).',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    OutlinedButton.icon(
+                      onPressed: cerrarSesion,
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Cerrar sesión'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         final sidebar = AppSidebar(
           tituloNegocio: 'Hola, ${usuario.nombre}',
           subtitulo: usuario.rol,
           secciones: _secciones(context, esAmplio: esAmplio, usuario: usuario),
-          onCerrarSesion: () {
-            // Esta pantalla se abre con Navigator.push() encima de
-            // HomeScreen, así que hay que volver primero a la raíz: si
-            // no, AuthGate cambia a LoginScreen por debajo pero esta
-            // pantalla se queda apilada encima (con sesión limpia),
-            // mostrando el spinner del FutureBuilder para siempre.
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            SesionActual.instancia.limpiar();
-            AuthService.instancia.cerrarSesion();
-          },
+          onCerrarSesion: cerrarSesion,
         );
 
         if (esAmplio) {

@@ -12,6 +12,7 @@ import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_search_field.dart';
 import 'carrito_screen.dart';
@@ -21,7 +22,12 @@ import 'carrito_screen.dart';
 class ClienteMenuScreen extends StatefulWidget {
   final NegocioModel negocio;
 
-  const ClienteMenuScreen({super.key, required this.negocio});
+  /// Foto de respaldo para la cabecera cuando el negocio no tiene banner
+  /// (la misma que se vio en su tarjeta). Si no llega, se elige una según
+  /// el id del negocio.
+  final String? fotoRespaldo;
+
+  const ClienteMenuScreen({super.key, required this.negocio, this.fotoRespaldo});
 
   @override
   State<ClienteMenuScreen> createState() => _ClienteMenuScreenState();
@@ -50,7 +56,11 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
         maxWidth: 860,
         child: Column(
         children: [
-          _CabeceraNegocio(negocio: widget.negocio),
+          _CabeceraNegocio(
+            negocio: widget.negocio,
+            fotoRespaldo:
+                widget.fotoRespaldo ?? fotoComidaPara(widget.negocio.idNegocio),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -256,8 +266,9 @@ class _FiltroCategorias extends StatelessWidget {
 
 class _CabeceraNegocio extends StatelessWidget {
   final NegocioModel negocio;
+  final String fotoRespaldo;
 
-  const _CabeceraNegocio({required this.negocio});
+  const _CabeceraNegocio({required this.negocio, required this.fotoRespaldo});
 
   @override
   Widget build(BuildContext context) {
@@ -275,7 +286,7 @@ class _CabeceraNegocio extends StatelessWidget {
               AppImagenRed(
                 url: negocio.bannerUrl,
                 icono: Icons.storefront_outlined,
-                respaldoAsset: 'assets/images/comida_banner.jpg',
+                respaldoAsset: fotoRespaldo,
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(
