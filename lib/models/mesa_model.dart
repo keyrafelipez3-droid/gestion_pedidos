@@ -16,12 +16,17 @@ class MesaModel {
   final String estado;
   final String? idNegocio;
 
+  /// Cuántas personas ocupan la mesa ahora (opcional: el Cajero lo anota
+  /// al asignarla). Solo tiene sentido mientras `estado == Ocupada`.
+  final int? personas;
+
   const MesaModel({
     required this.id,
     required this.numero,
     this.capacidad = 4,
     this.estado = MesaEstado.libre,
     this.idNegocio,
+    this.personas,
   });
 
   Map<String, dynamic> toMap() => {
@@ -29,6 +34,7 @@ class MesaModel {
         'capacidad': capacidad,
         'estado': estado,
         'idNegocio': idNegocio,
+        'personas': personas,
       };
 
   factory MesaModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -39,6 +45,7 @@ class MesaModel {
       capacidad: (data['capacidad'] as num?)?.toInt() ?? 4,
       estado: data['estado'] as String? ?? MesaEstado.libre,
       idNegocio: data['idNegocio'] as String?,
+      personas: (data['personas'] as num?)?.toInt(),
     );
   }
 }
