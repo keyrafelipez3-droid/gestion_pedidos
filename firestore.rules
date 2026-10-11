@@ -228,9 +228,15 @@ service cloud.firestore {
         || (signedIn() && resource.data.idCliente == request.auth.uid)
         || (esPersonalDelNegocio() && resource.data.get('idNegocio', null) == idNegocioActual());
 
-      allow create: if signedIn()
-        && request.resource.data.idCliente == request.auth.uid
-        && request.resource.data.estado == 'Pendiente';
+      allow create: if (signedIn()
+          && request.resource.data.idCliente == request.auth.uid
+          && request.resource.data.estado == 'Pendiente')
+        // Mesas: el Cajero (o el Administrador) registra pedidos de mesa de
+        // SU negocio a nombre del local, sin cuenta de cliente detrás.
+        || ((isCajero() || isAdmin())
+            && request.resource.data.get('idNegocio', null) == idNegocioActual()
+            && request.resource.data.get('origen', null) == 'cajero'
+            && request.resource.data.estado == 'Pendiente');
 
       allow update: if isSuperAdmin()
         || (esPersonalDelNegocio()

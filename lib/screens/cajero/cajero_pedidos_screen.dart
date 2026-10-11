@@ -96,7 +96,7 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
                             ),
                             leading: AvatarModalidad(modalidad: p.modalidad),
                             title: Text(
-                              'Pedido #${p.id.substring(0, 6)} · ${p.modalidad}',
+                              'Pedido #${p.id.substring(0, 6)} · ${p.etiquetaModalidad}',
                               style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
                             subtitle: Text(

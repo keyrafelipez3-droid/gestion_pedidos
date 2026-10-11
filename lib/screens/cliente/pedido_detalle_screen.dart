@@ -147,7 +147,9 @@ class _Detalle extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Text('Modalidad: ${pedido.modalidad}'),
+                Text('Modalidad: ${pedido.etiquetaModalidad}'),
+                if (pedido.origen == PedidoOrigen.cajero)
+                  const Text('Registrado por el Cajero'),
                 Text('Método de pago: ${pedido.metodoPago}'),
                 if (pedido.direccionEntrega != null)
                   Text('Entrega en: ${pedido.direccionEntrega!['direccion'] ?? ''}'),

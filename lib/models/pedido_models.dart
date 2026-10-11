@@ -14,6 +14,18 @@ class MetodoPago {
   static const String transferencia = 'Transferencia';
   static const String qr = 'QR';
   static const List<String> todos = [efectivo, transferencia, qr];
+
+  /// Pedido de mesa tomado por el Cajero: todavía no se cobra. El método
+  /// real se elige al cerrar la cuenta de la mesa. No está en `todos`
+  /// a propósito, para que no aparezca como opción al elegir cómo pagar.
+  static const String porDefinir = 'Por definir';
+}
+
+/// Quién creó el pedido: el propio cliente desde la app, o el Cajero
+/// que lo registra para una mesa.
+class PedidoOrigen {
+  static const String cliente = 'cliente';
+  static const String cajero = 'cajero';
 }
 
 /// Flujo de estados de un pedido (HU-28 a HU-31). La app controla el
@@ -54,6 +66,16 @@ class PedidoModel {
   final String notas;
   final DateTime? fechaCreacion;
 
+  /// `cliente` (por defecto, pedidos de la app) o `cajero` (pedido de mesa
+  /// registrado por el personal; en ese caso `idCliente` queda vacío).
+  final String origen;
+  final String? creadoPor; // uid del Cajero, solo si origen == cajero
+  final String? numeroMesa; // copia del número para mostrarlo sin otra consulta
+
+  /// Pedido de mesa del Cajero que todavía forma parte de la cuenta abierta
+  /// de la mesa; pasa a `false` al cerrar la mesa.
+  final bool cuentaAbierta;
+
   const PedidoModel({
     required this.id,
     required this.idCliente,
@@ -68,7 +90,21 @@ class PedidoModel {
     this.total = 0,
     this.notas = '',
     this.fechaCreacion,
+    this.origen = PedidoOrigen.cliente,
+    this.creadoPor,
+    this.numeroMesa,
+    this.cuentaAbierta = false,
   });
+
+  /// "Mesa 3" si es un pedido de mesa con número conocido; si no, la
+  /// modalidad tal cual (Recoger, Delivery o Mesa).
+  String get etiquetaModalidad {
+    final n = numeroMesa;
+    if (modalidad == PedidoModalidad.mesa && n != null && n.isNotEmpty) {
+      return 'Mesa $n';
+    }
+    return modalidad;
+  }
 
   Map<String, dynamic> toMap() => {
         'idCliente': idCliente,
@@ -83,6 +119,10 @@ class PedidoModel {
         'total': total,
         'notas': notas,
         'fechaCreacion': FieldValue.serverTimestamp(),
+        'origen': origen,
+        'creadoPor': creadoPor,
+        'numeroMesa': numeroMesa,
+        'cuentaAbierta': cuentaAbierta,
       };
 
   factory PedidoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -105,6 +145,10 @@ class PedidoModel {
       total: rawTotal is num ? rawTotal.toDouble() : 0,
       notas: data['notas'] as String? ?? '',
       fechaCreacion: ts?.toDate(),
+      origen: data['origen'] as String? ?? PedidoOrigen.cliente,
+      creadoPor: data['creadoPor'] as String?,
+      numeroMesa: data['numeroMesa'] as String?,
+      cuentaAbierta: data['cuentaAbierta'] as bool? ?? false,
     );
   }
 }
