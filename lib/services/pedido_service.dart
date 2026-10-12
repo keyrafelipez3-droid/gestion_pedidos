@@ -229,6 +229,27 @@ class PedidoService {
     await batch.commit();
   }
 
+  /// HU-46: cuántas mesas de la sucursal tienen una cuenta abierta (con
+  /// algún pedido no cancelado). La caja no se puede cerrar mientras haya.
+  Future<int> contarMesasConCuentaAbierta({
+    required String idNegocio,
+    required String idSucursal,
+  }) async {
+    final qs = await _pedidos
+        .where('idNegocio', isEqualTo: idNegocio)
+        .where('idSucursal', isEqualTo: idSucursal)
+        .where('cuentaAbierta', isEqualTo: true)
+        .get();
+    final mesas = <String>{};
+    for (final doc in qs.docs) {
+      final data = doc.data();
+      if (data['estado'] == PedidoEstado.cancelado) continue;
+      final idMesa = data['idMesa'] as String?;
+      if (idMesa != null) mesas.add(idMesa);
+    }
+    return mesas.length;
+  }
+
   CollectionReference<Map<String, dynamic>> _items(String uid) =>
       _db.collection('usuarios').doc(uid).collection('carritoItems');
 

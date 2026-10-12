@@ -297,6 +297,76 @@ service cloud.firestore {
       }
     }
 
+    // HU-46: caja del Cajero (un turno = una caja) y sus movimientos.
+    // Una caja por Cajero y por turno. Los movimientos nunca se editan ni
+    // se borran: un error se corrige con un movimiento contrario.
+    match /cajas/{cajaId} {
+      function cajaDe(id) {
+        return get(/databases/$(database)/documents/cajas/$(id)).data;
+      }
+
+      // Caja en la que el Cajero puede registrar movimientos: es suya,
+      // sigue Abierta y todavia no registro el conteo del cierre.
+      function cajaOperable(id) {
+        return cajaDe(id).idCajero == request.auth.uid
+          && cajaDe(id).estado == 'Abierta'
+          && !('montoContado' in cajaDe(id));
+      }
+
+      allow read: if isSuperAdmin()
+        || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual())
+        || (isCajero() && resource.data.get('idCajero', null) == request.auth.uid);
+
+      allow create: if isCajero()
+        && request.resource.data.idCajero == request.auth.uid
+        && request.resource.data.get('idNegocio', null) == idNegocioActual()
+        && request.resource.data.get('idSucursal', null)
+            == datosUsuarioActual().get('idSucursal', null)
+        && request.resource.data.estado == 'Abierta'
+        && request.resource.data.montoInicial is number
+        && request.resource.data.montoInicial >= 0
+        && !('montoContado' in request.resource.data);
+
+      // Cierre ciego en dos pasos: 1) registrar el conteo (una sola vez),
+      // 2) cerrar con los totales. Una caja cerrada no se vuelve a tocar.
+      allow update: if isCajero()
+        && resource.data.idCajero == request.auth.uid
+        && resource.data.estado == 'Abierta'
+        && (
+          (!('montoContado' in resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['montoContado', 'fechaConteo'])
+            && request.resource.data.montoContado is number
+            && request.resource.data.montoContado >= 0)
+          || ('montoContado' in resource.data
+            && request.resource.data.estado == 'Cerrada'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['estado', 'fechaCierre', 'montoEsperado', 'diferencia',
+                          'observacionCierre', 'totalEfectivo', 'totalTransferencia',
+                          'totalQr', 'totalIngresos', 'totalEgresos']))
+        );
+
+      allow delete: if false;
+
+      match /movimientos/{movId} {
+        allow read: if isSuperAdmin()
+          || (isAdmin() && cajaDe(cajaId).get('idNegocio', null) == idNegocioActual())
+          || (isCajero() && cajaDe(cajaId).get('idCajero', null) == request.auth.uid);
+
+        allow create: if isCajero()
+          && cajaOperable(cajaId)
+          && request.resource.data.idUsuario == request.auth.uid
+          && request.resource.data.tipo in ['Cobro', 'Ingreso', 'Egreso']
+          && request.resource.data.metodoPago in ['Efectivo', 'Transferencia', 'QR']
+          && request.resource.data.monto is number
+          && request.resource.data.monto > 0
+          && (request.resource.data.tipo == 'Cobro'
+              || request.resource.data.metodoPago == 'Efectivo');
+
+        allow update, delete: if false;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
