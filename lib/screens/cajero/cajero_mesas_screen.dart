@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/mesa_model.dart';
 import '../../models/pedido_models.dart';
+import '../../services/caja_service.dart';
 import '../../services/mesa_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
@@ -314,6 +315,35 @@ class _CuentaMesaSheet extends StatelessWidget {
     List<PedidoModel> pedidos,
     double total,
   ) async {
+    // HU-46: no se cobra sin caja abierta (y que no esté ya en cierre).
+    final cajero = SesionActual.instancia.actual;
+    final caja = cajero == null
+        ? null
+        : await CajaService.instancia.cajaAbiertaActual(cajero.idUsuario);
+    if (!context.mounted) return;
+    if (cajero == null || caja == null || caja.contada) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(caja == null ? 'Primero abre tu caja' : 'Tu caja está en cierre'),
+          content: Text(
+            caja == null
+                ? 'Para cobrar una mesa necesitas una caja abierta. Ábrela '
+                    'desde Caja, en el inicio.'
+                : 'Ya contaste el efectivo de tu caja, así que no se pueden '
+                    'registrar más cobros. Ciérrala desde Caja.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final sinEntregar = pedidos
         .where((p) => p.estado != PedidoEstado.entregado && p.estado != PedidoEstado.cancelado)
         .length;
@@ -370,10 +400,11 @@ class _CuentaMesaSheet extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     try {
-      await PedidoService.instancia.cerrarCuentaMesa(
-        idNegocio: idNegocio,
-        idMesa: mesa.id,
+      await CajaService.instancia.cobrarMesa(
+        caja: caja,
+        mesa: mesa,
         metodoPago: metodo,
+        idUsuario: cajero.idUsuario,
       );
       await MesaService.instancia.liberarMesa(idSucursal, mesa.id);
       navigator.pop();

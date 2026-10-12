@@ -76,6 +76,11 @@ class PedidoModel {
   /// de la mesa; pasa a `false` al cerrar la mesa.
   final bool cuentaAbierta;
 
+  /// HU-46: el pedido ya se cobró y quedó registrado en una caja. Evita
+  /// que el mismo pedido se cobre dos veces.
+  final bool cobrado;
+  final String? idCaja; // caja donde se registró el cobro
+
   const PedidoModel({
     required this.id,
     required this.idCliente,
@@ -94,6 +99,8 @@ class PedidoModel {
     this.creadoPor,
     this.numeroMesa,
     this.cuentaAbierta = false,
+    this.cobrado = false,
+    this.idCaja,
   });
 
   /// "Mesa 3" si es un pedido de mesa con número conocido; si no, la
@@ -123,6 +130,8 @@ class PedidoModel {
         'creadoPor': creadoPor,
         'numeroMesa': numeroMesa,
         'cuentaAbierta': cuentaAbierta,
+        'cobrado': cobrado,
+        'idCaja': idCaja,
       };
 
   factory PedidoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -149,6 +158,8 @@ class PedidoModel {
       creadoPor: data['creadoPor'] as String?,
       numeroMesa: data['numeroMesa'] as String?,
       cuentaAbierta: data['cuentaAbierta'] as bool? ?? false,
+      cobrado: data['cobrado'] as bool? ?? false,
+      idCaja: data['idCaja'] as String?,
     );
   }
 }
