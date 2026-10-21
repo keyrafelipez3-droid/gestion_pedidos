@@ -6,11 +6,14 @@ import '../../models/direccion_entrega_model.dart';
 import '../../models/mesa_model.dart';
 import '../../models/negocio_model.dart';
 import '../../models/pedido_models.dart';
+import '../../models/sucursal_model.dart';
 import '../../services/carrito_service.dart';
 import '../../services/direcciones_service.dart';
 import '../../services/mesa_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../services/sucursal_service.dart';
+import '../../utils/errores.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/selector_imagen.dart';
@@ -44,6 +47,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _comprobanteCtrl = TextEditingController();
   final _notasCtrl = TextEditingController();
   bool _confirmando = false;
+  SucursalModel? _sucursal;
 
   String get _uid => SesionActual.instancia.actual!.idUsuario;
 
@@ -51,7 +55,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _comprobanteCtrl.addListener(_onComprobanteCambio);
+    _cargarSucursal();
   }
+
+  Future<void> _cargarSucursal() async {
+    try {
+      final s = await SucursalService.instancia.obtener(widget.idSucursal);
+      if (mounted) setState(() => _sucursal = s);
+    } catch (_) {
+      // Sin dato de horarios no se bloquea; se vuelve a comprobar al confirmar.
+    }
+  }
+
+  AperturaSucursal? get _apertura => _sucursal?.estadoApertura();
 
   void _onComprobanteCambio() {
     if (mounted) setState(() {});
@@ -68,6 +84,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double get _total => CarritoService.instancia.calcularTotal(widget.items);
 
   bool get _puedeConfirmar {
+    if (_apertura != null && !_apertura!.abierta) return false;
     if (_modalidad == PedidoModalidad.mesa && _idMesa == null) return false;
     if (_modalidad == PedidoModalidad.delivery && _direccionElegida == null) return false;
     // HU-26/27: para Transferencia y QR el comprobante ya no es opcional
@@ -85,6 +102,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: AppContenidoCentrado(child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
+          if (_apertura != null && !_apertura!.abierta) ...[
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  children: [
+                    Icon(Icons.schedule, color: Theme.of(context).colorScheme.onErrorContainer),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'No se pueden hacer pedidos ahora. ${_apertura!.mensaje}',
+                        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           Text('1. ¿Cómo quieres tu pedido?', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
@@ -203,6 +241,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _confirmar() async {
     setState(() => _confirmando = true);
     try {
+      // Comprobación final con datos frescos: el horario pudo cambiar o la
+      // sucursal cerrar mientras el cliente armaba el pedido.
+      final fresca = await SucursalService.instancia.obtener(widget.idSucursal);
+      if (fresca != null) {
+        final ap = fresca.estadoApertura();
+        if (!ap.abierta) {
+          if (mounted) setState(() => _sucursal = fresca);
+          throw Exception('No se pueden hacer pedidos ahora. ${ap.mensaje}');
+        }
+      }
       final idPedido = await PedidoService.instancia.confirmarPedido(
         idCliente: _uid,
         idNegocio: widget.negocio.idNegocio,
@@ -222,7 +270,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo confirmar el pedido: $e')),
+        SnackBar(content: Text(textoError(e))),
       );
     } finally {
       if (mounted) setState(() => _confirmando = false);

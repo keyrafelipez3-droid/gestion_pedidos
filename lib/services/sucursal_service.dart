@@ -31,6 +31,12 @@ class SucursalService {
     await doc.set(sucursal.toMap(), SetOptions(merge: true));
   }
 
+  /// Lee la sucursal una sola vez (null si ya no existe).
+  Future<SucursalModel?> obtener(String id) async {
+    final doc = await _ref.doc(id).get();
+    return doc.exists ? SucursalModel.fromSnapshot(doc) : null;
+  }
+
   Future<void> cambiarEstado(String id, bool estado) =>
       _ref.doc(id).update({'estado': estado});
 

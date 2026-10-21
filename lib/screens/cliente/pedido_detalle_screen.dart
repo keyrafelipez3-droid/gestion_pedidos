@@ -8,6 +8,8 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
+import '../../utils/errores.dart';
+import '../../widgets/boton_accion.dart';
 import '../../widgets/mapa_seguimiento.dart';
 import 'resena_pedido_card.dart';
 import '../../widgets/app_contenido_centrado.dart';
@@ -254,9 +256,14 @@ class _Detalle extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            child: BotonAccion(
+              expandido: true,
+              texto: 'Marcar como "$siguiente"',
               onPressed: () async {
                 try {
+                  // Antes de cobrar, confirma que el pedido sigue en el
+                  // estado que ve esta pantalla (evita cobrar y luego fallar).
+                  await PedidoService.instancia.verificarCambio(pedido.id, siguiente);
                   // HU-46: el Cajero que entrega un pedido de un cliente lo
                   // cobra en SU caja. Delivery lo cobra el repartidor, y los
                   // pedidos de mesa se cobran al cerrar la mesa.
@@ -301,11 +308,10 @@ class _Detalle extends StatelessWidget {
                 } catch (e) {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('No se pudo actualizar: $e')),
+                    SnackBar(content: Text(textoError(e))),
                   );
                 }
               },
-              child: Text('Marcar como "$siguiente"'),
             ),
           ),
         ],
