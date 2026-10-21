@@ -12,6 +12,10 @@ class DireccionEntregaModel {
   final bool predeterminada;
   final DateTime? fechaRegistro;
 
+  /// Ubicacion marcada en el mapa (puede faltar en direcciones antiguas).
+  final double? latitud;
+  final double? longitud;
+
   const DireccionEntregaModel({
     required this.id,
     required this.etiqueta,
@@ -19,7 +23,11 @@ class DireccionEntregaModel {
     this.referencia = '',
     this.predeterminada = false,
     this.fechaRegistro,
+    this.latitud,
+    this.longitud,
   });
+
+  bool get tieneUbicacion => latitud != null && longitud != null;
 
   Map<String, dynamic> toMap() => {
         'etiqueta': etiqueta,
@@ -27,6 +35,8 @@ class DireccionEntregaModel {
         'referencia': referencia,
         'predeterminada': predeterminada,
         'fechaRegistro': FieldValue.serverTimestamp(),
+        if (tieneUbicacion) 'latitud': latitud,
+        if (tieneUbicacion) 'longitud': longitud,
       };
 
   /// Snapshot "congelado" para guardar dentro de un Pedido: el pedido no
@@ -36,6 +46,8 @@ class DireccionEntregaModel {
         'etiqueta': etiqueta,
         'direccion': direccion,
         'referencia': referencia,
+        if (tieneUbicacion) 'latitud': latitud,
+        if (tieneUbicacion) 'longitud': longitud,
       };
 
   factory DireccionEntregaModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -48,6 +60,8 @@ class DireccionEntregaModel {
       referencia: data['referencia'] as String? ?? '',
       predeterminada: data['predeterminada'] as bool? ?? false,
       fechaRegistro: ts?.toDate(),
+      latitud: (data['latitud'] as num?)?.toDouble(),
+      longitud: (data['longitud'] as num?)?.toDouble(),
     );
   }
 }

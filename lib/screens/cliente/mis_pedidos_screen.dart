@@ -22,6 +22,8 @@ class MisPedidosScreen extends StatelessWidget {
         return AppStatusTone.danger;
       case PedidoEstado.enPreparacion:
       case PedidoEstado.listo:
+      case PedidoEstado.enCamino:
+      case PedidoEstado.llego:
         return AppStatusTone.warning;
       default:
         return AppStatusTone.neutral;

@@ -27,6 +27,35 @@ class AppConfig {
 
   static const String ciudadPais = 'Cochabamba, Bolivia';
 
+  // ------------------------------------------------------------------ mapas
+  // Proveedor de mapa y de busqueda de direcciones. Por defecto usa los
+  // servicios publicos de OpenStreetMap, que sirven para desarrollo y poco
+  // trafico. ANTES DE VENDER la app hay que cambiarlos por un proveedor con
+  // plan comercial (por ejemplo MapTiler, Stadia Maps o Geoapify): solo hay
+  // que cambiar estas constantes. Politica de OSM:
+  // https://operations.osmfoundation.org/policies/tiles/
+
+  /// Plantilla de los mosaicos del mapa. Con un proveedor de pago suele
+  /// llevar una clave: pegala aca.
+  static const String mapaTilesUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  /// Texto de atribucion que exige el proveedor del mapa.
+  static const String mapaAtribucion = '© colaboradores de OpenStreetMap';
+
+  /// Identificador de la app (el mismo applicationId de Android).
+  static const String mapaUserAgent = 'com.univalle.gestion_pedidos';
+
+  /// Servicio de busqueda de direcciones (geocodificacion).
+  static const String geocodificadorUrl = 'https://nominatim.openstreetmap.org';
+
+  /// Limita la busqueda a un pais (codigo ISO de 2 letras, minusculas).
+  static const String paisBusqueda = 'bo';
+
+  /// Centro inicial del mapa cuando no se conoce la ubicacion del usuario
+  /// (Cochabamba).
+  static const double mapaLatInicial = -17.3935;
+  static const double mapaLngInicial = -66.1570;
+
   /// Dirección web pública (de la versión web desplegada) donde el
   /// usuario puede pedir la eliminación de su cuenta sin instalar la app.
   /// Google Play pide este enlace en el formulario "Seguridad de los

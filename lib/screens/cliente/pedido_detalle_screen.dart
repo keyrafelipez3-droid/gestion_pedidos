@@ -6,6 +6,7 @@ import '../../services/caja_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/contacto.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_status_badge.dart';
 
@@ -100,6 +101,8 @@ AppStatusTone _tonoEstado(String estado) {
       return AppStatusTone.danger;
     case PedidoEstado.enPreparacion:
     case PedidoEstado.listo:
+    case PedidoEstado.enCamino:
+    case PedidoEstado.llego:
       return AppStatusTone.warning;
     default:
       return AppStatusTone.neutral;
@@ -107,6 +110,11 @@ AppStatusTone _tonoEstado(String estado) {
 }
 
 String? _siguienteEstado(String actual) {
+  // Delivery: si el pedido ya salió con un repartidor, el personal solo
+  // puede cerrarlo como entregado (el avance normal lo hace el repartidor).
+  if (actual == PedidoEstado.enCamino || actual == PedidoEstado.llego) {
+    return PedidoEstado.entregado;
+  }
   const flujo = [
     PedidoEstado.pendiente,
     PedidoEstado.enPreparacion,
@@ -168,6 +176,10 @@ class _Detalle extends StatelessWidget {
             ),
           ),
         ),
+        if (pedido.esDelivery && pedido.enReparto) ...[
+          const SizedBox(height: AppSpacing.md),
+          _TarjetaRepartidor(pedido: pedido),
+        ],
         const SizedBox(height: AppSpacing.md),
         Text('Productos',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
@@ -288,6 +300,66 @@ class _Detalle extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Datos del repartidor mientras el pedido está en camino: nombre, aviso de
+/// llegada y botón para llamarlo.
+class _TarjetaRepartidor extends StatelessWidget {
+  final PedidoModel pedido;
+
+  const _TarjetaRepartidor({required this.pedido});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final llego = pedido.estado == PedidoEstado.llego;
+    final nombre = (pedido.nombreRepartidor ?? '').isEmpty
+        ? 'Tu repartidor'
+        : pedido.nombreRepartidor!;
+    return Card(
+      color: llego ? scheme.primaryContainer : null,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  llego ? Icons.notifications_active : Icons.two_wheeler_outlined,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    llego ? '¡$nombre ya llegó!' : '$nombre va en camino',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              llego
+                  ? 'Está en el lugar de entrega. Sal a recibir tu pedido o '
+                      'llámalo si no lo ves.'
+                  : 'Tu pedido ya salió. Puedes llamarlo si necesitas darle '
+                      'alguna indicación.',
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: () => llamarPorTelefono(context, pedido.telefonoRepartidor),
+              icon: const Icon(Icons.call_outlined),
+              label: const Text('Llamar al repartidor'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

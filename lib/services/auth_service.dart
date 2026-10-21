@@ -232,6 +232,8 @@ class AuthService {
         batch.update(p.reference, {
           'idCliente': 'cuenta-eliminada',
           'direccionEntrega': null,
+          'nombreCliente': null,
+          'telefonoCliente': null,
         });
         if (++operaciones == 400) {
           await batch.commit();

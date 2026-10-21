@@ -13,6 +13,7 @@ import 'cliente/cliente_negocios_screen.dart';
 import 'cliente/mis_pedidos_screen.dart';
 import 'cocina/cocina_pedidos_screen.dart';
 import 'cuenta/mi_cuenta_screen.dart';
+import 'repartidor/repartidor_entregas_screen.dart';
 
 /// Pantalla mostrada justo después de iniciar sesión / registrarse.
 /// Si el usuario es Administrador, muestra además un acceso al panel de
@@ -153,6 +154,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 destacada: true,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const CocinaPedidosScreen()),
+                ),
+              ),
+            if (usuario.rol == Rol.repartidor)
+              _AccionHome(
+                icono: Icons.delivery_dining_outlined,
+                titulo: 'Mis entregas',
+                destacada: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RepartidorEntregasScreen()),
                 ),
               ),
             if (usuario.esAdministrador || usuario.esSuperAdmin)

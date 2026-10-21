@@ -36,12 +36,21 @@ class PedidoEstado {
   static const String pendiente = 'Pendiente';
   static const String enPreparacion = 'En preparación';
   static const String listo = 'Listo';
+
+  /// Solo Delivery: un repartidor tomó el pedido y va hacia el cliente.
+  static const String enCamino = 'En camino';
+
+  /// Solo Delivery: el repartidor avisó que ya llegó al lugar de entrega.
+  /// (Texto sin tilde a propósito: se usa tal cual en las reglas de Firestore.)
+  static const String llego = 'En el lugar';
   static const String entregado = 'Entregado';
   static const String cancelado = 'Cancelado';
   static const List<String> todos = [
     pendiente,
     enPreparacion,
     listo,
+    enCamino,
+    llego,
     entregado,
     cancelado,
   ];
@@ -81,6 +90,18 @@ class PedidoModel {
   final bool cobrado;
   final String? idCaja; // caja donde se registró el cobro
 
+  /// Solo Delivery: datos del cliente para que el repartidor pueda
+  /// contactarlo durante la entrega. Se borran si el cliente elimina su cuenta.
+  final String? nombreCliente;
+  final String? telefonoCliente;
+
+  /// Solo Delivery: repartidor que tomó el pedido (lo escribe el propio
+  /// repartidor al tomarlo). El cliente ve su nombre y teléfono mientras
+  /// el pedido está en camino.
+  final String? idRepartidor;
+  final String? nombreRepartidor;
+  final String? telefonoRepartidor;
+
   const PedidoModel({
     required this.id,
     required this.idCliente,
@@ -101,7 +122,18 @@ class PedidoModel {
     this.cuentaAbierta = false,
     this.cobrado = false,
     this.idCaja,
+    this.nombreCliente,
+    this.telefonoCliente,
+    this.idRepartidor,
+    this.nombreRepartidor,
+    this.telefonoRepartidor,
   });
+
+  bool get esDelivery => modalidad == PedidoModalidad.delivery;
+
+  /// El pedido está en la etapa de reparto (ya lo tomó un repartidor).
+  bool get enReparto =>
+      estado == PedidoEstado.enCamino || estado == PedidoEstado.llego;
 
   /// "Mesa 3" si es un pedido de mesa con número conocido; si no, la
   /// modalidad tal cual (Recoger, Delivery o Mesa).
@@ -132,6 +164,11 @@ class PedidoModel {
         'cuentaAbierta': cuentaAbierta,
         'cobrado': cobrado,
         'idCaja': idCaja,
+        'nombreCliente': nombreCliente,
+        'telefonoCliente': telefonoCliente,
+        // idRepartidor / nombreRepartidor / telefonoRepartidor NO van acá a
+        // propósito: los escribe el repartidor al tomar el pedido, no el
+        // cliente al crearlo (las reglas de Firestore no los aceptan al crear).
       };
 
   factory PedidoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -160,6 +197,11 @@ class PedidoModel {
       cuentaAbierta: data['cuentaAbierta'] as bool? ?? false,
       cobrado: data['cobrado'] as bool? ?? false,
       idCaja: data['idCaja'] as String?,
+      nombreCliente: data['nombreCliente'] as String?,
+      telefonoCliente: data['telefonoCliente'] as String?,
+      idRepartidor: data['idRepartidor'] as String?,
+      nombreRepartidor: data['nombreRepartidor'] as String?,
+      telefonoRepartidor: data['telefonoRepartidor'] as String?,
     );
   }
 }
