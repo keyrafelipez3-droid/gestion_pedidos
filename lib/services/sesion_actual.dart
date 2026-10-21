@@ -27,6 +27,12 @@ class SesionActual {
   /// cargado si existe.
   Future<void> cargar() async {
     final u = await AuthService.instancia.obtenerUsuarioActual();
+    if (u != null && !u.estado) {
+      // Cuenta desactivada mientras tenía la sesión abierta.
+      await AuthService.instancia.cerrarSesion();
+      limpiar();
+      return;
+    }
     usuario.value = u;
     if (u?.idNegocio != null) {
       await AppThemeController.instancia.cargar(idNegocio: u!.idNegocio);

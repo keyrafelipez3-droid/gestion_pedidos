@@ -81,10 +81,22 @@ class AuthService {
     required String password,
   }) async {
     try {
-      await _auth.signInWithEmailAndPassword(
+      final credencial = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+
+      // Una cuenta desactivada no puede usar la app: se cierra la sesión
+      // de inmediato y se avisa. (Antes entraba igual y solo fallaban
+      // algunas operaciones.)
+      final uid = credencial.user?.uid;
+      if (uid != null) {
+        final doc = await _db.collection('usuarios').doc(uid).get();
+        if (doc.exists && doc.data()?['estado'] == false) {
+          await _auth.signOut();
+          return 'Tu cuenta está desactivada. Contacta al administrador.';
+        }
+      }
       return null;
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/carrito_models.dart';
 import '../models/mesa_model.dart';
 import '../models/pedido_models.dart';
+import 'sesion_actual.dart';
 
 /// HU-24 a HU-31: confirmar pedido (a partir del carrito), consultarlo,
 /// y que el personal del negocio (Cajero/Cocina/Administrador) lo
@@ -35,6 +36,8 @@ class PedidoService {
     if (itemsCarrito.isEmpty) {
       throw Exception('El carrito está vacío, no se puede confirmar el pedido.');
     }
+
+    await _registrarClienteEnNegocio(idNegocio: idNegocio, idCliente: idCliente);
 
     final total = itemsCarrito.fold<double>(0, (acc, item) => acc + item.subtotal);
     final pedidoDoc = _pedidos.doc();
@@ -105,6 +108,40 @@ class PedidoService {
     });
 
     return pedidoDoc.id;
+  }
+
+  /// Deja registrado al cliente en este negocio (`negocios/{id}/clientes`)
+  /// la primera vez que pide, y actualiza su nombre/teléfono y su último
+  /// pedido las siguientes. Si el Administrador lo bloqueó, lanza un error
+  /// y el pedido no se crea (las reglas de Firestore también lo impiden).
+  Future<void> _registrarClienteEnNegocio({
+    required String idNegocio,
+    required String idCliente,
+  }) async {
+    final ref = _db.collection('negocios').doc(idNegocio).collection('clientes').doc(idCliente);
+    final snap = await ref.get();
+    if (snap.exists && snap.data()?['bloqueado'] == true) {
+      throw Exception(
+          'Tu cuenta no puede hacer pedidos en este negocio. Comunícate con el local.');
+    }
+    final usuario = SesionActual.instancia.actual;
+    final nombre = usuario?.nombre ?? '';
+    final telefono = usuario?.telefono ?? '';
+    if (!snap.exists) {
+      await ref.set({
+        'nombre': nombre,
+        'telefono': telefono,
+        'bloqueado': false,
+        'fechaPrimerPedido': FieldValue.serverTimestamp(),
+        'ultimoPedido': FieldValue.serverTimestamp(),
+      });
+    } else {
+      await ref.update({
+        'nombre': nombre,
+        'telefono': telefono,
+        'ultimoPedido': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   /// Busca el número de la mesa para guardarlo junto al pedido (así Cocina

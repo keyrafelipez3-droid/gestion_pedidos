@@ -560,7 +560,9 @@ class _FilaEstadisticas extends StatelessWidget {
           icon: Icons.people_outline,
           color: semantic.info,
           etiqueta: 'Clientes',
-          stream: AdminService.instancia.streamClientes().map((l) => l.length),
+          stream: AdminService.instancia
+              .streamClientesDeNegocio(idNegocio)
+              .map((l) => l.length),
         ),
         AppStatCard(
           icon: Icons.badge_outlined,
@@ -609,7 +611,7 @@ class _FilaEstadisticasSuperAdmin extends StatelessWidget {
           icon: Icons.people_outline,
           color: semantic.info,
           etiqueta: 'Clientes',
-          stream: AdminService.instancia.streamClientes().map((l) => l.length),
+          stream: AdminService.instancia.streamTodosLosClientes().map((l) => l.length),
         ),
       ],
     );
