@@ -75,6 +75,22 @@ flutter:
   assets:
     - assets/images/
 
+  # Tipografía de la marca (Poppins, licencia SIL OFL; ver assets/fonts/OFL.txt).
+  # Va incluida como archivos: la app no descarga fuentes de internet.
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins_400Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins_700Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins_800ExtraBold.ttf
+          weight: 800
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../models/caja_models.dart' show redondearDinero;
 import '../../models/negocio_model.dart';
+import '../../models/pedido_models.dart';
 import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalogo_service.dart';
 import '../../services/negocio_service.dart';
+import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/app_metrica_card.dart';
 import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
 import '../cuenta/mi_cuenta_screen.dart';
@@ -416,6 +420,12 @@ class _ContenidoDashboard extends StatelessWidget {
                     bannerUrl: negocio?.bannerUrl ?? '',
                   ),
                 ),
+          if (!usuario.esSuperAdmin) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Text('Hoy', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.md),
+            _ResumenHoy(idNegocio: usuario.idNegocio!),
+          ],
           const SizedBox(height: AppSpacing.lg),
           Text(
             usuario.esSuperAdmin ? 'Resumen general' : 'Resumen del negocio',
@@ -429,6 +439,121 @@ class _ContenidoDashboard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Métricas del día del negocio, calculadas con los pedidos reales de
+/// Firestore (ventas = pedidos Entregados con fecha de hoy). Si todavía no
+/// hay ventas hoy, se muestra 0, no un valor de ejemplo.
+class _ResumenHoy extends StatefulWidget {
+  final String idNegocio;
+  const _ResumenHoy({required this.idNegocio});
+
+  @override
+  State<_ResumenHoy> createState() => _ResumenHoyState();
+}
+
+class _ResumenHoyState extends State<_ResumenHoy> {
+  // Las consultas se abren UNA vez (no en cada build): antes, cada venta
+  // nueva reconstruía la tarjeta y volvía a abrir las 5 consultas de
+  // "Pedidos activos", que parpadeaba en "cargando".
+  late Stream<List<PedidoModel>> _ventas;
+  late Stream<int> _activos;
+
+  @override
+  void initState() {
+    super.initState();
+    _abrirConsultas();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ResumenHoy oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.idNegocio != widget.idNegocio) _abrirConsultas();
+  }
+
+  void _abrirConsultas() {
+    final ahora = DateTime.now();
+    final desde = DateTime(ahora.year, ahora.month, ahora.day);
+    _ventas = PedidoService.instancia.streamVentas(
+      idNegocio: widget.idNegocio,
+      desde: desde,
+      hasta: desde.add(const Duration(days: 1)),
+    );
+    _activos = PedidoService.instancia.streamPedidosActivos(widget.idNegocio);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+    return StreamBuilder<List<PedidoModel>>(
+      stream: _ventas,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          // Lo más común: falta publicar el índice de Firestore
+          // (firestore.indexes.json). Mejor avisar que quedar "cargando".
+          return Text(
+            'No se pudieron cargar las métricas de hoy. Revisa la conexión '
+            'o que el índice de Firestore esté publicado.',
+            style: TextStyle(color: scheme.error),
+          );
+        }
+        final ventas = snapshot.data;
+        final total = ventas == null
+            ? null
+            : redondearDinero(ventas.fold<double>(0, (a, p) => a + p.total));
+        final cantidad = ventas?.length;
+        final promedio = (ventas == null || ventas.isEmpty)
+            ? null
+            : redondearDinero(total! / ventas.length);
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: [
+            AppMetricaCard(
+              icon: Icons.payments_outlined,
+              color: semantic.success,
+              etiqueta: 'Ventas de hoy',
+              valor: total == null ? null : 'Bs ${total.toStringAsFixed(2)}',
+              detalle: 'Pedidos entregados',
+            ),
+            AppMetricaCard(
+              icon: Icons.check_circle_outline,
+              color: scheme.primary,
+              etiqueta: 'Entregados hoy',
+              valor: cantidad == null ? null : '$cantidad',
+            ),
+            AppMetricaCard(
+              icon: Icons.receipt_outlined,
+              color: semantic.info,
+              etiqueta: 'Ticket promedio',
+              valor: cantidad == null
+                  ? null
+                  : (promedio == null ? 'Bs 0.00' : 'Bs ${promedio.toStringAsFixed(2)}'),
+            ),
+            StreamBuilder<int>(
+              stream: _activos,
+              builder: (context, snap) => AppMetricaCard(
+                icon: Icons.local_fire_department_outlined,
+                color: AppBrand.rojo,
+                etiqueta: 'Pedidos activos',
+                valor: snap.hasData ? '${snap.data}' : null,
+                detalle: 'En curso ahora',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Saludo según la hora del día.
+String _saludo() {
+  final h = DateTime.now().hour;
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
 }
 
 /// Banner de bienvenida del dashboard. Si el negocio subió una imagen de
@@ -462,10 +587,10 @@ class _BannerBienvenida extends StatelessWidget {
         // de raíz.
         height: 156,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [scheme.primary, scheme.primary.withValues(alpha: 0.78)],
+            colors: [Color(0xFF0B0B0B), Color(0xFF2A2418)],
           ),
         ),
         child: Stack(
@@ -502,7 +627,7 @@ class _BannerBienvenida extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          nombre.isEmpty ? 'Buenos días 👋' : 'Buenos días, $nombre 👋',
+                          nombre.isEmpty ? _saludo() : '${_saludo()}, $nombre',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
@@ -522,7 +647,7 @@ class _BannerBienvenida extends StatelessWidget {
                     Icon(
                       Icons.storefront,
                       size: 48,
-                      color: scheme.onPrimary.withValues(alpha: 0.85),
+                      color: scheme.primary,
                     ),
                 ],
               ),

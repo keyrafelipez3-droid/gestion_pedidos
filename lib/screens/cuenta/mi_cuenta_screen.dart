@@ -75,9 +75,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Datos de la cuenta actualizados.'),
-        backgroundColor: Colors.green,
+      SnackBar(
+        content: const Text('Datos de la cuenta actualizados.'),
+        backgroundColor: context.semanticColors.success,
       ),
     );
     // Refresca el usuario en memoria para que el switch de notificaciones
@@ -149,9 +149,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
               Navigator.of(dialogContext).pop();
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Contraseña actualizada correctamente.'),
-                  backgroundColor: Colors.green,
+                SnackBar(
+                  content: const Text('Contraseña actualizada correctamente.'),
+                  backgroundColor: context.semanticColors.success,
                 ),
               );
             }

@@ -103,9 +103,9 @@ class _NegocioScreenState extends State<NegocioScreen> {
       if (!mounted) return;
       setState(() => _negocioActual = negocio);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Datos del negocio guardados.'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: const Text('Datos del negocio guardados.'),
+          backgroundColor: context.semanticColors.success,
         ),
       );
     } catch (e) {

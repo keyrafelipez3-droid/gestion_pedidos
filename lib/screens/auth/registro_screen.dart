@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
 import '../../widgets/campo_telefono.dart';
+import '../../widgets/logo_caro.dart';
 import '../legal/legal_screen.dart';
 
 /// HU-01 — Pantalla de registro para Clientes.
@@ -68,7 +69,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
       );
       return;
     }
@@ -168,8 +169,8 @@ class _PanelMarca extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                color.withValues(alpha: 0.30),
-                color.withValues(alpha: 0.72),
+                Colors.black.withValues(alpha: 0.45),
+                Colors.black.withValues(alpha: 0.80),
               ],
             ),
           ),
@@ -179,10 +180,10 @@ class _PanelMarca extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.person_add_alt_1, size: 96, color: Colors.white),
+              const LogoCaro(size: 140),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'Únete a Gestión de Pedidos',
+                'Únete a ${AppBrand.nombre}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: Colors.white,
@@ -312,6 +313,7 @@ class _Formulario extends StatelessWidget {
           TextFormField(
             controller: passwordCtrl,
             obscureText: !verPassword,
+            obscuringCharacter: '*',
             decoration: InputDecoration(
               labelText: 'Contraseña *',
               prefixIcon: const Icon(Icons.lock_outline),
@@ -330,6 +332,7 @@ class _Formulario extends StatelessWidget {
           TextFormField(
             controller: confirmarCtrl,
             obscureText: !verPassword,
+            obscuringCharacter: '*',
             decoration: const InputDecoration(
               labelText: 'Confirmar contraseña *',
               prefixIcon: Icon(Icons.lock_outline),

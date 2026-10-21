@@ -4,6 +4,7 @@ import '../../models/pedido_models.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/formato.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_iconos_pedido.dart';
@@ -63,9 +64,13 @@ class MisPedidosScreen extends StatelessWidget {
                   leading: AvatarModalidad(modalidad: p.modalidad),
                   title: Text(
                     'Pedido #${p.id.substring(0, 6)}',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: Text('${p.modalidad} · Bs ${p.total.toStringAsFixed(2)}'),
+                  subtitle: Text(
+                    '${p.modalidad} · Bs ${p.total.toStringAsFixed(2)}'
+                    '${p.fechaCreacion == null ? '' : '\n${formatoFechaHora(p.fechaCreacion!)}'}',
+                  ),
+                  isThreeLine: p.fechaCreacion != null,
                   trailing: AppStatusBadge(label: p.estado, tone: _tono(p.estado)),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => PedidoDetalleScreen(idPedido: p.id)),

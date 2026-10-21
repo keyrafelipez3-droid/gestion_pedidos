@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/carrito_models.dart';
@@ -342,6 +344,55 @@ class PedidoService {
           .orderBy('fechaCreacion', descending: true)
           .snapshots()
           .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+
+  /// Cantidad de pedidos del negocio que todavía no terminan (Pendiente,
+  /// En preparación, Listo, En camino, En el lugar). Una consulta por
+  /// estado (solo igualdades, sin índices nuevos) que se suman en vivo.
+  Stream<int> streamPedidosActivos(String idNegocio) {
+    const estados = [
+      PedidoEstado.pendiente,
+      PedidoEstado.enPreparacion,
+      PedidoEstado.listo,
+      PedidoEstado.enCamino,
+      PedidoEstado.llego,
+    ];
+    final conteos = List<int>.filled(estados.length, 0);
+    final recibidos = List<bool>.filled(estados.length, false);
+    final subs = <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
+    late final StreamController<int> ctrl;
+    // broadcast: se puede volver a escuchar después de cancelar (por ejemplo
+    // si la tarjeta del panel se quita y vuelve a aparecer) sin el error
+    // "Stream has already been listened to".
+    ctrl = StreamController<int>.broadcast(
+      onListen: () {
+        conteos.fillRange(0, conteos.length, 0);
+        recibidos.fillRange(0, recibidos.length, false);
+        for (var i = 0; i < estados.length; i++) {
+          subs.add(_pedidos
+              .where('idNegocio', isEqualTo: idNegocio)
+              .where('estado', isEqualTo: estados[i])
+              .snapshots()
+              .listen((qs) {
+            conteos[i] = qs.size;
+            recibidos[i] = true;
+            // Recién cuando las 5 consultas respondieron se publica el total
+            // (antes se veía un número parcial que luego "saltaba").
+            if (recibidos.every((r) => r)) {
+              ctrl.add(conteos.fold<int>(0, (a, b) => a + b));
+            }
+          }, onError: ctrl.addError));
+        }
+      },
+      onCancel: () async {
+        final activas = List.of(subs);
+        subs.clear();
+        for (final s in activas) {
+          await s.cancel();
+        }
+      },
+    );
+    return ctrl.stream;
+  }
 
   /// HU-30: Cocina consulta solo los pedidos pendientes/en preparación
   /// (no necesita ver los ya entregados o cancelados).

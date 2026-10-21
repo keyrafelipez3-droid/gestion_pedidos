@@ -193,9 +193,9 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
       if (!mounted) return;
       setState(() => _negocioActual = negocio);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Personalización guardada.'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: const Text('Personalización guardada.'),
+          backgroundColor: context.semanticColors.success,
         ),
       );
     } catch (e) {
