@@ -10,12 +10,14 @@ import '../../services/favoritos_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/colores.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
 import 'resenas_negocio_screen.dart';
 import '../../widgets/app_search_field.dart';
+import '../../widgets/app_status_badge.dart';
 import '../legal/info_negocio_screen.dart';
 import 'carrito_screen.dart';
 
@@ -218,6 +220,8 @@ class _SelectorSucursalCompacto extends StatelessWidget {
                 Icon(Icons.storefront_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(sucursales.first.nombre, style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(width: AppSpacing.sm),
+                _EstadoApertura(sucursal: sucursales.first),
               ],
             ),
           );
@@ -229,12 +233,38 @@ class _SelectorSucursalCompacto extends StatelessWidget {
             value: seleccionado,
             hint: const Text('Elige una sucursal'),
             items: sucursales
-                .map((s) => DropdownMenuItem(value: s.id, child: Text(s.nombre)))
+                .map((s) => DropdownMenuItem(
+                      value: s.id,
+                      child: Row(
+                        children: [
+                          Flexible(child: Text(s.nombre, overflow: TextOverflow.ellipsis)),
+                          const SizedBox(width: AppSpacing.sm),
+                          _EstadoApertura(sucursal: s),
+                        ],
+                      ),
+                    ))
                 .toList(),
             onChanged: onChanged,
           ),
         );
       },
+    );
+  }
+}
+
+/// Etiqueta "Abierto" / "Cerrado" de una sucursal según sus horarios.
+class _EstadoApertura extends StatelessWidget {
+  final SucursalModel sucursal;
+  const _EstadoApertura({required this.sucursal});
+
+  @override
+  Widget build(BuildContext context) {
+    final ap = sucursal.estadoApertura();
+    // Sin horarios configurados no se muestra nada (no hay dato que afirmar).
+    if (ap.abierta && ap.mensaje.isEmpty) return const SizedBox.shrink();
+    return AppStatusBadge(
+      label: ap.abierta ? 'Abierto' : 'Cerrado',
+      tone: ap.abierta ? AppStatusTone.success : AppStatusTone.danger,
     );
   }
 }
@@ -321,6 +351,13 @@ class _CabeceraNegocio extends StatelessWidget {
                   ),
                 ),
               ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  height: 5,
+                  color: colorDesdeHex(negocio.colorPrimario, theme.colorScheme.primary),
+                ),
+              ),
               Positioned(
                 left: AppSpacing.md,
                 right: AppSpacing.md,
@@ -333,6 +370,7 @@ class _CabeceraNegocio extends StatelessWidget {
                       negocio.nombre,
                       style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
                     ),
+                    const SizedBox(height: 2),
                     if (negocio.descripcion.isNotEmpty)
                       Text(
                         negocio.descripcion,
@@ -382,12 +420,12 @@ class _TarjetaProducto extends StatelessWidget {
                 children: [
                   Text(
                     producto.nombre,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Bs ${producto.precio.toStringAsFixed(2)}',
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   if (producto.descripcion.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -430,7 +468,7 @@ class _TarjetaProducto extends StatelessWidget {
                         child: Icon(
                           esFavorito ? Icons.favorite : Icons.favorite_border,
                           size: 18,
-                          color: esFavorito ? theme.colorScheme.primary : Colors.black87,
+                          color: esFavorito ? AppBrand.rojo : Colors.black87,
                         ),
                       ),
                     ),
@@ -440,15 +478,15 @@ class _TarjetaProducto extends StatelessWidget {
                   right: 6,
                   bottom: 6,
                   child: Material(
-                    color: Colors.white,
+                    color: theme.colorScheme.primary,
                     shape: const CircleBorder(),
                     elevation: 2,
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: onAgregar,
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.add, size: 22, color: Colors.black87),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(Icons.add, size: 22, color: theme.colorScheme.onPrimary),
                       ),
                     ),
                   ),

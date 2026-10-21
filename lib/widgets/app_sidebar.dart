@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'logo_caro.dart';
+
 /// Un ítem individual de navegación dentro del sidebar del panel de
 /// administración.
 class AppSidebarItem {
@@ -59,11 +61,7 @@ class AppSidebar extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: scheme.primaryContainer,
-                    foregroundColor: scheme.onPrimaryContainer,
-                    child: const Icon(Icons.storefront_outlined),
-                  ),
+                  const LogoCaro(size: 40),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

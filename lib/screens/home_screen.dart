@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/sesion_actual.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_status_badge.dart';
+import '../widgets/logo_caro.dart';
 import 'admin/admin_home_screen.dart';
 import 'cajero/cajero_caja_screen.dart';
 import 'cajero/cajero_mesas_screen.dart';
@@ -58,7 +59,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestión de Pedidos'),
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LogoCaro(size: 34),
+            SizedBox(width: AppSpacing.sm),
+            Text(AppBrand.nombre),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Mi cuenta',
@@ -234,9 +242,11 @@ class _AccionHome extends StatelessWidget {
     final texto = destacada ? scheme.onPrimary : scheme.onSurface;
     return Material(
       color: fondo,
-      elevation: destacada ? 3 : 1,
-      shadowColor: Colors.black.withValues(alpha: 0.25),
-      borderRadius: AppRadius.xlAll,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.xlAll,
+        side: destacada ? BorderSide.none : BorderSide(color: scheme.outlineVariant),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -249,14 +259,14 @@ class _AccionHome extends StatelessWidget {
                 padding: const EdgeInsets.all(AppSpacing.sm + 2),
                 decoration: BoxDecoration(
                   color: destacada
-                      ? Colors.white.withValues(alpha: 0.22)
+                      ? scheme.onPrimary.withValues(alpha: 0.14)
                       : scheme.primaryContainer,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   icono,
                   size: 30,
-                  color: destacada ? Colors.white : scheme.onPrimaryContainer,
+                  color: destacada ? scheme.onPrimary : scheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -265,7 +275,7 @@ class _AccionHome extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: texto,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
             ],
@@ -294,22 +304,19 @@ class _TarjetaBienvenida extends StatelessWidget {
               vertical: AppSpacing.xl,
               horizontal: AppSpacing.lg,
             ),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  scheme.primary,
-                  scheme.primary.withValues(alpha: 0.78),
-                ],
+                colors: [Color(0xFF0B0B0B), Color(0xFF2A2418)],
               ),
             ),
             child: Column(
               children: [
                 CircleAvatar(
                   radius: 36,
-                  backgroundColor: Colors.white.withValues(alpha: 0.25),
-                  foregroundColor: Colors.white,
+                  backgroundColor: scheme.primary,
+                  foregroundColor: scheme.onPrimary,
                   child: Text(
                     usuario.nombre.isNotEmpty
                         ? usuario.nombre[0].toUpperCase()
@@ -322,7 +329,7 @@ class _TarjetaBienvenida extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '¡Bienvenido/a, ${usuario.nombre}!',
+                  '¡Hola, ${usuario.nombre}!',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,

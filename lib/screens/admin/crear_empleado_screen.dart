@@ -5,6 +5,7 @@ import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/sucursal_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../theme/design_tokens.dart';
 import '../../widgets/campo_telefono.dart';
 
 /// HU-05 — Formulario para que un Administrador cree la cuenta de un
@@ -77,7 +78,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
       );
       return;
     }
@@ -85,7 +86,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Empleado "${_nombreCtrl.text.trim()}" creado.'),
-        backgroundColor: Colors.green,
+        backgroundColor: context.semanticColors.success,
       ),
     );
     Navigator.of(context).pop();

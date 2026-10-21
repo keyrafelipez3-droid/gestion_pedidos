@@ -16,10 +16,10 @@ class AppSearchField extends StatelessWidget {
     this.hint = 'Buscar...',
   });
 
-  static final _borde = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(32),
-    borderSide: BorderSide.none,
-  );
+  static OutlineInputBorder _borde(BuildContext context) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(32),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +31,8 @@ class AppSearchField extends StatelessWidget {
         hintText: hint,
         prefixIcon: const Icon(Icons.search),
         isDense: true,
-        border: _borde,
-        enabledBorder: _borde,
+        border: _borde(context),
+        enabledBorder: _borde(context),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(32),
           borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),

@@ -10,6 +10,7 @@ import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
 import '../../utils/errores.dart';
 import '../../widgets/boton_accion.dart';
+import '../../widgets/linea_estado_pedido.dart';
 import '../../widgets/mapa_seguimiento.dart';
 import 'resena_pedido_card.dart';
 import '../../widgets/app_contenido_centrado.dart';
@@ -139,7 +140,16 @@ class _Detalle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final siguiente = _siguienteEstado(pedido.estado);
+    final siguienteFlujo = _siguienteEstado(pedido.estado);
+    // Un pedido de la app (Recoger o Mesa) se cobra al entregarlo, en la
+    // caja del Cajero. Si lo marcara "Entregado" otro rol (Cocina o
+    // Administrador), el pedido quedaría entregado SIN cobro en ninguna caja.
+    final requiereCobroCajero = siguienteFlujo == PedidoEstado.entregado &&
+        pedido.origen == PedidoOrigen.cliente &&
+        pedido.modalidad != PedidoModalidad.delivery &&
+        !pedido.cobrado;
+    final soloCajeroPuede = requiereCobroCajero && !SesionActual.instancia.esCajero;
+    final siguiente = soloCajeroPuede ? null : siguienteFlujo;
 
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -161,7 +171,12 @@ class _Detalle extends StatelessWidget {
                     AppStatusBadge(label: pedido.estado, tone: _tonoEstado(pedido.estado)),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                if (pedido.estado != PedidoEstado.cancelado) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  LineaEstadoPedido(pedido: pedido),
+                  const SizedBox(height: AppSpacing.md),
+                ] else
+                  const SizedBox(height: AppSpacing.sm),
                 Text('Modalidad: ${pedido.etiquetaModalidad}'),
                 if (pedido.origen == PedidoOrigen.cajero)
                   const Text('Registrado por el Cajero'),
@@ -252,6 +267,14 @@ class _Detalle extends StatelessWidget {
             );
           },
         ),
+        if (esPersonal && soloCajeroPuede) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'El Cajero entrega este pedido y registra el cobro en su caja.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ],
         if (esPersonal && siguiente != null) ...[
           const SizedBox(height: AppSpacing.lg),
           SizedBox(

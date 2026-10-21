@@ -5,6 +5,7 @@ import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../../widgets/logo_caro.dart';
 import '../legal/legal_screen.dart';
 import 'registro_screen.dart';
 
@@ -53,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
       );
     }
     // Si no hay error, AuthGate detecta la sesión y navega solo a Home.
@@ -159,8 +160,8 @@ class _PanelMarca extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  color.withValues(alpha: 0.30),
-                  color.withValues(alpha: 0.72),
+                  Colors.black.withValues(alpha: 0.45),
+                  Colors.black.withValues(alpha: 0.80),
                 ],
               ),
             ),
@@ -171,10 +172,10 @@ class _PanelMarca extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.max,
               children: [
-                const Icon(Icons.restaurant_menu, size: 96, color: Colors.white),
+                const LogoCaro(size: 168),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Gestión de Pedidos',
+                  AppBrand.nombre,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         color: Colors.white,
@@ -247,24 +248,11 @@ class _Formulario extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (mostrarEncabezado) ...[
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.restaurant_menu,
-                  size: 48,
-                  color: scheme.onPrimaryContainer,
-                ),
-              ),
-            ),
+            const Center(child: LogoCaro(size: 104)),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Gestión de Pedidos',
-              style: Theme.of(context).textTheme.headlineSmall,
+              '${AppBrand.nombre} · ${AppBrand.eslogan}',
+              style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
