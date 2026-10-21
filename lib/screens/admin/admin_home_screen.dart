@@ -19,6 +19,7 @@ import 'clientes_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
 import 'sucursales_screen.dart';
+import 'ventas_screen.dart';
 import '../../widgets/app_cargando.dart';
 
 /// Identifica qué sección del panel está activa (un valor por ítem del
@@ -40,6 +41,7 @@ enum _SeccionAdmin {
   sucursales,
   datosNegocio,
   catalogo,
+  ventas,
   negocios,
   empleados,
   clientes,
@@ -205,6 +207,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           onTap: () =>
               ir(_SeccionAdmin.catalogo, () => const CatalogoScreen(indiceInicial: 0)),
         ),
+        AppSidebarItem(
+          icon: Icons.receipt_long_outlined,
+          label: 'Ventas',
+          selected: _seccion == _SeccionAdmin.ventas,
+          onTap: () => ir(_SeccionAdmin.ventas, () => const VentasScreen()),
+        ),
       ]),
       AppSidebarSection(title: 'Configuración', items: [
         AppSidebarItem(
@@ -245,6 +253,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return NegocioScreen(idNegocio: usuario.idNegocio!, incrustada: true);
       case _SeccionAdmin.catalogo:
         return const CatalogoScreen(indiceInicial: 0, incrustada: true);
+      case _SeccionAdmin.ventas:
+        return const VentasScreen(incrustada: true);
       case _SeccionAdmin.negocios:
         return const SuperAdminNegociosScreen(incrustada: true);
       case _SeccionAdmin.empleados:

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/carrito_models.dart';
+import '../models/mesa_model.dart';
 import '../models/pedido_models.dart';
 
 /// HU-24 a HU-31: confirmar pedido (a partir del carrito), consultarlo,
@@ -37,6 +38,7 @@ class PedidoService {
 
     final total = itemsCarrito.fold<double>(0, (acc, item) => acc + item.subtotal);
     final pedidoDoc = _pedidos.doc();
+    final numeroMesa = await _numeroDeMesa(idSucursal, idMesa);
 
     final pedido = PedidoModel(
       id: pedidoDoc.id,
@@ -45,6 +47,7 @@ class PedidoService {
       idSucursal: idSucursal,
       modalidad: modalidad,
       idMesa: idMesa,
+      numeroMesa: numeroMesa,
       direccionEntrega: direccionEntrega,
       metodoPago: metodoPago,
       comprobantePagoUrl: comprobantePagoUrl,
@@ -104,6 +107,149 @@ class PedidoService {
     return pedidoDoc.id;
   }
 
+  /// Busca el número de la mesa para guardarlo junto al pedido (así Cocina
+  /// y Cajero ven "Mesa 3" sin otra consulta). Si falla, el pedido igual se
+  /// crea, solo sin el número.
+  Future<String?> _numeroDeMesa(String idSucursal, String? idMesa) async {
+    if (idMesa == null || idMesa.isEmpty) return null;
+    try {
+      final doc = await _db
+          .collection('sucursales')
+          .doc(idSucursal)
+          .collection('mesas')
+          .doc(idMesa)
+          .get();
+      return doc.data()?['numero'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// El Cajero registra un pedido para una mesa que ya asignó a un grupo
+  /// de clientes. No hay cuenta de cliente (`idCliente` vacío): el pedido
+  /// queda a nombre del local, con `origen: cajero`, y forma parte de la
+  /// cuenta abierta de la mesa hasta que se cierre. El cobro se define al
+  /// cerrar la mesa, por eso el método queda "Por definir".
+  Future<String> registrarPedidoMesa({
+    required String idCajero,
+    required String idNegocio,
+    required String idSucursal,
+    required MesaModel mesa,
+    required List<CarritoItemModel> items,
+    String notas = '',
+  }) async {
+    if (items.isEmpty) {
+      throw Exception('Agrega al menos un producto al pedido.');
+    }
+
+    final total = items.fold<double>(0, (acc, item) => acc + item.subtotal);
+    final pedidoDoc = _pedidos.doc();
+
+    final pedido = PedidoModel(
+      id: pedidoDoc.id,
+      idCliente: '',
+      idNegocio: idNegocio,
+      idSucursal: idSucursal,
+      modalidad: PedidoModalidad.mesa,
+      idMesa: mesa.id,
+      numeroMesa: mesa.numero,
+      metodoPago: MetodoPago.porDefinir,
+      estado: PedidoEstado.pendiente,
+      total: total,
+      notas: notas,
+      origen: PedidoOrigen.cajero,
+      creadoPor: idCajero,
+      cuentaAbierta: true,
+    );
+
+    // Mismo orden en dos pasos que confirmarPedido (ver el comentario
+    // allí): primero el pedido solo, después detalle + historial.
+    await pedidoDoc.set(pedido.toMap());
+
+    final batch = _db.batch();
+    for (final item in items) {
+      final detalle = DetallePedidoModel(
+        id: '',
+        idProducto: item.idProducto,
+        nombreProducto: item.nombreProducto,
+        precioUnitario: item.precioUnitario,
+        cantidad: item.cantidad,
+        variantes: item.variantes,
+        complementos: item.complementos,
+        notas: item.notas,
+        subtotal: item.subtotal,
+      );
+      batch.set(pedidoDoc.collection('detalle').doc(), detalle.toMap());
+    }
+    final historial = HistorialEstadoModel(
+      id: '',
+      estado: PedidoEstado.pendiente,
+      idUsuarioQueCambio: idCajero,
+      comentario: 'Pedido registrado por el Cajero para la mesa ${mesa.numero}.',
+    );
+    batch.set(pedidoDoc.collection('historialEstados').doc(), historial.toMap());
+    await batch.commit();
+
+    return pedidoDoc.id;
+  }
+
+  Query<Map<String, dynamic>> _consultaCuentaMesa(String idNegocio, String idMesa) => _pedidos
+      .where('idNegocio', isEqualTo: idNegocio)
+      .where('idMesa', isEqualTo: idMesa)
+      .where('cuentaAbierta', isEqualTo: true);
+
+  /// Pedidos que el Cajero registró para una mesa y todavía no se cobraron
+  /// (la "cuenta abierta" de la mesa), del más antiguo al más nuevo.
+  Stream<List<PedidoModel>> streamCuentaMesa(String idNegocio, String idMesa) =>
+      _consultaCuentaMesa(idNegocio, idMesa).snapshots().map((qs) {
+        final lista = qs.docs.map(PedidoModel.fromSnapshot).toList();
+        lista.sort((a, b) =>
+            (a.fechaCreacion ?? DateTime(0)).compareTo(b.fechaCreacion ?? DateTime(0)));
+        return lista;
+      });
+
+  /// Cierra la cuenta de la mesa: todos sus pedidos (menos los cancelados)
+  /// quedan con el método de pago elegido y dejan de estar "abiertos".
+  /// Liberar la mesa en sí lo hace MesaService.liberarMesa.
+  Future<void> cerrarCuentaMesa({
+    required String idNegocio,
+    required String idMesa,
+    required String metodoPago,
+  }) async {
+    final qs = await _consultaCuentaMesa(idNegocio, idMesa).get();
+    if (qs.docs.isEmpty) return;
+    final batch = _db.batch();
+    for (final doc in qs.docs) {
+      final estado = doc.data()['estado'] as String? ?? '';
+      batch.update(doc.reference, {
+        'cuentaAbierta': false,
+        if (estado != PedidoEstado.cancelado) 'metodoPago': metodoPago,
+      });
+    }
+    await batch.commit();
+  }
+
+  /// HU-46: cuántas mesas de la sucursal tienen una cuenta abierta (con
+  /// algún pedido no cancelado). La caja no se puede cerrar mientras haya.
+  Future<int> contarMesasConCuentaAbierta({
+    required String idNegocio,
+    required String idSucursal,
+  }) async {
+    final qs = await _pedidos
+        .where('idNegocio', isEqualTo: idNegocio)
+        .where('idSucursal', isEqualTo: idSucursal)
+        .where('cuentaAbierta', isEqualTo: true)
+        .get();
+    final mesas = <String>{};
+    for (final doc in qs.docs) {
+      final data = doc.data();
+      if (data['estado'] == PedidoEstado.cancelado) continue;
+      final idMesa = data['idMesa'] as String?;
+      if (idMesa != null) mesas.add(idMesa);
+    }
+    return mesas.length;
+  }
+
   CollectionReference<Map<String, dynamic>> _items(String uid) =>
       _db.collection('usuarios').doc(uid).collection('carritoItems');
 
@@ -130,6 +276,25 @@ class PedidoService {
       return lista;
     });
   }
+
+  /// HU-42: ventas del negocio = pedidos Entregados con fecha dentro de
+  /// [desde, hasta) (hasta no incluido), del más reciente al más antiguo.
+  /// Requiere un índice compuesto en Firestore: idNegocio + estado +
+  /// fechaCreacion (descendente); la consola de Flutter muestra el enlace
+  /// para crearlo la primera vez.
+  Stream<List<PedidoModel>> streamVentas({
+    required String idNegocio,
+    required DateTime desde,
+    required DateTime hasta,
+  }) =>
+      _pedidos
+          .where('idNegocio', isEqualTo: idNegocio)
+          .where('estado', isEqualTo: PedidoEstado.entregado)
+          .where('fechaCreacion', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+          .where('fechaCreacion', isLessThan: Timestamp.fromDate(hasta))
+          .orderBy('fechaCreacion', descending: true)
+          .snapshots()
+          .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
 
   /// HU-30: Cocina consulta solo los pedidos pendientes/en preparación
   /// (no necesita ver los ya entregados o cancelados).

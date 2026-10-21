@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/caja_models.dart';
 import '../../models/pedido_models.dart';
+import '../../services/caja_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
@@ -147,7 +149,9 @@ class _Detalle extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Text('Modalidad: ${pedido.modalidad}'),
+                Text('Modalidad: ${pedido.etiquetaModalidad}'),
+                if (pedido.origen == PedidoOrigen.cajero)
+                  const Text('Registrado por el Cajero'),
                 Text('Método de pago: ${pedido.metodoPago}'),
                 if (pedido.direccionEntrega != null)
                   Text('Entrega en: ${pedido.direccionEntrega!['direccion'] ?? ''}'),
@@ -232,6 +236,37 @@ class _Detalle extends StatelessWidget {
             child: FilledButton(
               onPressed: () async {
                 try {
+                  // HU-46: el Cajero que entrega un pedido de un cliente lo
+                  // cobra en SU caja. Delivery lo cobra el repartidor, y los
+                  // pedidos de mesa se cobran al cerrar la mesa.
+                  final cajero =
+                      SesionActual.instancia.esCajero ? SesionActual.instancia.actual : null;
+                  CajaModel? cajaCobro;
+                  if (cajero != null &&
+                      siguiente == PedidoEstado.entregado &&
+                      pedido.origen == PedidoOrigen.cliente &&
+                      pedido.modalidad != PedidoModalidad.delivery &&
+                      !pedido.cobrado) {
+                    cajaCobro = await CajaService.instancia.cajaAbiertaActual(cajero.idUsuario);
+                    if (cajaCobro == null || cajaCobro.contada) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            cajaCobro == null
+                                ? 'Abre tu caja (Caja, en el inicio) antes de entregar este pedido.'
+                                : 'Tu caja está en cierre: ya no puedes registrar cobros.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    await CajaService.instancia.cobrarPedido(
+                      caja: cajaCobro,
+                      pedido: pedido,
+                      idUsuario: cajero.idUsuario,
+                    );
+                  }
                   await PedidoService.instancia.cambiarEstado(
                     idPedido: pedido.id,
                     nuevoEstado: siguiente,
