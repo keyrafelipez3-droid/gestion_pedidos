@@ -222,6 +222,21 @@ class AuthService {
             'antes de eliminar tu cuenta.';
       }
 
+      // 0) Reseñas escritas por el cliente: se borran (el id de la reseña
+      // es el del pedido).
+      for (final p in pedidos.docs) {
+        final idNegocio = p.data()['idNegocio'];
+        if (idNegocio is! String) continue;
+        final ref =
+            _db.collection('negocios').doc(idNegocio).collection('resenas').doc(p.id);
+        try {
+          final existente = await ref.get();
+          if (existente.exists) await ref.delete();
+        } catch (_) {
+          // Si no se puede leer o borrar una reseña, se sigue con el resto.
+        }
+      }
+
       // 1) Pedidos pasados: se quita el identificador y la dirección.
       final negocios = <String>{};
       var batch = _db.batch();

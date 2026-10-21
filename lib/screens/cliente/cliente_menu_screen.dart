@@ -14,6 +14,7 @@ import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
+import 'resenas_negocio_screen.dart';
 import '../../widgets/app_search_field.dart';
 import '../legal/info_negocio_screen.dart';
 import 'carrito_screen.dart';
@@ -55,6 +56,15 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
       appBar: AppBar(
         title: Text(widget.negocio.nombre),
         actions: [
+          IconButton(
+            tooltip: 'Reseñas',
+            icon: const Icon(Icons.star_outline_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ResenasNegocioScreen(negocio: widget.negocio),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Información del negocio',
             icon: const Icon(Icons.info_outline),

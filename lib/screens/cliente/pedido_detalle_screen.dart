@@ -9,6 +9,7 @@ import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
 import '../../widgets/mapa_seguimiento.dart';
+import 'resena_pedido_card.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_status_badge.dart';
 
@@ -178,6 +179,12 @@ class _Detalle extends StatelessWidget {
             ),
           ),
         ),
+        if (!esPersonal &&
+            pedido.estado == PedidoEstado.entregado &&
+            pedido.origen == PedidoOrigen.cliente) ...[
+          const SizedBox(height: AppSpacing.md),
+          ResenaPedidoCard(pedido: pedido),
+        ],
         if (pedido.esDelivery && pedido.enReparto) ...[
           const SizedBox(height: AppSpacing.md),
           _TarjetaRepartidor(pedido: pedido),
