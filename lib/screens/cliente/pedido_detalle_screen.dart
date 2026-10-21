@@ -10,6 +10,8 @@ import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
 import '../../utils/errores.dart';
 import '../../widgets/boton_accion.dart';
+import '../../widgets/cancelar_pedido.dart';
+import 'ticket_pedido_screen.dart';
 import '../../widgets/linea_estado_pedido.dart';
 import '../../widgets/mapa_seguimiento.dart';
 import 'resena_pedido_card.dart';
@@ -196,6 +198,21 @@ class _Detalle extends StatelessWidget {
             ),
           ),
         ),
+        if (pedido.estado == PedidoEstado.cancelado) ...[
+          const SizedBox(height: AppSpacing.md),
+          AvisoCancelacion(idPedido: pedido.id),
+        ],
+        const SizedBox(height: AppSpacing.sm),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => TicketPedidoScreen(pedido: pedido)),
+            ),
+            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            label: const Text('Ver ticket'),
+          ),
+        ),
         if (!esPersonal &&
             pedido.estado == PedidoEstado.entregado &&
             pedido.origen == PedidoOrigen.cliente) ...[
@@ -335,6 +352,27 @@ class _Detalle extends StatelessWidget {
                   );
                 }
               },
+            ),
+          ),
+        ],
+        // Cajero o Administrador: cancelar con motivo (cualquier estado que
+        // todavía no terminó, incluso En camino). Un pedido ya cobrado no
+        // se cancela aquí (el servicio lo explica).
+        if (esPersonal &&
+            puedeCancelarPedidos() &&
+            pedido.estado != PedidoEstado.entregado &&
+            pedido.estado != PedidoEstado.cancelado) ...[
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(color: Theme.of(context).colorScheme.error),
+              ),
+              onPressed: () => cancelarPedidoConMotivo(context, pedido),
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('Cancelar pedido'),
             ),
           ),
         ],

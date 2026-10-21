@@ -46,3 +46,8 @@ app.*.map.json
 
 # Archivos de trabajo generados por el asistente (no son parte de la app)
 Claude outputs/
+
+# Archivos temporales de revisión
+analyze.txt
+cambios_github.txt
+/package-lock.json

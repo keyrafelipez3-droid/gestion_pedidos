@@ -894,7 +894,7 @@ packages:
     source: hosted
     version: "15.3.0"
   web:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       name: web
       sha256: d43c1d6b787bf0afad444700ae7f4db8827f701bc61c255ac8d328c6f4d52062

@@ -62,8 +62,10 @@ class PedidoEstado {
     pendiente: [enPreparacion, cancelado],
     enPreparacion: [listo, cancelado],
     listo: [enCamino, entregado, cancelado],
-    enCamino: [llego, entregado],
-    llego: [entregado],
+    // Delivery: si el cliente no aparece o no se puede entregar, el Cajero
+    // o el Administrador también pueden cancelarlo (con motivo).
+    enCamino: [llego, entregado, cancelado],
+    llego: [entregado, cancelado],
   };
 
   static bool puedePasar(String actual, String nuevo) =>

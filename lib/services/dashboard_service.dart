@@ -31,6 +31,24 @@ class DashboardService {
       .snapshots()
       .map((qs) => qs.docs.map(CajaModel.fromSnapshot).toList());
 
+  /// Pedidos de un negocio en un estado dado, creados en [desde, hasta).
+  /// Usa el índice que ya existe (idNegocio + estado + fechaCreacion).
+  Stream<List<PedidoModel>> streamPedidosPorEstado({
+    required String idNegocio,
+    required String estado,
+    required DateTime desde,
+    required DateTime hasta,
+  }) =>
+      _db
+          .collection('pedidos')
+          .where('idNegocio', isEqualTo: idNegocio)
+          .where('estado', isEqualTo: estado)
+          .where('fechaCreacion', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+          .where('fechaCreacion', isLessThan: Timestamp.fromDate(hasta))
+          .orderBy('fechaCreacion', descending: true)
+          .snapshots()
+          .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+
   /// SuperAdmin: todos los pedidos de la plataforma creados desde [desde]
   /// (un rango sobre un solo campo: Firestore no necesita índice compuesto).
   Stream<List<PedidoModel>> streamPedidosPlataforma(DateTime desde) => _db
@@ -151,3 +169,34 @@ String textoEspera(int minutos) {
 }
 
 String bs(double v) => 'Bs ${v.toStringAsFixed(2)}';
+
+/// Valores por hora (0 a 23) de [pedidos]: suma de totales o cantidad.
+List<double> porHora(Iterable<PedidoModel> pedidos, {bool contar = false}) {
+  final v = List<double>.filled(24, 0);
+  for (final p in pedidos) {
+    final f = p.fechaCreacion;
+    if (f == null) continue;
+    v[f.hour] += contar ? 1 : p.total;
+  }
+  return v;
+}
+
+/// Valores por día entre [desde] y [hasta) (un valor por día).
+List<double> porDia(Iterable<PedidoModel> pedidos, DateTime desde, DateTime hasta, {bool contar = false}) {
+  final dias = hasta.difference(desde).inDays;
+  final v = List<double>.filled(dias < 1 ? 1 : dias, 0);
+  for (final p in pedidos) {
+    final f = p.fechaCreacion;
+    if (f == null) continue;
+    final i = inicioDelDia(f).difference(desde).inDays;
+    if (i >= 0 && i < v.length) v[i] += contar ? 1 : p.total;
+  }
+  return v;
+}
+
+String dosDigitos(int n) => n.toString().padLeft(2, '0');
+String fechaCorta(DateTime f) => '${dosDigitos(f.day)}/${dosDigitos(f.month)}';
+String horaCorta(DateTime f) => '${dosDigitos(f.hour)}:${dosDigitos(f.minute)}';
+
+/// Formato compacto para ejes: 1250 -> "1.3k".
+String compacto(double v) => v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0);

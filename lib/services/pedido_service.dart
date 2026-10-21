@@ -383,6 +383,14 @@ class PedidoService {
   Stream<int> streamPedidosActivos(String idNegocio) =>
       streamPedidosEnCurso(idNegocio).map((l) => l.length);
 
+  /// Pedidos Pendientes del negocio (para avisar al personal cuando entra
+  /// uno nuevo). Solo una igualdad por campo: no necesita índice.
+  Stream<List<PedidoModel>> streamPendientes(String idNegocio) => _pedidos
+      .where('idNegocio', isEqualTo: idNegocio)
+      .where('estado', isEqualTo: PedidoEstado.pendiente)
+      .snapshots()
+      .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+
   /// HU-30: Cocina consulta solo los pedidos pendientes/en preparación
   /// (no necesita ver los ya entregados o cancelados).
   Stream<List<PedidoModel>> streamPedidosCocina(String idNegocio) =>
@@ -576,6 +584,53 @@ class PedidoService {
         comentario: comentario,
       );
       tx.set(ref.collection('historialEstados').doc(), historial.toMap());
+    });
+  }
+
+  /// Cajero o Administrador cancelan un pedido indicando el motivo. El
+  /// motivo queda en el historial (el cliente lo ve en el detalle). Si el
+  /// pedido iba en camino, se borra la posición del repartidor. Un pedido
+  /// ya cobrado no se cancela aquí: primero hay que devolver el dinero
+  /// (egreso en caja) para que la caja cuadre.
+  Future<void> cancelarPedido({
+    required String idPedido,
+    required String motivo,
+    required String idUsuario,
+  }) async {
+    final limpio = motivo.trim();
+    if (limpio.length < 4) {
+      throw const PedidoEstadoException('Escribe el motivo de la cancelación.');
+    }
+    final ref = _pedidos.doc(idPedido);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) {
+        throw const PedidoEstadoException('El pedido ya no existe.');
+      }
+      final data = snap.data()!;
+      final actual = (data['estado'] ?? '') as String;
+      if (data['cobrado'] == true) {
+        throw const PedidoEstadoException(
+          'Este pedido ya se cobró en caja. Registra la devolución como egreso '
+          'en la caja antes de cancelarlo.',
+        );
+      }
+      _validarCambio(actual, PedidoEstado.cancelado);
+      final enReparto = actual == PedidoEstado.enCamino || actual == PedidoEstado.llego;
+      tx.update(ref, {
+        'estado': PedidoEstado.cancelado,
+        if (enReparto) 'ubicacionRepartidor': null,
+        if (enReparto) 'ubicacionActualizada': null,
+      });
+      tx.set(
+        ref.collection('historialEstados').doc(),
+        HistorialEstadoModel(
+          id: '',
+          estado: PedidoEstado.cancelado,
+          idUsuarioQueCambio: idUsuario,
+          comentario: 'Motivo: $limpio',
+        ).toMap(),
+      );
     });
   }
 

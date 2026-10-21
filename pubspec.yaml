@@ -41,6 +41,8 @@ dependencies:
   image_picker: ^1.1.2
   # Cámara dentro de la app en el navegador (foto de perfil, productos, comprobantes).
   camera: ^0.11.1
+  # Descargar reportes e imprimir tickets desde el navegador.
+  web: ^1.0.0
   http: ^1.2.2
   phone_numbers_parser: ^9.0.0
   url_launcher: ^6.3.0
@@ -76,6 +78,7 @@ flutter:
   #   - images/a_dot_ham.jpeg
   assets:
     - assets/images/
+    - assets/sonidos/
 
   # Tipografía de la marca (Poppins, licencia SIL OFL; ver assets/fonts/OFL.txt).
   # Va incluida como archivos: la app no descarga fuentes de internet.
