@@ -124,7 +124,12 @@ service cloud.firestore {
             && request.auth.uid == userId
             && cambios().hasOnly(['nombre', 'telefono', 'fotoPerfil', 'notificacionesActivas']));
 
+      // Un Cliente puede eliminar su propia cuenta (requisito de Google
+      // Play y Apple). Las cuentas del personal las elimina su Administrador.
       allow delete: if isSuperAdmin()
+        || (signedIn()
+            && request.auth.uid == userId
+            && resource.data.rol == 'Cliente')
         || (isAdmin()
             && userId != request.auth.uid
             && resource.data.get('idNegocio', null) == idNegocioActual()
@@ -300,6 +305,13 @@ service cloud.firestore {
             && request.resource.data.fechaCreacion == request.time);
 
       allow update: if isSuperAdmin()
+        // Al eliminar su cuenta, el Cliente desvincula sus pedidos pasados:
+        // solo puede quitar su identificador y su direccion de entrega.
+        || (signedIn()
+            && resource.data.idCliente == request.auth.uid
+            && cambios().hasOnly(['idCliente', 'direccionEntrega'])
+            && request.resource.data.idCliente == 'cuenta-eliminada'
+            && request.resource.data.get('direccionEntrega', null) == null)
         || (esPersonalDelNegocio()
             && resource.data.get('idNegocio', null) == idNegocioActual()
             && (

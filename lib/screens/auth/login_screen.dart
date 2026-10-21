@@ -5,6 +5,7 @@ import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../legal/legal_screen.dart';
 import 'registro_screen.dart';
 
 /// HU-02 — Pantalla de inicio de sesión.
@@ -287,7 +288,7 @@ class _Formulario extends StatelessWidget {
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
+              labelText: 'Correo electrónico *',
               prefixIcon: Icon(Icons.email_outlined),
             ),
             validator: (v) =>
@@ -299,7 +300,7 @@ class _Formulario extends StatelessWidget {
             controller: passwordCtrl,
             obscureText: !verPassword,
             decoration: InputDecoration(
-              labelText: 'Contraseña',
+              labelText: 'Contraseña *',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -335,6 +336,32 @@ class _Formulario extends StatelessWidget {
                       ),
                     ),
             child: const Text('¿No tienes cuenta? Regístrate'),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const LegalScreen(tipo: TipoTextoLegal.terminos),
+                  ),
+                ),
+                child: const Text('Términos y condiciones'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LegalScreen(
+                      tipo: TipoTextoLegal.politicaPrivacidad,
+                    ),
+                  ),
+                ),
+                child: const Text('Política de privacidad'),
+              ),
+            ],
           ),
         ],
       ),

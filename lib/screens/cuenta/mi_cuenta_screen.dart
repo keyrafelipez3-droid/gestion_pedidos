@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../models/usuario_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../widgets/app_cargando.dart';
+import '../legal/legal_screen.dart';
 
 /// HU-06 — "Como usuario, quiero modificar mis datos de cuenta, contraseña,
 /// notificaciones y preferencias."
@@ -253,6 +255,82 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     super.dispose();
   }
 
+  /// Eliminar la cuenta (solo Clientes). Pide la contraseña y explica qué
+  /// se borra y qué se conserva.
+  Future<void> _abrirDialogoEliminarCuenta() async {
+    final passCtrl = TextEditingController();
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar mi cuenta'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Esta acción no se puede deshacer.\n\n'
+                'Se borrarán tu perfil, tus direcciones, tus favoritos y tu '
+                'carrito. Tus pedidos pasados se conservan sin tu nombre ni '
+                'tu dirección, porque el negocio los necesita para su '
+                'contabilidad y reclamos. Las imágenes que subiste se borran '
+                'solo si lo pides por correo (mira la Política de privacidad).',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Tu contraseña actual *',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar definitivamente'),
+          ),
+        ],
+      ),
+    );
+    final password = passCtrl.text;
+    passCtrl.dispose();
+    if (confirmar != true || !mounted) return;
+
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribe tu contraseña para confirmar.')),
+      );
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await AuthService.instancia.eliminarCuenta(password: password);
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    // La cuenta ya no existe: se limpia la sesión y se vuelve al inicio
+    // (AuthGate muestra el login al detectar que no hay sesión).
+    SesionActual.instancia.limpiar();
+    navigator.popUntil((route) => route.isFirst);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Tu cuenta fue eliminada.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_cargando) {
@@ -348,7 +426,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           TextFormField(
                             controller: _nombreCtrl,
                             decoration: const InputDecoration(
-                              labelText: 'Nombre completo',
+                              labelText: 'Nombre completo *',
                               prefixIcon: Icon(Icons.person_outline),
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
@@ -360,7 +438,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                             controller: _telefonoCtrl,
                             keyboardType: TextInputType.phone,
                             decoration: const InputDecoration(
-                              labelText: 'Teléfono',
+                              labelText: 'Teléfono *',
                               prefixIcon: Icon(Icons.phone_outlined),
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
@@ -434,6 +512,69 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                       onChanged: _guardandoNotificaciones
                           ? null
                           : (v) => _cambiarNotificaciones(v),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  _SeccionCuenta(
+                    icono: Icons.privacy_tip_outlined,
+                    titulo: 'Privacidad y datos',
+                    child: Column(
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.policy_outlined),
+                          title: const Text('Política de privacidad'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const LegalScreen(
+                                tipo: TipoTextoLegal.politicaPrivacidad,
+                              ),
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.description_outlined),
+                          title: const Text('Términos y condiciones'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const LegalScreen(
+                                tipo: TipoTextoLegal.terminos,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (usuario.esCliente)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.delete_forever_outlined,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            title: Text(
+                              'Eliminar mi cuenta',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            subtitle: const Text(
+                              'Borra tu perfil, direcciones, favoritos y carrito',
+                            ),
+                            onTap: _abrirDialogoEliminarCuenta,
+                          )
+                        else
+                          const ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.info_outline),
+                            title: Text('Cuenta del personal'),
+                            subtitle: Text(
+                              'La cuenta la administra el Administrador de tu negocio.',
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],

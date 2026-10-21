@@ -27,6 +27,15 @@ class NegocioModel {
   // todavía no lo configuró el Administrador.
   final String qrPagoUrl;
 
+  // Datos de identificación y contacto que el Administrador completa y que
+  // el cliente ve en la ficha del negocio (razón social, NIT, dirección,
+  // correo para reclamos). Opcionales: '' = no completado.
+  final String razonSocial;
+  final String nit;
+  final String direccion;
+  final String ciudad;
+  final String correoContacto;
+
   const NegocioModel({
     required this.idNegocio,
     required this.nombre,
@@ -40,6 +49,11 @@ class NegocioModel {
     this.modoOscuro = false,
     this.estado = true,
     this.qrPagoUrl = '',
+    this.razonSocial = '',
+    this.nit = '',
+    this.direccion = '',
+    this.ciudad = '',
+    this.correoContacto = '',
   });
 
   NegocioModel copyWith({
@@ -54,6 +68,11 @@ class NegocioModel {
     bool? modoOscuro,
     bool? estado,
     String? qrPagoUrl,
+    String? razonSocial,
+    String? nit,
+    String? direccion,
+    String? ciudad,
+    String? correoContacto,
   }) {
     return NegocioModel(
       idNegocio: idNegocio,
@@ -68,6 +87,11 @@ class NegocioModel {
       modoOscuro: modoOscuro ?? this.modoOscuro,
       estado: estado ?? this.estado,
       qrPagoUrl: qrPagoUrl ?? this.qrPagoUrl,
+      razonSocial: razonSocial ?? this.razonSocial,
+      nit: nit ?? this.nit,
+      direccion: direccion ?? this.direccion,
+      ciudad: ciudad ?? this.ciudad,
+      correoContacto: correoContacto ?? this.correoContacto,
     );
   }
 
@@ -84,6 +108,11 @@ class NegocioModel {
       'modoOscuro': modoOscuro,
       'estado': estado,
       'qrPagoUrl': qrPagoUrl,
+      'razonSocial': razonSocial,
+      'nit': nit,
+      'direccion': direccion,
+      'ciudad': ciudad,
+      'correoContacto': correoContacto,
     };
   }
 
@@ -101,6 +130,11 @@ class NegocioModel {
       modoOscuro: (data['modoOscuro'] ?? false) as bool,
       estado: (data['estado'] ?? true) as bool,
       qrPagoUrl: (data['qrPagoUrl'] ?? '') as String,
+      razonSocial: (data['razonSocial'] ?? '') as String,
+      nit: (data['nit'] ?? '') as String,
+      direccion: (data['direccion'] ?? '') as String,
+      ciudad: (data['ciudad'] ?? '') as String,
+      correoContacto: (data['correoContacto'] ?? '') as String,
     );
   }
 }

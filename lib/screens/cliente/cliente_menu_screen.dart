@@ -15,6 +15,7 @@ import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_search_field.dart';
+import '../legal/info_negocio_screen.dart';
 import 'carrito_screen.dart';
 
 /// HU-16/17/18/19/20/21: menú digital de un negocio — ver, buscar,
@@ -51,7 +52,20 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.negocio.nombre)),
+      appBar: AppBar(
+        title: Text(widget.negocio.nombre),
+        actions: [
+          IconButton(
+            tooltip: 'Información del negocio',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => InfoNegocioScreen(negocio: widget.negocio),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: AppContenidoCentrado(
         maxWidth: 860,
         child: Column(
