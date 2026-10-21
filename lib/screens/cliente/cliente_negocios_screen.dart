@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/negocio_model.dart';
 import '../../services/negocio_service.dart';
+import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/colores.dart';
 import '../../widgets/app_contenido_centrado.dart';
@@ -158,7 +159,7 @@ class _TarjetaNegocioState extends State<_TarjetaNegocio> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: AppRadius.lgAll,
+            borderRadius: context.brand.card,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ClienteMenuScreen(
@@ -171,7 +172,7 @@ class _TarjetaNegocioState extends State<_TarjetaNegocio> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ClipRRect(
-                  borderRadius: AppRadius.lgAll,
+                  borderRadius: context.brand.card,
                   child: SizedBox(
                     height: 150,
                     width: double.infinity,

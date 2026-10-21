@@ -9,6 +9,7 @@ import '../../services/catalogo_service.dart';
 import '../../services/favoritos_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
+import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/colores.dart';
 import '../../widgets/app_empty_state.dart';
@@ -19,6 +20,7 @@ import 'resenas_negocio_screen.dart';
 import '../../widgets/app_search_field.dart';
 import '../../widgets/app_status_badge.dart';
 import '../legal/info_negocio_screen.dart';
+import '../../widgets/tema_negocio.dart';
 import 'carrito_screen.dart';
 
 /// HU-16/17/18/19/20/21: menú digital de un negocio — ver, buscar,
@@ -54,7 +56,9 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return TemaNegocio(
+      negocio: widget.negocio,
+      child: Scaffold(
       appBar: AppBar(
         title: Text(widget.negocio.nombre),
         actions: [
@@ -144,12 +148,12 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                     return ListView.separated(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
-                        0,
+                        AppSpacing.xs,
                         AppSpacing.md,
                         96, // deja espacio para la barra flotante del carrito
                       ),
                       itemCount: productos.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (context, i) => _TarjetaProducto(
                         producto: productos[i],
                         esFavorito: favoritos.contains(productos[i].id),
@@ -185,7 +189,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
         idSucursal: _idSucursal,
         negocio: widget.negocio,
       ),
-    );
+    ));
   }
 }
 
@@ -330,9 +334,9 @@ class _CabeceraNegocio extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 0),
       child: ClipRRect(
-        borderRadius: AppRadius.lgAll,
+        borderRadius: context.brand.card,
         child: SizedBox(
-          height: 120,
+          height: 168,
           width: double.infinity,
           child: Stack(
             fit: StackFit.expand,
@@ -347,7 +351,7 @@ class _CabeceraNegocio extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0x00000000), Color(0xB3000000)],
+                    colors: [Color(0x00000000), Color(0xCC000000)],
                   ),
                 ),
               ),
@@ -367,8 +371,8 @@ class _CabeceraNegocio extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      negocio.nombre,
-                      style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
+                      context.brand.titulo(negocio.nombre),
+                      style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 2),
                     if (negocio.descripcion.isNotEmpty)
@@ -407,25 +411,30 @@ class _TarjetaProducto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+    final brand = context.brand;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: brand.decoracionTarjeta(theme.colorScheme),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.xs, AppSpacing.md, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     producto.nombre,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Bs ${producto.precio.toStringAsFixed(2)}',
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
                   if (producto.descripcion.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -449,7 +458,7 @@ class _TarjetaProducto extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: ClipRRect(
-                    borderRadius: AppRadius.mdAll,
+                    borderRadius: brand.pequeno,
                     child: AppImagenRed(url: producto.imagenUrl),
                   ),
                 ),
@@ -479,10 +488,10 @@ class _TarjetaProducto extends StatelessWidget {
                   bottom: 6,
                   child: Material(
                     color: theme.colorScheme.primary,
-                    shape: const CircleBorder(),
+                    borderRadius: brand.pequeno,
                     elevation: 2,
                     child: InkWell(
-                      customBorder: const CircleBorder(),
+                      borderRadius: brand.pequeno,
                       onTap: onAgregar,
                       child: Padding(
                         padding: const EdgeInsets.all(6),
@@ -538,9 +547,12 @@ class _BarraCarrito extends StatelessWidget {
                   ? null
                   : () => Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => CarritoScreen(
+                          builder: (_) => TemaNegocio(
                             negocio: negocio,
-                            idSucursal: idSucursal!,
+                            child: CarritoScreen(
+                              negocio: negocio,
+                              idSucursal: idSucursal!,
+                            ),
                           ),
                         ),
                       ),

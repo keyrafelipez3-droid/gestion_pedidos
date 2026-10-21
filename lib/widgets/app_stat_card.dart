@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 
 /// Tarjeta de estadística del dashboard: ícono con insignia de color +
@@ -26,11 +27,7 @@ class AppStatCard extends StatelessWidget {
     return Container(
       width: 168,
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: scheme.outlineVariant),
-      ),
+      decoration: context.brand.decoracionTarjeta(scheme),
       child: StreamBuilder<int>(
         stream: stream,
         builder: (context, snapshot) {

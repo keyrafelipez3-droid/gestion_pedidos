@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/catalogo_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
+import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
@@ -466,7 +467,7 @@ class _BannerBienvenida extends StatelessWidget {
     final tieneImagen = bannerUrl.trim().isNotEmpty;
 
     return ClipRRect(
-      borderRadius: AppRadius.lgAll,
+      borderRadius: context.brand.card,
       child: Container(
         width: double.infinity,
         // Antes esto era `constraints: BoxConstraints(minHeight: 156)`

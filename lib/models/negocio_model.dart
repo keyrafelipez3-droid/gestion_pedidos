@@ -35,6 +35,16 @@ class NegocioModel {
   final String direccion;
   final String ciudad;
   final String correoContacto;
+  // Personalización de estilo (SuperAdmin). Todos con default seguro: un
+  // negocio viejo sin estos campos se ve "moderno / sans / redondeado".
+  /// Preset base: moderno, minimal, premium, natural, vibrante, industrial.
+  final String estiloBase;
+
+  /// Tipografía: sans, slab, serif, gruesa, redondeada, condensada.
+  final String tipografia;
+
+  /// Forma de botones y tarjetas: cuadrado, redondeado, pildora.
+  final String formaBotones;
 
   const NegocioModel({
     required this.idNegocio,
@@ -54,6 +64,9 @@ class NegocioModel {
     this.direccion = '',
     this.ciudad = '',
     this.correoContacto = '',
+    this.estiloBase = 'moderno',
+    this.tipografia = 'sans',
+    this.formaBotones = 'redondeado',
   });
 
   NegocioModel copyWith({
@@ -73,6 +86,9 @@ class NegocioModel {
     String? direccion,
     String? ciudad,
     String? correoContacto,
+    String? estiloBase,
+    String? tipografia,
+    String? formaBotones,
   }) {
     return NegocioModel(
       idNegocio: idNegocio,
@@ -92,6 +108,9 @@ class NegocioModel {
       direccion: direccion ?? this.direccion,
       ciudad: ciudad ?? this.ciudad,
       correoContacto: correoContacto ?? this.correoContacto,
+      estiloBase: estiloBase ?? this.estiloBase,
+      tipografia: tipografia ?? this.tipografia,
+      formaBotones: formaBotones ?? this.formaBotones,
     );
   }
 
@@ -113,6 +132,9 @@ class NegocioModel {
       'direccion': direccion,
       'ciudad': ciudad,
       'correoContacto': correoContacto,
+      'estiloBase': estiloBase,
+      'tipografia': tipografia,
+      'formaBotones': formaBotones,
     };
   }
 
@@ -135,6 +157,9 @@ class NegocioModel {
       direccion: (data['direccion'] ?? '') as String,
       ciudad: (data['ciudad'] ?? '') as String,
       correoContacto: (data['correoContacto'] ?? '') as String,
+      estiloBase: (data['estiloBase'] ?? 'moderno') as String,
+      tipografia: (data['tipografia'] ?? 'sans') as String,
+      formaBotones: (data['formaBotones'] ?? 'redondeado') as String,
     );
   }
 }

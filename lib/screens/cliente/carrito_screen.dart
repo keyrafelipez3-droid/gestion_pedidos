@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/tema_negocio.dart';
 import '../../models/carrito_models.dart';
 import '../../models/negocio_model.dart';
 import '../../services/carrito_service.dart';
@@ -74,10 +75,13 @@ class CarritoScreen extends StatelessWidget {
                         child: FilledButton(
                           onPressed: () => Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => CheckoutScreen(
+                              builder: (_) => TemaNegocio(
                                 negocio: negocio,
-                                idSucursal: idSucursal,
-                                items: items,
+                                child: CheckoutScreen(
+                                  negocio: negocio,
+                                  idSucursal: idSucursal,
+                                  items: items,
+                                ),
                               ),
                             ),
                           ),

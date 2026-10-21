@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
 import '../services/sesion_actual.dart';
+import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_status_badge.dart';
 import '../widgets/logo_caro.dart';
@@ -240,12 +241,16 @@ class _AccionHome extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final fondo = destacada ? scheme.primary : scheme.surfaceContainerLow;
     final texto = destacada ? scheme.onPrimary : scheme.onSurface;
+    final brand = context.brand;
     return Material(
-      color: fondo,
-      elevation: 0,
+      color: destacada ? fondo : scheme.surfaceContainerLowest,
+      elevation: brand.tarjeta == 'sombra' ? (destacada ? 4 : 2) : 0,
+      shadowColor: destacada ? brand.colorSombra.withValues(alpha: 0.35) : brand.colorSombra,
       shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.xlAll,
-        side: destacada ? BorderSide.none : BorderSide(color: scheme.outlineVariant),
+        borderRadius: brand.card,
+        side: (!destacada && brand.tarjeta == 'borde')
+            ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
+            : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -259,19 +264,21 @@ class _AccionHome extends StatelessWidget {
                 padding: const EdgeInsets.all(AppSpacing.sm + 2),
                 decoration: BoxDecoration(
                   color: destacada
-                      ? scheme.onPrimary.withValues(alpha: 0.14)
+                      ? texto.withValues(alpha: 0.18)
                       : scheme.primaryContainer,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(
+                    brand.radioPequeno > 14 ? 999 : brand.radioPequeno + 4,
+                  ),
                 ),
                 child: Icon(
                   icono,
                   size: 30,
-                  color: destacada ? scheme.onPrimary : scheme.onPrimaryContainer,
+                  color: destacada ? texto : scheme.primary,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                titulo,
+                brand.titulo(titulo),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: texto,
@@ -308,15 +315,18 @@ class _TarjetaBienvenida extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF0B0B0B), Color(0xFF2A2418)],
+                colors: [
+                  scheme.primary,
+                  Color.lerp(scheme.primary, Colors.black, 0.22)!,
+                ],
               ),
             ),
             child: Column(
               children: [
                 CircleAvatar(
                   radius: 36,
-                  backgroundColor: scheme.primary,
-                  foregroundColor: scheme.onPrimary,
+                  backgroundColor: colorSobre(scheme.primary).withValues(alpha: 0.22),
+                  foregroundColor: colorSobre(scheme.primary),
                   child: Text(
                     usuario.nombre.isNotEmpty
                         ? usuario.nombre[0].toUpperCase()
@@ -331,8 +341,7 @@ class _TarjetaBienvenida extends StatelessWidget {
                 Text(
                   '¡Hola, ${usuario.nombre}!',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                        color: colorSobre(scheme.primary),
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -340,7 +349,7 @@ class _TarjetaBienvenida extends StatelessWidget {
                 Text(
                   usuario.email,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: colorSobre(scheme.primary).withValues(alpha: 0.9),
                       ),
                 ),
               ],
