@@ -115,7 +115,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                       controller: _nombreCtrl,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
-                        labelText: 'Nombre completo',
+                        labelText: 'Nombre completo *',
                         prefixIcon: Icon(Icons.person_outline),
                         border: OutlineInputBorder(),
                       ),
@@ -129,7 +129,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                        labelText: 'Correo electrónico',
+                        labelText: 'Correo electrónico *',
                         prefixIcon: Icon(Icons.email_outlined),
                         border: OutlineInputBorder(),
                       ),
@@ -156,8 +156,9 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                     TextFormField(
                       controller: _passwordCtrl,
                       obscureText: !_verPassword,
+                      obscuringCharacter: '*',
                       decoration: InputDecoration(
-                        labelText: 'Contraseña temporal',
+                        labelText: 'Contraseña temporal *',
                         helperText:
                             'Compártela con el empleado para su primer inicio de sesión',
                         prefixIcon: const Icon(Icons.lock_outline),

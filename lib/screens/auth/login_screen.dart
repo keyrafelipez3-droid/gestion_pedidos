@@ -60,6 +60,23 @@ class _LoginScreenState extends State<LoginScreen> {
     // Si no hay error, AuthGate detecta la sesión y navega solo a Home.
   }
 
+  Future<void> _olvidePassword() async {
+    final enviado = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DialogoRecuperar(emailInicial: _emailCtrl.text.trim()),
+    );
+    if (enviado == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Si el correo tiene una cuenta, te enviamos un enlace para '
+            'restablecer la contraseña. Revisa también la carpeta de spam.',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -74,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
       cargando: _cargando,
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _iniciarSesion,
+      onOlvide: _olvidePassword,
       mostrarEncabezado: !esAmplio,
     );
 
@@ -226,6 +244,7 @@ class _Formulario extends StatelessWidget {
   final bool cargando;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
+  final VoidCallback onOlvide;
   final bool mostrarEncabezado;
 
   const _Formulario({
@@ -236,6 +255,7 @@ class _Formulario extends StatelessWidget {
     required this.cargando,
     required this.onTogglePassword,
     required this.onSubmit,
+    required this.onOlvide,
     required this.mostrarEncabezado,
   });
 
@@ -287,6 +307,7 @@ class _Formulario extends StatelessWidget {
           TextFormField(
             controller: passwordCtrl,
             obscureText: !verPassword,
+            obscuringCharacter: '*',
             decoration: InputDecoration(
               labelText: 'Contraseña *',
               prefixIcon: const Icon(Icons.lock_outline),
@@ -301,7 +322,14 @@ class _Formulario extends StatelessWidget {
                 (v == null || v.isEmpty) ? 'Ingresa tu contraseña' : null,
             onFieldSubmitted: (_) => onSubmit(),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: cargando ? null : onOlvide,
+              child: const Text('¿Olvidaste tu contraseña?'),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
 
           FilledButton(
             onPressed: cargando ? null : onSubmit,
@@ -353,6 +381,105 @@ class _Formulario extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Diálogo para pedir el correo y enviar el enlace de restablecimiento.
+class _DialogoRecuperar extends StatefulWidget {
+  final String emailInicial;
+  const _DialogoRecuperar({required this.emailInicial});
+
+  @override
+  State<_DialogoRecuperar> createState() => _DialogoRecuperarState();
+}
+
+class _DialogoRecuperarState extends State<_DialogoRecuperar> {
+  late final TextEditingController _emailCtrl;
+  final _formKey = GlobalKey<FormState>();
+  bool _enviando = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl = TextEditingController(text: widget.emailInicial);
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enviar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _enviando = true;
+      _error = null;
+    });
+    final error = await AuthService.instancia.enviarRecuperacionPassword(_emailCtrl.text);
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _enviando = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Restablecer contraseña'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.'),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico *',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Ingresa tu correo' : null,
+              onFieldSubmitted: (_) => _enviar(),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _enviando ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _enviando ? null : _enviar,
+          child: _enviando
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Enviar enlace'),
+        ),
+      ],
     );
   }
 }

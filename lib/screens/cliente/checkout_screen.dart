@@ -256,10 +256,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         idNegocio: widget.negocio.idNegocio,
         idSucursal: widget.idSucursal,
         modalidad: _modalidad,
-        idMesa: _idMesa,
-        direccionEntrega: _direccionElegida?.toSnapshotMap(),
+        // Si el cliente eligió una mesa o una dirección y después cambió de
+        // modalidad (o subió un comprobante y cambió a Efectivo), esos datos
+        // ya no corresponden y no se guardan en el pedido.
+        idMesa: _modalidad == PedidoModalidad.mesa ? _idMesa : null,
+        direccionEntrega: _modalidad == PedidoModalidad.delivery
+            ? _direccionElegida?.toSnapshotMap()
+            : null,
         metodoPago: _metodoPago,
-        comprobantePagoUrl: _comprobanteCtrl.text.isEmpty ? null : _comprobanteCtrl.text,
+        comprobantePagoUrl: _metodoPago == MetodoPago.efectivo || _comprobanteCtrl.text.trim().isEmpty
+            ? null
+            : _comprobanteCtrl.text.trim(),
         itemsCarrito: widget.items,
         notas: _notasCtrl.text.trim(),
       );

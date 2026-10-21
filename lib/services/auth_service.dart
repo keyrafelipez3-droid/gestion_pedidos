@@ -114,6 +114,22 @@ class AuthService {
 
   Future<void> cerrarSesion() => _auth.signOut();
 
+  /// Envía un correo para restablecer la contraseña. Por privacidad, si el
+  /// correo no tiene cuenta se responde igual que si la tuviera (así nadie
+  /// puede averiguar qué correos están registrados). Devuelve un mensaje de
+  /// error solo si algo falló de verdad (correo inválido, sin conexión...).
+  Future<String?> enviarRecuperacionPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      return null;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') return null;
+      return _mensajeError(e.code);
+    } catch (e) {
+      return 'Ocurrió un error inesperado. Intenta de nuevo.';
+    }
+  }
+
   /// HU-06 — Modificar nombre y teléfono del propio usuario logueado
   /// (cualquier rol: Cliente, Administrador, Cajero, Cocina, Repartidor).
   /// Usa update() en vez de set(toMap()) para no pisar campos que no se

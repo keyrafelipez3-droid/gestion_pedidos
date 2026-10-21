@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Archivos de trabajo generados por el asistente (no son parte de la app)
+Claude outputs/
