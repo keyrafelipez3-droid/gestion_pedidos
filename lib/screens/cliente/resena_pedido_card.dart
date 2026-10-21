@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/pedido_models.dart';
 import '../../models/resena_model.dart';
 import '../../services/resena_service.dart';
@@ -31,7 +32,7 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
 
   Future<void> _enviar() async {
     if (_estrellas == 0) {
-      setState(() => _error = 'Elige de 1 a 5 estrellas.');
+      setState(() => _error = tr('Elige de 1 a 5 estrellas.'));
       return;
     }
     setState(() {
@@ -46,7 +47,7 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('¡Gracias por tu reseña!')));
+          .showSnackBar(SnackBar(content: Text(tr('¡Gracias por tu reseña!'))));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -58,16 +59,16 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar mi reseña'),
-        content: const Text('Se borrará tu reseña de este pedido. ¿Continuar?'),
+        title: Text(tr('Eliminar mi reseña')),
+        content: Text(tr('Se borrará tu reseña de este pedido. ¿Continuar?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('Eliminar')),
           ),
         ],
       ),
@@ -78,7 +79,7 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('No se pudo eliminar: $e')));
+          .showSnackBar(SnackBar(content: Text(tr('No se pudo eliminar: {e}', {'e': e}))));
     }
   }
 
@@ -100,7 +101,7 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Tu reseña',
+                      Text(tr('Tu reseña'),
                           style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                       const SizedBox(height: AppSpacing.xs),
                       Estrellas(valor: resena.calificacion.toDouble()),
@@ -111,7 +112,7 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
                       if (resena.oculta) ...[
                         const SizedBox(height: AppSpacing.xs),
                         Text(
-                          'El negocio ocultó esta reseña.',
+                          tr('El negocio ocultó esta reseña.'),
                           style: textos.bodySmall?.copyWith(color: scheme.error),
                         ),
                       ],
@@ -119,14 +120,14 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
                       TextButton.icon(
                         onPressed: _eliminar,
                         icon: const Icon(Icons.delete_outline),
-                        label: const Text('Eliminar mi reseña'),
+                        label: Text(tr('Eliminar mi reseña')),
                       ),
                     ],
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('¿Cómo estuvo tu pedido?',
+                      Text(tr('¿Cómo estuvo tu pedido?'),
                           style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                       const SizedBox(height: AppSpacing.xs),
                       SelectorEstrellas(
@@ -141,9 +142,9 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
                         controller: _comentarioCtrl,
                         maxLines: 3,
                         maxLength: 500,
-                        decoration: const InputDecoration(
-                          labelText: 'Comentario (opcional)',
-                          helperText: 'Sé respetuoso: el negocio puede ocultar comentarios ofensivos.',
+                        decoration: InputDecoration(
+                          labelText: tr('Comentario (opcional)'),
+                          helperText: tr('Sé respetuoso: el negocio puede ocultar comentarios ofensivos.'),
                         ),
                       ),
                       if (_error != null) ...[
@@ -153,7 +154,7 @@ class _ResenaPedidoCardState extends State<ResenaPedidoCard> {
                       const SizedBox(height: AppSpacing.sm),
                       FilledButton(
                         onPressed: _enviando ? null : _enviar,
-                        child: Text(_enviando ? 'Enviando…' : 'Publicar reseña'),
+                        child: Text(_enviando ? tr('Enviando…') : tr('Publicar reseña')),
                       ),
                     ],
                   ),

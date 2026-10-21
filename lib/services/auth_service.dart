@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../config/app_config.dart';
+import '../l10n/idioma.dart';
 import '../models/pedido_models.dart';
 import '../models/usuario_model.dart';
+import 'dos_pasos_service.dart';
 
 /// Encapsula toda la lógica de Firebase Authentication + el documento
 /// correspondiente en la colección `usuarios` de Firestore.
@@ -78,20 +80,32 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);
     } catch (e) {
-      return 'Ocurrió un error inesperado. Intenta de nuevo.';
+      return tr('Ocurrió un error inesperado. Intenta de nuevo.');
     }
   }
 
   /// HU-02 — Inicio de sesión.
+  ///
+  /// Si la cuenta tiene verificación en dos pasos, Firebase no deja entrar
+  /// con solo la contraseña: se llama a [pedirCodigo] para pedir el código
+  /// de la app autenticadora.
   Future<String?> iniciarSesion({
     required String email,
     required String password,
+    PedirCodigo? pedirCodigo,
   }) async {
     try {
-      final credencial = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      UserCredential credencial;
+      try {
+        credencial = await _auth.signInWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
+        );
+      } on FirebaseAuthMultiFactorException catch (e) {
+        final resuelto = await DosPasosService.instancia.resolver(e.resolver, pedirCodigo);
+        if (resuelto == null) return tr('Inicio de sesión cancelado.');
+        credencial = resuelto;
+      }
 
       // Una cuenta desactivada no puede usar la app: se cierra la sesión
       // de inmediato y se avisa. (Antes entraba igual y solo fallaban
@@ -101,18 +115,34 @@ class AuthService {
         final doc = await _db.collection('usuarios').doc(uid).get();
         if (doc.exists && doc.data()?['estado'] == false) {
           await _auth.signOut();
-          return 'Tu cuenta está desactivada. Contacta al administrador.';
+          return tr('Tu cuenta está desactivada. Contacta al administrador.');
         }
       }
       return null;
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);
     } catch (e) {
-      return 'Ocurrió un error inesperado. Intenta de nuevo.';
+      return tr('Ocurrió un error inesperado. Intenta de nuevo.');
     }
   }
 
   Future<void> cerrarSesion() => _auth.signOut();
+
+  /// Vuelve a confirmar la contraseña (Firebase lo exige antes de cambios
+  /// sensibles). Si la cuenta tiene verificación en dos pasos, también
+  /// pide el código. Lanza FirebaseAuthException si algo falla.
+  Future<void> reautenticar(String password, {PedirCodigo? pedirCodigo}) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw FirebaseAuthException(code: 'no-current-user');
+    }
+    try {
+      await reautenticar(password, pedirCodigo: pedirCodigo);
+    } on FirebaseAuthMultiFactorException catch (e) {
+      final resuelto = await DosPasosService.instancia.resolver(e.resolver, pedirCodigo);
+      if (resuelto == null) throw FirebaseAuthException(code: 'cancelado');
+    }
+  }
 
   /// Envía un correo para restablecer la contraseña. Por privacidad, si el
   /// correo no tiene cuenta se responde igual que si la tuviera (así nadie
@@ -126,7 +156,7 @@ class AuthService {
       if (e.code == 'user-not-found') return null;
       return _mensajeError(e.code);
     } catch (e) {
-      return 'Ocurrió un error inesperado. Intenta de nuevo.';
+      return tr('Ocurrió un error inesperado. Intenta de nuevo.');
     }
   }
 
@@ -140,7 +170,7 @@ class AuthService {
     String? fotoPerfil,
   }) async {
     final uid = _auth.currentUser?.uid;
-    if (uid == null) return 'No hay una sesión activa.';
+    if (uid == null) return tr('No hay una sesión activa.');
     try {
       await _db.collection('usuarios').doc(uid).update({
         'nombre': nombre.trim(),
@@ -154,21 +184,21 @@ class AuthService {
       await _auth.currentUser?.updateDisplayName(nombre.trim());
       return null;
     } catch (e) {
-      return 'No se pudo actualizar el perfil. Intenta de nuevo.';
+      return tr('No se pudo actualizar el perfil. Intenta de nuevo.');
     }
   }
 
   /// HU-06 — Activar/desactivar las notificaciones del usuario.
   Future<String?> actualizarNotificaciones(bool activas) async {
     final uid = _auth.currentUser?.uid;
-    if (uid == null) return 'No hay una sesión activa.';
+    if (uid == null) return tr('No hay una sesión activa.');
     try {
       await _db.collection('usuarios').doc(uid).update({
         'notificacionesActivas': activas,
       });
       return null;
     } catch (e) {
-      return 'No se pudo guardar la preferencia. Intenta de nuevo.';
+      return tr('No se pudo guardar la preferencia. Intenta de nuevo.');
     }
   }
 
@@ -180,23 +210,20 @@ class AuthService {
   Future<String?> cambiarPassword({
     required String passwordActual,
     required String passwordNueva,
+    PedirCodigo? pedirCodigo,
   }) async {
     final user = _auth.currentUser;
     if (user == null || user.email == null) {
-      return 'No hay una sesión activa.';
+      return tr('No hay una sesión activa.');
     }
     try {
-      final credencial = EmailAuthProvider.credential(
-        email: user.email!,
-        password: passwordActual,
-      );
-      await user.reauthenticateWithCredential(credencial);
+      await reautenticar(passwordActual, pedirCodigo: pedirCodigo);
       await user.updatePassword(passwordNueva);
       return null;
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);
     } catch (e) {
-      return 'Ocurrió un error inesperado. Intenta de nuevo.';
+      return tr('Ocurrió un error inesperado. Intenta de nuevo.');
     }
   }
 
@@ -211,21 +238,19 @@ class AuthService {
   /// - Las imágenes en Cloudinary no se pueden borrar desde la app (ver la
   ///   política de privacidad).
   /// Las cuentas del personal las administra el Administrador del negocio.
-  Future<String?> eliminarCuenta({required String password}) async {
+  Future<String?> eliminarCuenta({required String password, PedirCodigo? pedirCodigo}) async {
     final user = _auth.currentUser;
     if (user == null || user.email == null) {
-      return 'No hay una sesión activa.';
+      return tr('No hay una sesión activa.');
     }
     try {
       final uid = user.uid;
       final doc = await _db.collection('usuarios').doc(uid).get();
       if (doc.data()?['rol'] != Rol.cliente) {
-        return 'Las cuentas del personal las administra el Administrador de tu negocio.';
+        return tr('Las cuentas del personal las administra el Administrador de tu negocio.');
       }
 
-      await user.reauthenticateWithCredential(
-        EmailAuthProvider.credential(email: user.email!, password: password),
-      );
+      await reautenticar(password, pedirCodigo: pedirCodigo);
 
       final pedidos =
           await _db.collection('pedidos').where('idCliente', isEqualTo: uid).get();
@@ -234,8 +259,7 @@ class AuthService {
         return estado != PedidoEstado.entregado && estado != PedidoEstado.cancelado;
       });
       if (hayEnCurso) {
-        return 'Tienes pedidos en curso. Espera a que se entreguen o cancélalos '
-            'antes de eliminar tu cuenta.';
+        return tr('Tienes pedidos en curso. Espera a que se entreguen o cancélalos antes de eliminar tu cuenta.');
       }
 
       // 0) Reseñas escritas por el cliente: se borran (el id de la reseña
@@ -311,34 +335,55 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);
     } catch (e) {
-      return 'No se pudo eliminar la cuenta. Intenta de nuevo o escribe a '
-          '${AppConfig.correoPrivacidad}.';
+      return tr('No se pudo eliminar la cuenta. Intenta de nuevo o escribe a {correoPrivacidad}.', {'correoPrivacidad': AppConfig.correoPrivacidad});
     }
   }
+
+  /// Mensaje claro para un código de error de Firebase Auth.
+  String mensajeError(String codigo) => _mensajeError(codigo);
 
   /// Traduce los códigos de error de Firebase Auth a mensajes en español.
   String _mensajeError(String codigo) {
     switch (codigo) {
+      case 'cancelado':
+        return tr('Operación cancelada.');
+      case 'multi-factor-auth-required':
+        return tr('Esta cuenta tiene verificación en dos pasos. Ingresa el código de tu app autenticadora.');
+      case 'invalid-verification-code':
+      case 'invalid-code':
+      case 'missing-code':
+      case 'code-expired':
+        return tr('Código incorrecto. Revisa que la hora de tu teléfono esté bien y usa el código más reciente.');
+      case 'unverified-email':
+        return tr('Primero verifica tu correo electrónico.');
+      case 'operation-not-allowed':
+      case 'admin-restricted-operation':
+        return tr('La verificación en dos pasos todavía no está activada en el servidor.');
+      case 'segundo-paso-no-soportado':
+        return tr('Esta cuenta usa un tipo de verificación que la app no admite. Contacta al administrador.');
+      case 'user-token-expired':
+      case 'no-current-user':
+        return tr('Tu sesión expiró. Vuelve a iniciar sesión.');
       case 'invalid-email':
-        return 'El correo ingresado no es válido.';
+        return tr('El correo ingresado no es válido.');
       case 'email-already-in-use':
-        return 'Ya existe una cuenta registrada con ese correo.';
+        return tr('Ya existe una cuenta registrada con ese correo.');
       case 'weak-password':
-        return 'La contraseña es muy débil (mínimo 6 caracteres).';
+        return tr('La contraseña es muy débil (mínimo 6 caracteres).');
       case 'user-not-found':
       case 'invalid-credential':
       case 'wrong-password':
-        return 'Correo o contraseña incorrectos.';
+        return tr('Correo o contraseña incorrectos.');
       case 'user-disabled':
-        return 'Esta cuenta fue deshabilitada. Contacta al administrador.';
+        return tr('Esta cuenta fue deshabilitada. Contacta al administrador.');
       case 'too-many-requests':
-        return 'Demasiados intentos. Espera un momento y vuelve a intentar.';
+        return tr('Demasiados intentos. Espera un momento y vuelve a intentar.');
       case 'network-request-failed':
-        return 'Sin conexión a internet. Revisa tu red.';
+        return tr('Sin conexión a internet. Revisa tu red.');
       case 'requires-recent-login':
-        return 'Por seguridad, vuelve a iniciar sesión e intenta de nuevo.';
+        return tr('Por seguridad, vuelve a iniciar sesión e intenta de nuevo.');
       default:
-        return 'Error de autenticación ($codigo).';
+        return tr('Error de autenticación ({codigo}).', {'codigo': codigo});
     }
   }
 }

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../config/app_config.dart';
+import '../l10n/idioma.dart';
 
 /// Resultado de buscar una dirección.
 class LugarEncontrado {
@@ -42,7 +43,7 @@ class GeocodificacionService {
     final resp =
         await http.get(uri, headers: _cabeceras).timeout(const Duration(seconds: 10));
     if (resp.statusCode != 200) {
-      throw Exception('El buscador no respondió (${resp.statusCode}).');
+      throw Exception(tr('El buscador no respondió ({statusCode}).', {'statusCode': resp.statusCode}));
     }
     final datos = jsonDecode(resp.body) as List<dynamic>;
     final lugares = <LugarEncontrado>[];

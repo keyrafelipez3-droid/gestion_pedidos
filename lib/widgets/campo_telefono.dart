@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/idioma.dart';
 import '../theme/design_tokens.dart';
 import '../utils/telefono.dart';
 
@@ -80,7 +81,7 @@ class _CampoTelefonoState extends State<CampoTelefono> {
             initialValue: _pais,
             isExpanded: true,
             decoration: InputDecoration(
-              labelText: 'País',
+              labelText: tr('País'),
               border: borde,
             ),
             selectedItemBuilder: (_) => [
@@ -109,8 +110,8 @@ class _CampoTelefonoState extends State<CampoTelefono> {
             ],
             decoration: InputDecoration(
               labelText: widget.obligatorio
-                  ? '${widget.etiqueta} *'
-                  : widget.etiqueta,
+                  ? '${tr(widget.etiqueta)} *'
+                  : tr(widget.etiqueta),
               prefixIcon: const Icon(Icons.phone_outlined),
               border: borde,
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/idioma.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
 import '../services/sesion_actual.dart';
@@ -13,6 +14,7 @@ import 'cajero/cajero_pedidos_screen.dart';
 import 'cliente/cliente_negocios_screen.dart';
 import 'cliente/mis_pedidos_screen.dart';
 import 'cocina/cocina_pedidos_screen.dart';
+import 'cuenta/dos_pasos_screen.dart';
 import 'cuenta/mi_cuenta_screen.dart';
 import 'repartidor/repartidor_entregas_screen.dart';
 
@@ -68,13 +70,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // El idioma solo se puede cambiar en la parte del cliente; el
+          // panel del personal se muestra siempre en español.
+          ValueListenableBuilder<UsuarioModel?>(
+            valueListenable: SesionActual.instancia.usuario,
+            builder: (context, u, _) =>
+                u == null || u.esCliente ? const BotonIdioma() : const SizedBox.shrink(),
+          ),
           IconButton(
-            tooltip: 'Mi cuenta',
+            tooltip: tr('Mi cuenta'),
             icon: const Icon(Icons.manage_accounts_outlined),
             onPressed: _abrirMiCuenta,
           ),
           IconButton(
-            tooltip: 'Cerrar sesión',
+            tooltip: tr('Cerrar sesión'),
             icon: const Icon(Icons.logout),
             onPressed: () {
               SesionActual.instancia.limpiar();
@@ -98,11 +107,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('No se pudo cargar tu perfil todavía.'),
+                  Text(tr('No se pudo cargar tu perfil todavía.')),
                   const SizedBox(height: AppSpacing.sm),
                   FilledButton(
                     onPressed: _reintentar,
-                    child: const Text('Reintentar'),
+                    child: Text(tr('Reintentar')),
                   ),
                 ],
               ),
@@ -117,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (usuario.esCliente) ...[
               _AccionHome(
                 icono: Icons.restaurant_menu_outlined,
-                titulo: 'Pedir ahora',
+                titulo: tr('Pedir ahora'),
                 destacada: true,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ClienteNegociosScreen()),
@@ -125,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _AccionHome(
                 icono: Icons.receipt_long_outlined,
-                titulo: 'Mis pedidos',
+                titulo: tr('Mis pedidos'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const MisPedidosScreen()),
                 ),
@@ -134,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (usuario.rol == Rol.cajero) ...[
               _AccionHome(
                 icono: Icons.point_of_sale_outlined,
-                titulo: 'Pedidos recibidos',
+                titulo: tr('Pedidos recibidos'),
                 destacada: true,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const CajeroPedidosScreen()),
@@ -142,14 +151,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _AccionHome(
                 icono: Icons.table_bar_outlined,
-                titulo: 'Mesas',
+                titulo: tr('Mesas'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const CajeroMesasScreen()),
                 ),
               ),
               _AccionHome(
                 icono: Icons.point_of_sale,
-                titulo: 'Caja',
+                titulo: tr('Caja'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const CajeroCajaScreen()),
                 ),
@@ -158,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (usuario.rol == Rol.cocina)
               _AccionHome(
                 icono: Icons.soup_kitchen_outlined,
-                titulo: 'Pedidos pendientes',
+                titulo: tr('Pedidos pendientes'),
                 destacada: true,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const CocinaPedidosScreen()),
@@ -167,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (usuario.rol == Rol.repartidor)
               _AccionHome(
                 icono: Icons.delivery_dining_outlined,
-                titulo: 'Mis entregas',
+                titulo: tr('Mis entregas'),
                 destacada: true,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const RepartidorEntregasScreen()),
@@ -176,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (usuario.esAdministrador || usuario.esSuperAdmin)
               _AccionHome(
                 icono: Icons.admin_panel_settings_outlined,
-                titulo: 'Panel de administración',
+                titulo: tr('Panel de administración'),
                 destacada: true,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
@@ -184,12 +193,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             _AccionHome(
               icono: Icons.manage_accounts_outlined,
-              titulo: 'Mi cuenta',
+              titulo: tr('Mi cuenta'),
               onTap: _abrirMiCuenta,
             ),
           ];
 
-          return SafeArea(
+          // El personal debe tener activa la verificación en dos pasos.
+          return PuertaDosPasos(
+            usuario: usuario,
+            child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -212,6 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+            ),
             ),
           );
         },
@@ -329,7 +342,7 @@ class _TarjetaBienvenida extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '¡Hola, ${usuario.nombre}!',
+                  tr('¡Hola, {nombre}!', {'nombre': usuario.nombre}),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -354,7 +367,7 @@ class _TarjetaBienvenida extends StatelessWidget {
                 AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
                 const SizedBox(width: AppSpacing.sm),
                 AppStatusBadge(
-                  label: 'Sesión activa',
+                  label: tr('Sesión activa'),
                   tone: AppStatusTone.success,
                 ),
               ],

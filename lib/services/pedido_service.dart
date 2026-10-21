@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/idioma.dart';
 import '../models/carrito_models.dart';
 import '../models/mesa_model.dart';
 import '../models/pedido_models.dart';
@@ -37,7 +38,7 @@ class PedidoService {
     String notas = '',
   }) async {
     if (itemsCarrito.isEmpty) {
-      throw Exception('El carrito está vacío, no se puede confirmar el pedido.');
+      throw Exception(tr('El carrito está vacío, no se puede confirmar el pedido.'));
     }
 
     await _registrarClienteEnNegocio(idNegocio: idNegocio, idCliente: idCliente);
@@ -134,7 +135,7 @@ class PedidoService {
     final snap = await ref.get();
     if (snap.exists && snap.data()?['bloqueado'] == true) {
       throw Exception(
-          'Tu cuenta no puede hacer pedidos en este negocio. Comunícate con el local.');
+          tr('Tu cuenta no puede hacer pedidos en este negocio. Comunícate con el local.'));
     }
     final usuario = SesionActual.instancia.actual;
     final nombre = usuario?.nombre ?? '';

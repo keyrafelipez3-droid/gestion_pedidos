@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../models/resena_model.dart';
 import '../../services/resena_service.dart';
@@ -19,22 +20,22 @@ class ResenasNegocioScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final textos = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text('Reseñas de ${negocio.nombre}')),
+      appBar: AppBar(title: Text(tr('Reseñas de {nombre}', {'nombre': negocio.nombre}))),
       body: StreamBuilder<List<ResenaModel>>(
         stream: ResenaService.instancia.streamVisibles(negocio.idNegocio),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('No se pudieron cargar las reseñas: ${snapshot.error}'));
+            return Center(child: Text(tr('No se pudieron cargar las reseñas: {error}', {'error': snapshot.error})));
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final resenas = snapshot.data!;
           if (resenas.isEmpty) {
-            return const AppEmptyState(
+            return AppEmptyState(
               icon: Icons.star_outline_rounded,
-              title: 'Todavía no hay reseñas',
-              message: 'Cuando los clientes califiquen sus pedidos, aparecerán acá.',
+              title: tr('Todavía no hay reseñas'),
+              message: tr('Cuando los clientes califiquen sus pedidos, aparecerán acá.'),
             );
           }
           final promedio =

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
@@ -109,6 +110,11 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
     if (esAmplio) {
       return Scaffold(
+        floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+        floatingActionButton: const Padding(
+          padding: EdgeInsets.only(top: AppSpacing.sm),
+          child: BotonIdioma(),
+        ),
         body: Row(
           children: [
             Expanded(child: _PanelMarca(color: scheme.primary)),
@@ -135,7 +141,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
-        title: const Text('Crear cuenta'),
+        title: Text(tr('Crear cuenta')),
+        actions: const [BotonIdioma(color: Colors.white)],
       ),
       body: AppPantallaFoto(
         asset: 'assets/images/comida_terraza.jpg',
@@ -183,7 +190,7 @@ class _PanelMarca extends StatelessWidget {
               const LogoCaro(size: 140),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'Únete a ${AppBrand.nombre}',
+                tr('Únete a {nombre}', {'nombre': AppBrand.nombre}),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: Colors.white,
@@ -192,7 +199,7 @@ class _PanelMarca extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Crea tu cuenta y empieza a pedir en segundos.',
+                tr('Crea tu cuenta y empieza a pedir en segundos.'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.85),
@@ -251,20 +258,20 @@ class _Formulario extends StatelessWidget {
             Icon(Icons.person_add_alt_1, size: 64, color: scheme.primary),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Regístrate',
+              tr('Regístrate'),
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
           ] else ...[
             Text(
-              'Regístrate',
+              tr('Regístrate'),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: AppSpacing.xs),
           ],
           Text(
-            'Crea tu cuenta de cliente para hacer pedidos.',
+            tr('Crea tu cuenta de cliente para hacer pedidos.'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -275,29 +282,29 @@ class _Formulario extends StatelessWidget {
           TextFormField(
             controller: nombreCtrl,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Nombre completo *',
+            decoration: InputDecoration(
+              labelText: tr('Nombre completo *'),
               prefixIcon: Icon(Icons.person_outline),
             ),
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Ingresa tu nombre' : null,
+                (v == null || v.trim().isEmpty) ? tr('Ingresa tu nombre') : null,
           ),
           const SizedBox(height: AppSpacing.md),
 
           TextFormField(
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Correo electrónico *',
+            decoration: InputDecoration(
+              labelText: tr('Correo electrónico *'),
               prefixIcon: Icon(Icons.email_outlined),
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) {
-                return 'Ingresa tu correo';
+                return tr('Ingresa tu correo');
               }
               final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
               if (!regex.hasMatch(v.trim())) {
-                return 'Correo no válido';
+                return tr('Correo no válido');
               }
               return null;
             },
@@ -315,7 +322,7 @@ class _Formulario extends StatelessWidget {
             obscureText: !verPassword,
             obscuringCharacter: '*',
             decoration: InputDecoration(
-              labelText: 'Contraseña *',
+              labelText: tr('Contraseña *'),
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -325,7 +332,7 @@ class _Formulario extends StatelessWidget {
               ),
             ),
             validator: (v) =>
-                (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                (v == null || v.length < 6) ? tr('Mínimo 6 caracteres') : null,
           ),
           const SizedBox(height: AppSpacing.md),
 
@@ -333,12 +340,12 @@ class _Formulario extends StatelessWidget {
             controller: confirmarCtrl,
             obscureText: !verPassword,
             obscuringCharacter: '*',
-            decoration: const InputDecoration(
-              labelText: 'Confirmar contraseña *',
+            decoration: InputDecoration(
+              labelText: tr('Confirmar contraseña *'),
               prefixIcon: Icon(Icons.lock_outline),
             ),
             validator: (v) => (v != passwordCtrl.text)
-                ? 'Las contraseñas no coinciden'
+                ? tr('Las contraseñas no coinciden')
                 : null,
             onFieldSubmitted: (_) => onSubmit(),
           ),
@@ -358,14 +365,14 @@ class _Formulario extends StatelessWidget {
                   child: Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text('Acepto los '),
+                      Text(tr('Acepto los ')),
                       _EnlaceLegal(
-                        texto: 'Términos y condiciones',
+                        texto: tr('Términos y condiciones'),
                         tipo: TipoTextoLegal.terminos,
                       ),
-                      const Text(' y la '),
+                      Text(tr(' y la ')),
                       _EnlaceLegal(
-                        texto: 'Política de privacidad',
+                        texto: tr('Política de privacidad'),
                         tipo: TipoTextoLegal.politicaPrivacidad,
                       ),
                       const Text(' *'),
@@ -379,7 +386,7 @@ class _Formulario extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 12, bottom: AppSpacing.xs),
               child: Text(
-                'Debes aceptar para crear tu cuenta',
+                tr('Debes aceptar para crear tu cuenta'),
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -396,13 +403,13 @@ class _Formulario extends StatelessWidget {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Crear cuenta'),
+                : Text(tr('Crear cuenta')),
           ),
           const SizedBox(height: AppSpacing.sm),
 
           TextButton(
             onPressed: cargando ? null : () => Navigator.of(context).pop(),
-            child: const Text('Ya tengo una cuenta'),
+            child: Text(tr('Ya tengo una cuenta')),
           ),
         ],
       ),

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
 import '../../widgets/logo_caro.dart';
+import '../cuenta/dos_pasos_screen.dart';
 import '../legal/legal_screen.dart';
 import 'registro_screen.dart';
 
@@ -47,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final error = await AuthService.instancia.iniciarSesion(
       email: _emailCtrl.text,
       password: _passwordCtrl.text,
+      pedirCodigo: (error) => pedirCodigoDosPasos(context, error: error),
     );
 
     if (!mounted) return;
@@ -67,10 +70,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     if (enviado == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Si el correo tiene una cuenta, te enviamos un enlace para '
-            'restablecer la contraseña. Revisa también la carpeta de spam.',
+            tr('Si el correo tiene una cuenta, te enviamos un enlace para restablecer la contraseña. Revisa también la carpeta de spam.'),
           ),
         ),
       );
@@ -97,6 +99,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (esAmplio) {
       return Scaffold(
+        floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+        floatingActionButton: const Padding(
+          padding: EdgeInsets.only(top: AppSpacing.sm),
+          child: BotonIdioma(),
+        ),
         body: Row(
           children: [
             Expanded(
@@ -126,6 +133,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Celular: foto de comida a pantalla completa con el formulario encima.
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+      floatingActionButton: const SafeArea(child: BotonIdioma(color: Colors.white)),
       body: AppPantallaFoto(
         asset: 'assets/images/fondo_movil.jpg',
         formulario: formulario,
@@ -202,7 +211,7 @@ class _PanelMarca extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Pide, gestiona y sirve todo desde un solo lugar.',
+                  tr('Pide, gestiona y sirve todo desde un solo lugar.'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withValues(alpha: 0.85),
@@ -271,20 +280,20 @@ class _Formulario extends StatelessWidget {
             const Center(child: LogoCaro(size: 104)),
             const SizedBox(height: AppSpacing.md),
             Text(
-              '${AppBrand.nombre} · ${AppBrand.eslogan}',
+              '${AppBrand.nombre} · ${tr(AppBrand.eslogan)}',
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
           ] else ...[
             Text(
-              'Bienvenido de nuevo',
+              tr('Bienvenido de nuevo'),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: AppSpacing.xs),
           ],
           Text(
-            'Inicia sesión para continuar',
+            tr('Inicia sesión para continuar'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -295,12 +304,12 @@ class _Formulario extends StatelessWidget {
           TextFormField(
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Correo electrónico *',
+            decoration: InputDecoration(
+              labelText: tr('Correo electrónico *'),
               prefixIcon: Icon(Icons.email_outlined),
             ),
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Ingresa tu correo' : null,
+                (v == null || v.trim().isEmpty) ? tr('Ingresa tu correo') : null,
           ),
           const SizedBox(height: AppSpacing.md),
 
@@ -309,7 +318,7 @@ class _Formulario extends StatelessWidget {
             obscureText: !verPassword,
             obscuringCharacter: '*',
             decoration: InputDecoration(
-              labelText: 'Contraseña *',
+              labelText: tr('Contraseña *'),
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -319,14 +328,14 @@ class _Formulario extends StatelessWidget {
               ),
             ),
             validator: (v) =>
-                (v == null || v.isEmpty) ? 'Ingresa tu contraseña' : null,
+                (v == null || v.isEmpty) ? tr('Ingresa tu contraseña') : null,
             onFieldSubmitted: (_) => onSubmit(),
           ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: cargando ? null : onOlvide,
-              child: const Text('¿Olvidaste tu contraseña?'),
+              child: Text(tr('¿Olvidaste tu contraseña?')),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -339,7 +348,7 @@ class _Formulario extends StatelessWidget {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Iniciar sesión'),
+                : Text(tr('Iniciar sesión')),
           ),
           const SizedBox(height: AppSpacing.sm),
 
@@ -351,7 +360,7 @@ class _Formulario extends StatelessWidget {
                         builder: (_) => const RegistroScreen(),
                       ),
                     ),
-            child: const Text('¿No tienes cuenta? Regístrate'),
+            child: Text(tr('¿No tienes cuenta? Regístrate')),
           ),
           const SizedBox(height: AppSpacing.xs),
 
@@ -365,7 +374,7 @@ class _Formulario extends StatelessWidget {
                         const LegalScreen(tipo: TipoTextoLegal.terminos),
                   ),
                 ),
-                child: const Text('Términos y condiciones'),
+                child: Text(tr('Términos y condiciones')),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).push(
@@ -375,7 +384,7 @@ class _Formulario extends StatelessWidget {
                     ),
                   ),
                 ),
-                child: const Text('Política de privacidad'),
+                child: Text(tr('Política de privacidad')),
               ),
             ],
           ),
@@ -433,25 +442,25 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Restablecer contraseña'),
+      title: Text(tr('Restablecer contraseña')),
       content: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.'),
+            Text(tr('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.')),
             const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Correo electrónico *',
+              decoration: InputDecoration(
+                labelText: tr('Correo electrónico *'),
                 prefixIcon: Icon(Icons.email_outlined),
               ),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Ingresa tu correo' : null,
+                  (v == null || v.trim().isEmpty) ? tr('Ingresa tu correo') : null,
               onFieldSubmitted: (_) => _enviar(),
             ),
             if (_error != null) ...[
@@ -467,7 +476,7 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
       actions: [
         TextButton(
           onPressed: _enviando ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
+          child: Text(tr('Cancelar')),
         ),
         FilledButton(
           onPressed: _enviando ? null : _enviar,
@@ -477,7 +486,7 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
                   width: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Enviar enlace'),
+              : Text(tr('Enviar enlace')),
         ),
       ],
     );

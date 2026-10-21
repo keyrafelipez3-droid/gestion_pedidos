@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/idioma.dart';
 import '../models/pedido_models.dart';
 import '../services/pedido_service.dart';
 import '../services/sesion_actual.dart';
@@ -166,11 +167,11 @@ class _AvisoCancelacionState extends State<AvisoCancelacion> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Este pedido fue cancelado',
+                      tr('Este pedido fue cancelado'),
                       style: TextStyle(color: scheme.onErrorContainer, fontWeight: FontWeight.w700),
                     ),
                     if (motivo.isNotEmpty)
-                      Text('Motivo: $motivo', style: TextStyle(color: scheme.onErrorContainer)),
+                      Text(tr('Motivo: {motivo}', {'motivo': tr(motivo)}), style: TextStyle(color: scheme.onErrorContainer)),
                   ],
                 ),
               ),

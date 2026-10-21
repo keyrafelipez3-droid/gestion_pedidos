@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../services/negocio_service.dart';
 import '../../theme/design_tokens.dart';
@@ -38,7 +39,7 @@ class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pedir ahora')),
+      appBar: AppBar(title: Text(tr('Pedir ahora'))),
       body: StreamBuilder<List<NegocioModel>>(
         stream: _negocios,
         builder: (context, snapshot) {
@@ -47,10 +48,10 @@ class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
           }
           final todos = snapshot.data!.where((n) => n.estado).toList();
           if (todos.isEmpty) {
-            return const AppEmptyState(
+            return AppEmptyState(
               icon: Icons.storefront_outlined,
-              title: 'Todavía no hay negocios disponibles',
-              message: 'Vuelve a intentarlo más tarde.',
+              title: tr('Todavía no hay negocios disponibles'),
+              message: tr('Vuelve a intentarlo más tarde.'),
             );
           }
           final q = _busqueda.trim().toLowerCase();
@@ -77,13 +78,13 @@ class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '¿Dónde quieres pedir hoy?',
+                          tr('¿Dónde quieres pedir hoy?'),
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         const SizedBox(height: AppSpacing.md),
                         AppSearchField(
                           controller: _busquedaCtrl,
-                          hint: 'Buscar un negocio',
+                          hint: tr('Buscar un negocio'),
                           onChanged: (v) => setState(() => _busqueda = v),
                         ),
                       ],
@@ -91,12 +92,12 @@ class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
                   ),
                 ),
                 if (negocios.isEmpty)
-                  const SliverFillRemaining(
+                  SliverFillRemaining(
                     hasScrollBody: false,
                     child: AppEmptyState(
                       icon: Icons.search_off,
-                      title: 'No encontramos ese negocio',
-                      message: 'Prueba con otro nombre.',
+                      title: tr('No encontramos ese negocio'),
+                      message: tr('Prueba con otro nombre.'),
                     ),
                   )
                 else

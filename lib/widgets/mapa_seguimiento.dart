@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../config/app_config.dart';
+import '../l10n/idioma.dart';
 import '../theme/design_tokens.dart';
 
 /// Mapa de seguimiento de un pedido en camino: muestra el lugar de entrega
@@ -75,7 +76,7 @@ class _MapaSeguimientoState extends State<MapaSeguimiento> {
     final puntos = _puntos;
     final scheme = Theme.of(context).colorScheme;
     if (puntos.isEmpty) {
-      return const Text('Esperando la ubicación del repartidor…');
+      return Text(tr('Esperando la ubicación del repartidor…'));
     }
 
     final opciones = puntos.length == 1
@@ -149,10 +150,10 @@ class _MapaSeguimientoState extends State<MapaSeguimiento> {
         const SizedBox(height: AppSpacing.xs),
         Text(
           widget.repartidor == null
-              ? 'Esperando la ubicación del repartidor…'
+              ? tr('Esperando la ubicación del repartidor…')
               : (widget.actualizado == null
-                  ? 'Ubicación del repartidor en vivo'
-                  : 'Ubicación actualizada a las ${_hora(widget.actualizado!)}'),
+                  ? tr('Ubicación del repartidor en vivo')
+                  : tr('Ubicación actualizada a las {actualizado}', {'actualizado': _hora(widget.actualizado!)})),
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],

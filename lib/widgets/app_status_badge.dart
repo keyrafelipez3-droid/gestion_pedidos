@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/idioma.dart';
 import '../theme/design_tokens.dart';
 
 enum AppStatusTone { success, neutral, warning, danger }
@@ -54,7 +55,7 @@ class AppStatusBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            label,
+            tr(label),
             style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12),
           ),
         ],

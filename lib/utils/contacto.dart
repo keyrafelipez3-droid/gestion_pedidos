@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/idioma.dart';
+
 /// Abre el marcador del teléfono con el número indicado. Si el dispositivo
 /// no puede hacer llamadas (por ejemplo, una computadora), muestra el número
 /// para que se pueda marcar a mano.
@@ -9,7 +11,7 @@ Future<void> llamarPorTelefono(BuildContext context, String? telefono) async {
   final mensajes = ScaffoldMessenger.of(context);
   if (numero.isEmpty) {
     mensajes.showSnackBar(
-      const SnackBar(content: Text('No hay un teléfono registrado para llamar.')),
+      SnackBar(content: Text(tr('No hay un teléfono registrado para llamar.'))),
     );
     return;
   }
@@ -21,7 +23,7 @@ Future<void> llamarPorTelefono(BuildContext context, String? telefono) async {
   }
   if (!abierto) {
     mensajes.showSnackBar(
-      SnackBar(content: Text('No se pudo abrir el teléfono. Número: $numero')),
+      SnackBar(content: Text(tr('No se pudo abrir el teléfono. Número: {numero}', {'numero': numero}))),
     );
   }
 }
@@ -39,7 +41,7 @@ Future<void> abrirEnMapas(
   final mensajes = ScaffoldMessenger.of(context);
   if (texto.isEmpty) {
     mensajes.showSnackBar(
-      const SnackBar(content: Text('El pedido no tiene dirección de entrega.')),
+      SnackBar(content: Text(tr('El pedido no tiene dirección de entrega.'))),
     );
     return;
   }
@@ -55,7 +57,7 @@ Future<void> abrirEnMapas(
   }
   if (!abierto) {
     mensajes.showSnackBar(
-      const SnackBar(content: Text('No se pudo abrir el mapa.')),
+      SnackBar(content: Text(tr('No se pudo abrir el mapa.'))),
     );
   }
 }

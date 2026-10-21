@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../models/pedido_models.dart';
 import '../../models/sucursal_model.dart';
@@ -56,8 +57,8 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final ok = await imprimirHtml(_html(d));
     if (!ok) {
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Permite las ventanas emergentes del sitio para imprimir el ticket.'),
+      messenger.showSnackBar(SnackBar(
+        content: Text(tr('Permite las ventanas emergentes del sitio para imprimir el ticket.')),
       ));
     }
   }
@@ -65,12 +66,12 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Ticket #${widget.pedido.id.substring(0, 6)}')),
+      appBar: AppBar(title: Text(tr('Ticket #{id}', {'id': widget.pedido.id.substring(0, 6)}))),
       body: FutureBuilder<_DatosTicket>(
         future: _datos,
         builder: (context, s) {
           if (s.hasError) {
-            return const Center(child: Text('No se pudo cargar el ticket. Intenta de nuevo.'));
+            return Center(child: Text(tr('No se pudo cargar el ticket. Intenta de nuevo.')));
           }
           if (!s.hasData) return const Center(child: CircularProgressIndicator());
           final d = s.data!;
@@ -85,12 +86,12 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
                     child: FilledButton.icon(
                       onPressed: () => _imprimir(d),
                       icon: const Icon(Icons.print_outlined),
-                      label: const Text('Imprimir / Guardar PDF'),
+                      label: Text(tr('Imprimir / Guardar PDF')),
                     ),
                   )
                 else
                   Text(
-                    'Para imprimir o guardar en PDF, abre este ticket desde la versión web.',
+                    tr('Para imprimir o guardar en PDF, abre este ticket desde la versión web.'),
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
@@ -115,12 +116,12 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
       final extras = [...i.variantes, ...i.complementos].map((o) => o.nombre).join(', ');
       filas.write('<tr><td>${i.cantidad} x ${esc(i.nombreProducto)}'
           '${extras.isEmpty ? '' : '<div class="extra">${esc(extras)}</div>'}'
-          '${i.notas.isEmpty ? '' : '<div class="extra">Nota: ${esc(i.notas)}</div>'}'
+          '${i.notas.isEmpty ? '' : '<div class="extra">${esc(tr('Nota: {notas}', {'notas': i.notas}))}</div>'}'
           '</td><td class="der">Bs ${i.subtotal.toStringAsFixed(2)}</td></tr>');
     }
     final n = d.negocio;
     final logo = n.logoUrl.trim().isEmpty ? '' : '<img class="logo" src="${esc(n.logoUrl.trim())}" alt="">';
-    return '''<!doctype html><html lang="es"><head><meta charset="utf-8">
+    return '''<!doctype html><html lang="${IdiomaController.instancia.codigo.value}"><head><meta charset="utf-8">
 <title>Ticket ${esc(p.id.substring(0, 6))}</title>
 <style>
   body{font-family:Poppins,Arial,sans-serif;color:#1a1200;margin:0;padding:24px;}
@@ -137,24 +138,24 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   <div class="centro">$logo
     <h1>${esc(n.nombre)}</h1>
     ${n.razonSocial.isEmpty ? '' : '<p class="gris">${esc(n.razonSocial)}</p>'}
-    ${n.nit.isEmpty ? '' : '<p class="gris">NIT: ${esc(n.nit)}</p>'}
+    ${n.nit.isEmpty ? '' : '<p class="gris">${esc(tr('NIT: {nit}', {'nit': n.nit}))}</p>'}
     ${d.sucursal == null ? '' : '<p class="gris">${esc(d.sucursal!.nombre)} · ${esc(d.sucursal!.direccion)}</p>'}
-    ${n.telefono.isEmpty ? '' : '<p class="gris">Tel. ${esc(n.telefono)}</p>'}
+    ${n.telefono.isEmpty ? '' : '<p class="gris">${esc(tr('Tel. {telefono}', {'telefono': n.telefono}))}</p>'}
   </div>
   <hr>
-  <p class="gris">Pedido: <b>#${esc(p.id.substring(0, 6))}</b></p>
-  <p class="gris">Fecha: ${_fecha(p.fechaCreacion)}</p>
-  <p class="gris">Modalidad: ${esc(p.etiquetaModalidad)}</p>
-  ${p.nombreCliente == null ? '' : '<p class="gris">Cliente: ${esc(p.nombreCliente!)}</p>'}
+  <p class="gris"><b>${esc(tr('Pedido #{id}', {'id': p.id.substring(0, 6)}))}</b></p>
+  <p class="gris">${esc(tr('Fecha: {fechaCreacion}', {'fechaCreacion': _fecha(p.fechaCreacion)}))}</p>
+  <p class="gris">${esc(tr('Modalidad: {etiquetaModalidad}', {'etiquetaModalidad': p.etiquetaModalidad}))}</p>
+  ${p.nombreCliente == null ? '' : '<p class="gris">${esc(tr('Cliente: {nombreCliente}', {'nombreCliente': p.nombreCliente}))}</p>'}
   <hr>
   <table>$filas
-    <tr class="total"><td>TOTAL</td><td class="der">Bs ${p.total.toStringAsFixed(2)}</td></tr>
+    <tr class="total"><td>${esc(tr('TOTAL'))}</td><td class="der">Bs ${p.total.toStringAsFixed(2)}</td></tr>
   </table>
   <hr>
-  <p class="gris">Pago: ${esc(p.metodoPago)}${p.cobrado ? ' · Cobrado' : ''}</p>
-  <p class="gris">Estado: ${esc(p.estado)}</p>
+  <p class="gris">${esc(tr('Pago: {metodo}', {'metodo': tr(p.metodoPago)}))}${p.cobrado ? ' · ${esc(tr('Cobrado'))}' : ''}</p>
+  <p class="gris">${esc(tr('Estado: {estado}', {'estado': tr(p.estado)}))}</p>
   <hr>
-  <p class="centro gris">¡Gracias por tu compra!<br>Comprobante de pedido · no válido como factura.</p>
+  <p class="centro gris">${esc(tr('¡Gracias por tu compra!'))}<br>${esc(tr('Comprobante de pedido · no válido como factura.'))}</p>
 </div></body></html>''';
   }
 }
@@ -214,15 +215,15 @@ class _Recibo extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(n.nombre, textAlign: TextAlign.center, style: t(texto.titleLarge)?.copyWith(fontWeight: FontWeight.w700)),
             if (n.razonSocial.isNotEmpty) Text(n.razonSocial, textAlign: TextAlign.center, style: gris),
-            if (n.nit.isNotEmpty) Text('NIT: ${n.nit}', textAlign: TextAlign.center, style: gris),
+            if (n.nit.isNotEmpty) Text(tr('NIT: {nit}', {'nit': n.nit}), textAlign: TextAlign.center, style: gris),
             if (datos.sucursal != null)
               Text('${datos.sucursal!.nombre} · ${datos.sucursal!.direccion}', textAlign: TextAlign.center, style: gris),
-            if (n.telefono.isNotEmpty) Text('Tel. ${n.telefono}', textAlign: TextAlign.center, style: gris),
+            if (n.telefono.isNotEmpty) Text(tr('Tel. {telefono}', {'telefono': n.telefono}), textAlign: TextAlign.center, style: gris),
             linea(),
-            Text('Pedido #${pedido.id.substring(0, 6)}', style: t(texto.bodyMedium)?.copyWith(fontWeight: FontWeight.w700)),
-            Text('Fecha: ${fecha(pedido.fechaCreacion)}', style: gris),
-            Text('Modalidad: ${pedido.etiquetaModalidad}', style: gris),
-            if (pedido.nombreCliente != null) Text('Cliente: ${pedido.nombreCliente}', style: gris),
+            Text(tr('Pedido #{id}', {'id': pedido.id.substring(0, 6)}), style: t(texto.bodyMedium)?.copyWith(fontWeight: FontWeight.w700)),
+            Text(tr('Fecha: {fechaCreacion}', {'fechaCreacion': fecha(pedido.fechaCreacion)}), style: gris),
+            Text(tr('Modalidad: {etiquetaModalidad}', {'etiquetaModalidad': pedido.etiquetaModalidad}), style: gris),
+            if (pedido.nombreCliente != null) Text(tr('Cliente: {nombreCliente}', {'nombreCliente': pedido.nombreCliente}), style: gris),
             linea(),
             for (final i in datos.detalle)
               Padding(
@@ -240,24 +241,24 @@ class _Recibo extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text('Bs ${i.subtotal.toStringAsFixed(2)}', style: t(texto.bodyMedium)),
+                    Text(tr('Bs {subtotal}', {'subtotal': i.subtotal.toStringAsFixed(2)}), style: t(texto.bodyMedium)),
                   ],
                 ),
               ),
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
-                Expanded(child: Text('TOTAL', style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800))),
-                Text('Bs ${pedido.total.toStringAsFixed(2)}',
+                Expanded(child: Text(tr('TOTAL'), style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800))),
+                Text(tr('Bs {total}', {'total': pedido.total.toStringAsFixed(2)}),
                     style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800)),
               ],
             ),
             linea(),
-            Text('Pago: ${pedido.metodoPago}${pedido.cobrado ? ' · Cobrado' : ''}', style: gris),
-            Text('Estado: ${pedido.estado}', style: gris),
+            Text('${tr('Pago: {metodo}', {'metodo': tr(pedido.metodoPago)})}${pedido.cobrado ? ' · ${tr('Cobrado')}' : ''}', style: gris),
+            Text(tr('Estado: {estado}', {'estado': tr(pedido.estado)}), style: gris),
             linea(),
-            Text('¡Gracias por tu compra!', textAlign: TextAlign.center, style: t(texto.bodyMedium)),
-            Text('Comprobante de pedido · no válido como factura.', textAlign: TextAlign.center, style: gris),
+            Text(tr('¡Gracias por tu compra!'), textAlign: TextAlign.center, style: t(texto.bodyMedium)),
+            Text(tr('Comprobante de pedido · no válido como factura.'), textAlign: TextAlign.center, style: gris),
           ],
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../l10n/idioma.dart';
 import '../services/storage_service.dart';
 import '../theme/design_tokens.dart';
 import 'captura_camara.dart';
@@ -77,7 +78,7 @@ class _SelectorImagenState extends State<SelectorImagen> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'No se pudo abrir el selector de archivos.');
+      setState(() => _error = tr('No se pudo abrir el selector de archivos.'));
       return;
     }
     if (archivo == null) return;
@@ -104,7 +105,7 @@ class _SelectorImagenState extends State<SelectorImagen> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'No se pudo abrir la cámara. Revisa que la app tenga permiso.');
+      setState(() => _error = tr('No se pudo abrir la cámara. Revisa que la app tenga permiso.'));
       return;
     }
     if (bytes == null) return; // canceló
@@ -132,7 +133,7 @@ class _SelectorImagenState extends State<SelectorImagen> {
       if (!mounted) return;
       setState(() {
         _subiendo = false;
-        _error = 'No se pudo subir la imagen. Intenta de nuevo.';
+        _error = tr('No se pudo subir la imagen. Intenta de nuevo.');
       });
     }
   }
@@ -183,13 +184,13 @@ class _SelectorImagenState extends State<SelectorImagen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (_subiendo)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
                       child: Row(
                         children: [
                           SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                           SizedBox(width: AppSpacing.sm),
-                          Text('Subiendo imagen...'),
+                          Text(tr('Subiendo imagen...')),
                         ],
                       ),
                     )
@@ -201,13 +202,13 @@ class _SelectorImagenState extends State<SelectorImagen> {
                         OutlinedButton.icon(
                           onPressed: _elegirDeGaleria,
                           icon: const Icon(Icons.upload_outlined, size: 18),
-                          label: const Text('Subir imagen'),
+                          label: Text(tr('Subir imagen')),
                         ),
                         if (_camaraDisponible)
                           OutlinedButton.icon(
                             onPressed: _tomarFoto,
                             icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                            label: const Text('Tomar foto'),
+                            label: Text(tr('Tomar foto')),
                           ),
                       ],
                     ),
@@ -224,16 +225,15 @@ class _SelectorImagenState extends State<SelectorImagen> {
                   const SizedBox(height: AppSpacing.xs),
                   TextField(
                     controller: widget.controller,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'O pega un link',
+                      labelText: tr('O pega un link'),
                       // El link tiene que ser el archivo de imagen en sí
                       // (ej. termina en .jpg/.png), no la página que lo
                       // muestra — un link de Pinterest, Google Imágenes o
                       // Instagram apunta a una página, no a la imagen, y
                       // no se puede mostrar aquí.
-                      helperText: 'Debe ser el link directo a la imagen, '
-                          'no el de una página que la contiene',
+                      helperText: tr('Debe ser el link directo a la imagen, no el de una página que la contiene'),
                       helperMaxLines: 2,
                     ),
                     onChanged: (_) => setState(() {}),

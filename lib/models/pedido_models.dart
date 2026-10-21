@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/idioma.dart';
 import 'carrito_models.dart' show OpcionSeleccionada;
 
 class PedidoModalidad {
@@ -165,9 +166,9 @@ class PedidoModel {
   String get etiquetaModalidad {
     final n = numeroMesa;
     if (modalidad == PedidoModalidad.mesa && n != null && n.isNotEmpty) {
-      return 'Mesa $n';
+      return tr('Mesa {numero}', {'numero': n});
     }
-    return modalidad;
+    return tr(modalidad);
   }
 
   Map<String, dynamic> toMap() => {

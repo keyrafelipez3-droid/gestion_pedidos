@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/caja_models.dart';
 import '../../models/pedido_models.dart';
 import '../../services/caja_service.dart';
@@ -9,14 +10,14 @@ import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
 import '../../utils/errores.dart';
+import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_status_badge.dart';
 import '../../widgets/boton_accion.dart';
 import '../../widgets/cancelar_pedido.dart';
-import 'ticket_pedido_screen.dart';
 import '../../widgets/linea_estado_pedido.dart';
 import '../../widgets/mapa_seguimiento.dart';
 import 'resena_pedido_card.dart';
-import '../../widgets/app_contenido_centrado.dart';
-import '../../widgets/app_status_badge.dart';
+import 'ticket_pedido_screen.dart';
 
 /// HU-28: el Cliente consulta el detalle de su pedido.
 ///
@@ -33,7 +34,7 @@ class PedidoDetalleScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalle del pedido')),
+      appBar: AppBar(title: Text(tr('Detalle del pedido'))),
       body: AppContenidoCentrado(
         child: esPersonal
             ? _DetalleViaNegocio(idPedido: idPedido, esPersonal: esPersonal)
@@ -63,7 +64,7 @@ class _DetalleViaCliente extends StatelessWidget {
         }
         final pedido = snapshot.data!.where((p) => p.id == idPedido).toList();
         if (pedido.isEmpty) {
-          return const Center(child: Text('No se encontró el pedido.'));
+          return Center(child: Text(tr('No se encontró el pedido.')));
         }
         return _Detalle(pedido: pedido.first, esPersonal: esPersonal);
       },
@@ -83,7 +84,7 @@ class _DetalleViaNegocio extends StatelessWidget {
   Widget build(BuildContext context) {
     final idNegocio = SesionActual.instancia.idNegocio;
     if (idNegocio == null) {
-      return const Center(child: Text('No se pudo identificar el negocio.'));
+      return Center(child: Text(tr('No se pudo identificar el negocio.')));
     }
     return StreamBuilder<List<PedidoModel>>(
       stream: PedidoService.instancia.streamPedidosNegocio(idNegocio),
@@ -93,7 +94,7 @@ class _DetalleViaNegocio extends StatelessWidget {
         }
         final pedido = snapshot.data!.where((p) => p.id == idPedido).toList();
         if (pedido.isEmpty) {
-          return const Center(child: Text('No se encontró el pedido.'));
+          return Center(child: Text(tr('No se encontró el pedido.')));
         }
         return _Detalle(pedido: pedido.first, esPersonal: esPersonal);
       },
@@ -165,7 +166,7 @@ class _Detalle extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Pedido #${pedido.id.substring(0, 6)}',
+                    Text(tr('Pedido #{id}', {'id': pedido.id.substring(0, 6)}),
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -179,16 +180,16 @@ class _Detalle extends StatelessWidget {
                   const SizedBox(height: AppSpacing.md),
                 ] else
                   const SizedBox(height: AppSpacing.sm),
-                Text('Modalidad: ${pedido.etiquetaModalidad}'),
+                Text(tr('Modalidad: {etiquetaModalidad}', {'etiquetaModalidad': pedido.etiquetaModalidad})),
                 if (pedido.origen == PedidoOrigen.cajero)
-                  const Text('Registrado por el Cajero'),
-                Text('Método de pago: ${pedido.metodoPago}'),
+                  Text(tr('Registrado por el Cajero')),
+                Text(tr('Método de pago: {metodoPago}', {'metodoPago': tr(pedido.metodoPago)})),
                 if (pedido.direccionEntrega != null)
-                  Text('Entrega en: ${pedido.direccionEntrega!['direccion'] ?? ''}'),
-                if (pedido.notas.isNotEmpty) Text('Nota: ${pedido.notas}'),
+                  Text(tr('Entrega en: {direccion}', {'direccion': pedido.direccionEntrega!['direccion'] ?? ''})),
+                if (pedido.notas.isNotEmpty) Text(tr('Nota: {notas}', {'notas': pedido.notas})),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Total: Bs ${pedido.total.toStringAsFixed(2)}',
+                  tr('Total: Bs {total}', {'total': pedido.total.toStringAsFixed(2)}),
                   style: Theme.of(context)
                       .textTheme
                       .titleLarge
@@ -210,7 +211,7 @@ class _Detalle extends StatelessWidget {
               MaterialPageRoute(builder: (_) => TicketPedidoScreen(pedido: pedido)),
             ),
             icon: const Icon(Icons.receipt_long_outlined, size: 18),
-            label: const Text('Ver ticket'),
+            label: Text(tr('Ver ticket')),
           ),
         ),
         if (!esPersonal &&
@@ -224,7 +225,7 @@ class _Detalle extends StatelessWidget {
           _TarjetaRepartidor(pedido: pedido),
         ],
         const SizedBox(height: AppSpacing.md),
-        Text('Productos',
+        Text(tr('Productos'),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: AppSpacing.sm),
         StreamBuilder<List<DetallePedidoModel>>(
@@ -254,7 +255,7 @@ class _Detalle extends StatelessWidget {
                                       .map((o) => o.nombre)
                                       .join(', '),
                                 ),
-                          trailing: Text('Bs ${i.subtotal.toStringAsFixed(2)}'),
+                          trailing: Text(tr('Bs {subtotal}', {'subtotal': i.subtotal.toStringAsFixed(2)})),
                         ),
                       ))
                   .toList(),
@@ -262,7 +263,7 @@ class _Detalle extends StatelessWidget {
           },
         ),
         const SizedBox(height: AppSpacing.md),
-        Text('Historial',
+        Text(tr('Historial'),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: AppSpacing.sm),
         StreamBuilder<List<HistorialEstadoModel>>(
@@ -277,8 +278,8 @@ class _Detalle extends StatelessWidget {
                           size: 20,
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        title: Text(h.estado),
-                        subtitle: h.comentario.isEmpty ? null : Text(h.comentario),
+                        title: Text(tr(h.estado)),
+                        subtitle: h.comentario.isEmpty ? null : Text(trComentario(h.comentario)),
                       ))
                   .toList(),
             );
@@ -287,7 +288,7 @@ class _Detalle extends StatelessWidget {
         if (esPersonal && soloCajeroPuede) ...[
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'El Cajero entrega este pedido y registra el cobro en su caja.',
+            tr('El Cajero entrega este pedido y registra el cobro en su caja.'),
             textAlign: TextAlign.center,
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
@@ -298,7 +299,7 @@ class _Detalle extends StatelessWidget {
             width: double.infinity,
             child: BotonAccion(
               expandido: true,
-              texto: 'Marcar como "$siguiente"',
+              texto: tr('Marcar como "{siguiente}"', {'siguiente': siguiente}),
               onPressed: () async {
                 try {
                   // Antes de cobrar, confirma que el pedido sigue en el
@@ -322,8 +323,8 @@ class _Detalle extends StatelessWidget {
                         SnackBar(
                           content: Text(
                             cajaCobro == null
-                                ? 'Abre tu caja (Caja, en el inicio) antes de entregar este pedido.'
-                                : 'Tu caja está en cierre: ya no puedes registrar cobros.',
+                                ? tr('Abre tu caja (Caja, en el inicio) antes de entregar este pedido.')
+                                : tr('Tu caja está en cierre: ya no puedes registrar cobros.'),
                           ),
                         ),
                       );
@@ -343,7 +344,7 @@ class _Detalle extends StatelessWidget {
                   );
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Estado actualizado a "$siguiente".')),
+                    SnackBar(content: Text(tr('Estado actualizado a "{siguiente}".', {'siguiente': siguiente}))),
                   );
                 } catch (e) {
                   if (!context.mounted) return;
@@ -372,7 +373,7 @@ class _Detalle extends StatelessWidget {
               ),
               onPressed: () => cancelarPedidoConMotivo(context, pedido),
               icon: const Icon(Icons.cancel_outlined),
-              label: const Text('Cancelar pedido'),
+              label: Text(tr('Cancelar pedido')),
             ),
           ),
         ],
@@ -399,7 +400,7 @@ class _TarjetaRepartidor extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final llego = pedido.estado == PedidoEstado.llego;
     final nombre = (pedido.nombreRepartidor ?? '').isEmpty
-        ? 'Tu repartidor'
+        ? tr('Tu repartidor')
         : pedido.nombreRepartidor!;
     return Card(
       color: llego ? scheme.primaryContainer : null,
@@ -417,7 +418,7 @@ class _TarjetaRepartidor extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    llego ? '¡$nombre ya llegó!' : '$nombre va en camino',
+                    llego ? tr('¡{nombre} ya llegó!', {'nombre': nombre}) : tr('{nombre} va en camino', {'nombre': nombre}),
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
@@ -429,10 +430,8 @@ class _TarjetaRepartidor extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(
               llego
-                  ? 'Está en el lugar de entrega. Sal a recibir tu pedido o '
-                      'llámalo si no lo ves.'
-                  : 'Tu pedido ya salió. Puedes llamarlo si necesitas darle '
-                      'alguna indicación.',
+                  ? tr('Está en el lugar de entrega. Sal a recibir tu pedido o llámalo si no lo ves.')
+                  : tr('Tu pedido ya salió. Puedes llamarlo si necesitas darle alguna indicación.'),
             ),
             const SizedBox(height: AppSpacing.sm),
             MapaSeguimiento(
@@ -446,7 +445,7 @@ class _TarjetaRepartidor extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => llamarPorTelefono(context, pedido.telefonoRepartidor),
               icon: const Icon(Icons.call_outlined),
-              label: const Text('Llamar al repartidor'),
+              label: Text(tr('Llamar al repartidor')),
             ),
           ],
         ),
