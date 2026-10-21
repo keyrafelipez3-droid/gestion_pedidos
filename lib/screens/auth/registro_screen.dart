@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../../widgets/campo_telefono.dart';
 import '../legal/legal_screen.dart';
 
 /// HU-01 — Pantalla de registro para Clientes.
@@ -302,16 +303,9 @@ class _Formulario extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
 
-          TextFormField(
+          CampoTelefono(
             controller: telefonoCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Teléfono *',
-              prefixIcon: Icon(Icons.phone_outlined),
-            ),
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Ingresa tu teléfono'
-                : null,
+            obligatorio: true,
           ),
           const SizedBox(height: AppSpacing.md),
 
