@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../models/caja_models.dart';
 import '../../models/pedido_models.dart';
@@ -7,6 +8,7 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
+import '../../widgets/mapa_seguimiento.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_status_badge.dart';
 
@@ -283,6 +285,7 @@ class _Detalle extends StatelessWidget {
                     idPedido: pedido.id,
                     nuevoEstado: siguiente,
                     idUsuarioQueCambio: SesionActual.instancia.actual?.idUsuario ?? '',
+                    limpiarUbicacion: pedido.enReparto,
                   );
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -302,6 +305,12 @@ class _Detalle extends StatelessWidget {
       ],
     );
   }
+}
+
+LatLng? _destino(PedidoModel pedido) {
+  final lat = (pedido.direccionEntrega?['latitud'] as num?)?.toDouble();
+  final lng = (pedido.direccionEntrega?['longitud'] as num?)?.toDouble();
+  return (lat != null && lng != null) ? LatLng(lat, lng) : null;
 }
 
 /// Datos del repartidor mientras el pedido está en camino: nombre, aviso de
@@ -350,6 +359,14 @@ class _TarjetaRepartidor extends StatelessWidget {
                       'llámalo si no lo ves.'
                   : 'Tu pedido ya salió. Puedes llamarlo si necesitas darle '
                       'alguna indicación.',
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            MapaSeguimiento(
+              destino: _destino(pedido),
+              repartidor: (pedido.latRepartidor != null && pedido.lngRepartidor != null)
+                  ? LatLng(pedido.latRepartidor!, pedido.lngRepartidor!)
+                  : null,
+              actualizado: pedido.ubicacionActualizada,
             ),
             const SizedBox(height: AppSpacing.sm),
             OutlinedButton.icon(

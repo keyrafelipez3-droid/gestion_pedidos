@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../models/pedido_models.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../services/ubicacion_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
 import '../../widgets/app_empty_state.dart';
@@ -52,6 +56,7 @@ class RepartidorEntregasScreen extends StatelessWidget {
                     vacioTitulo: 'No tienes entregas en curso',
                     vacioMensaje: 'Toma un pedido de la pestaña "Disponibles" para empezar.',
                     disponible: false,
+                    compartirUbicacion: true,
                   ),
                 ],
               ),
@@ -66,11 +71,16 @@ class _ListaEntregas extends StatelessWidget {
   final String vacioMensaje;
   final bool disponible;
 
+  /// Si es true, mientras haya entregas en la lista se comparte la ubicación
+  /// del repartidor con el cliente de cada pedido.
+  final bool compartirUbicacion;
+
   const _ListaEntregas({
     required this.stream,
     required this.vacioTitulo,
     required this.vacioMensaje,
     required this.disponible,
+    this.compartirUbicacion = false,
   });
 
   @override
@@ -92,7 +102,7 @@ class _ListaEntregas extends StatelessWidget {
             message: vacioMensaje,
           );
         }
-        return ListView.separated(
+        final lista = ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.md),
           itemCount: pedidos.length,
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
@@ -101,6 +111,13 @@ class _ListaEntregas extends StatelessWidget {
             pedido: pedidos[i],
             disponible: disponible,
           ),
+        );
+        if (!compartirUbicacion) return lista;
+        return Column(
+          children: [
+            _RastreoUbicacion(idPedidos: pedidos.map((p) => p.id).toList()),
+            Expanded(child: lista),
+          ],
         );
       },
     );
@@ -284,6 +301,117 @@ class _Linea extends StatelessWidget {
           Icon(icono, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(texto)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Comparte la posición del repartidor con el cliente mientras tenga
+/// entregas en curso. Pide permiso al dispositivo, avisa que se está
+/// compartiendo y se detiene solo cuando ya no quedan entregas (o al salir
+/// de la pantalla). La posición se borra del pedido al entregarlo.
+class _RastreoUbicacion extends StatefulWidget {
+  final List<String> idPedidos;
+
+  const _RastreoUbicacion({required this.idPedidos});
+
+  @override
+  State<_RastreoUbicacion> createState() => _RastreoUbicacionState();
+}
+
+class _RastreoUbicacionState extends State<_RastreoUbicacion> {
+  StreamSubscription<LatLng>? _suscripcion;
+  DateTime _ultimaEscritura = DateTime.fromMillisecondsSinceEpoch(0);
+  String? _aviso;
+  bool _compartiendo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _iniciar();
+  }
+
+  @override
+  void dispose() {
+    _suscripcion?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _iniciar() async {
+    try {
+      await UbicacionService.instancia.asegurarPermiso();
+      final inicial = await UbicacionService.instancia.obtenerPosicionActual();
+      if (!mounted) return;
+      _enviar(inicial, forzar: true);
+      _suscripcion = UbicacionService.instancia.seguirPosicion().listen(
+            _enviar,
+            onError: (_) {
+              if (mounted) {
+                setState(() {
+                  _compartiendo = false;
+                  _aviso = 'Se perdió la señal de ubicación.';
+                });
+              }
+            },
+          );
+      if (mounted) setState(() => _compartiendo = true);
+    } on UbicacionException catch (e) {
+      if (mounted) {
+        setState(() {
+          _compartiendo = false;
+          _aviso = e.mensaje;
+        });
+      }
+    }
+  }
+
+  void _enviar(LatLng punto, {bool forzar = false}) {
+    // Máximo una escritura cada 8 segundos, para no gastar de más.
+    final ahora = DateTime.now();
+    if (!forzar && ahora.difference(_ultimaEscritura) < const Duration(seconds: 8)) return;
+    _ultimaEscritura = ahora;
+    for (final id in widget.idPedidos) {
+      PedidoService.instancia
+          .actualizarUbicacionRepartidor(
+            idPedido: id,
+            latitud: punto.latitude,
+            longitud: punto.longitude,
+          )
+          .catchError((_) {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final ok = _compartiendo && _aviso == null;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: ok ? scheme.primaryContainer : scheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            ok ? Icons.my_location : Icons.location_off_outlined,
+            size: 20,
+            color: ok ? scheme.onPrimaryContainer : scheme.onErrorContainer,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              ok
+                  ? 'Compartiendo tu ubicación con el cliente mientras tengas entregas en curso. Deja esta pantalla abierta.'
+                  : (_aviso ?? 'Activando ubicación…'),
+              style: TextStyle(
+                color: ok ? scheme.onPrimaryContainer : scheme.onErrorContainer,
+              ),
+            ),
+          ),
         ],
       ),
     );

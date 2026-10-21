@@ -459,7 +459,12 @@ class PedidoService {
     required String idPedido,
     required String idRepartidor,
   }) async {
-    await _pedidos.doc(idPedido).update({'estado': PedidoEstado.entregado});
+    // Al entregar se borra la posición del repartidor (ya no hace falta).
+    await _pedidos.doc(idPedido).update({
+      'estado': PedidoEstado.entregado,
+      'ubicacionRepartidor': null,
+      'ubicacionActualizada': null,
+    });
     await _registrarHistorial(
       idPedido,
       PedidoEstado.entregado,
@@ -467,6 +472,19 @@ class PedidoService {
       'Pedido entregado por el repartidor.',
     );
   }
+
+  /// Guarda la posición actual del repartidor en el pedido para que el
+  /// cliente la vea en el mapa. Solo se usa mientras el pedido está en
+  /// camino; se borra al entregarlo.
+  Future<void> actualizarUbicacionRepartidor({
+    required String idPedido,
+    required double latitud,
+    required double longitud,
+  }) =>
+      _pedidos.doc(idPedido).update({
+        'ubicacionRepartidor': GeoPoint(latitud, longitud),
+        'ubicacionActualizada': FieldValue.serverTimestamp(),
+      });
 
   Future<void> _registrarHistorial(
     String idPedido,
@@ -491,9 +509,15 @@ class PedidoService {
     required String nuevoEstado,
     required String idUsuarioQueCambio,
     String comentario = '',
+    bool limpiarUbicacion = false,
   }) async {
     final batch = _db.batch();
-    batch.update(_pedidos.doc(idPedido), {'estado': nuevoEstado});
+    batch.update(_pedidos.doc(idPedido), {
+      'estado': nuevoEstado,
+      // Si el pedido iba en camino, se borra la posición del repartidor.
+      if (limpiarUbicacion) 'ubicacionRepartidor': null,
+      if (limpiarUbicacion) 'ubicacionActualizada': null,
+    });
     final historial = HistorialEstadoModel(
       id: '',
       estado: nuevoEstado,
