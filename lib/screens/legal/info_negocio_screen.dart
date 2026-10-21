@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../theme/design_tokens.dart';
 
@@ -17,22 +18,22 @@ class InfoNegocioScreen extends StatelessWidget {
 
     final filas = <(IconData, String, String)>[
       if (negocio.razonSocial.isNotEmpty)
-        (Icons.business_outlined, 'Razón social', negocio.razonSocial),
-      if (negocio.nit.isNotEmpty) (Icons.badge_outlined, 'NIT', negocio.nit),
+        (Icons.business_outlined, tr('Razón social'), negocio.razonSocial),
+      if (negocio.nit.isNotEmpty) (Icons.badge_outlined, tr('NIT'), negocio.nit),
       if (negocio.direccion.isNotEmpty || negocio.ciudad.isNotEmpty)
         (
           Icons.place_outlined,
-          'Dirección',
+          tr('Dirección'),
           [negocio.direccion, negocio.ciudad].where((e) => e.isNotEmpty).join(', ')
         ),
       if (negocio.telefono.isNotEmpty)
-        (Icons.phone_outlined, 'Teléfono', negocio.telefono),
+        (Icons.phone_outlined, tr('Teléfono'), negocio.telefono),
       if (negocio.correoContacto.isNotEmpty)
-        (Icons.email_outlined, 'Correo de contacto', negocio.correoContacto),
+        (Icons.email_outlined, tr('Correo de contacto'), negocio.correoContacto),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Información del negocio')),
+      appBar: AppBar(title: Text(tr('Información del negocio'))),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -48,7 +49,7 @@ class InfoNegocioScreen extends StatelessWidget {
                 const SizedBox(height: AppSpacing.lg),
                 if (filas.isEmpty)
                   Text(
-                    'Este negocio todavía no completó sus datos de contacto.',
+                    tr('Este negocio todavía no completó sus datos de contacto.'),
                     style: textos.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                   )
                 else
@@ -65,12 +66,10 @@ class InfoNegocioScreen extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: AppSpacing.lg),
-                Text('¿Tienes un reclamo?', style: textos.titleMedium),
+                Text(tr('¿Tienes un reclamo?'), style: textos.titleMedium),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Puedes presentarlo directamente a este negocio, de forma '
-                  'verbal o escrita y sin formalidades, usando los datos de '
-                  'contacto de arriba.',
+                  tr('Puedes presentarlo directamente a este negocio, de forma verbal o escrita y sin formalidades, usando los datos de contacto de arriba.'),
                   style: textos.bodyMedium,
                 ),
               ],

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/idioma.dart';
+
 /// Campo de búsqueda reutilizable para encabezados de listas
 /// (Sucursales, Productos, Clientes, etc.). Filtra en el cliente sobre
 /// los datos que ya trae el stream — no agrega ninguna consulta nueva a
@@ -28,7 +30,7 @@ class AppSearchField extends StatelessWidget {
       onChanged: onChanged,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: tr(hint),
         prefixIcon: const Icon(Icons.search),
         isDense: true,
         border: _borde(context),

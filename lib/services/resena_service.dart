@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/idioma.dart';
 import '../models/pedido_models.dart';
 import '../models/resena_model.dart';
 import '../utils/moderacion.dart';
@@ -54,17 +55,17 @@ class ResenaService {
     required String comentario,
   }) async {
     final usuario = SesionActual.instancia.actual;
-    if (usuario == null) throw Exception('Inicia sesión para escribir una reseña.');
+    if (usuario == null) throw Exception(tr('Inicia sesión para escribir una reseña.'));
     if (calificacion < 1 || calificacion > 5) {
-      throw Exception('Elige de 1 a 5 estrellas.');
+      throw Exception(tr('Elige de 1 a 5 estrellas.'));
     }
     final texto = comentario.trim();
     if (texto.length > 500) {
-      throw Exception('El comentario es muy largo (máximo 500 letras).');
+      throw Exception(tr('El comentario es muy largo (máximo 500 letras).'));
     }
     if (Moderacion.contieneLenguajeInapropiado(texto)) {
       throw Exception(
-          'Tu comentario tiene lenguaje no permitido. Reescríbelo con respeto y vuelve a intentar.');
+          tr('Tu comentario tiene lenguaje no permitido. Reescríbelo con respeto y vuelve a intentar.'));
     }
     try {
       await _resenas(pedido.idNegocio).doc(pedido.id).set({
@@ -80,7 +81,7 @@ class ResenaService {
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         throw Exception(
-            'No puedes dejar una reseña en este negocio. Si crees que es un error, comunícate con el local.');
+            tr('No puedes dejar una reseña en este negocio. Si crees que es un error, comunícate con el local.'));
       }
       rethrow;
     }

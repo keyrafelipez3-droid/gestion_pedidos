@@ -5,6 +5,7 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/aviso_pedidos_nuevos.dart';
 import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
 import '../cliente/pedido_detalle_screen.dart';
@@ -72,7 +73,9 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
       ),
       body: idNegocio == null
           ? const Center(child: Text('No se pudo identificar tu negocio.'))
-          : StreamBuilder<List<PedidoModel>>(
+          : AvisoPedidosNuevos(
+              idNegocio: idNegocio,
+              child: StreamBuilder<List<PedidoModel>>(
               stream: PedidoService.instancia.streamPedidosNegocio(idNegocio),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
@@ -125,6 +128,7 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
                   }).toList(),
                 );
               },
+            ),
             ),
     );
   }

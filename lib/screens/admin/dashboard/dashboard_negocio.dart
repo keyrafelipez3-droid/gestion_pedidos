@@ -13,19 +13,22 @@ import '../../../services/pedido_service.dart';
 import '../../../services/resena_service.dart';
 import '../../../services/sucursal_service.dart';
 import '../../../theme/design_tokens.dart';
-import '../../../widgets/app_metrica_card.dart';
+import '../../../utils/reporte_csv.dart';
+import '../../../widgets/app_status_badge.dart';
+import '../../cliente/pedido_detalle_screen.dart';
 import 'dashboard_comun.dart';
+import 'dashboard_graficos.dart';
 
 /// Panel del Administrador: lo importante del negocio en una sola pantalla,
 /// calculado con los datos reales de Firestore.
 ///
-/// - Hoy: ventas, pedidos entregados, ticket promedio, pedidos en curso y
-///   cajas abiertas.
-/// - Últimos 7 días: ventas por día (comparadas con la semana anterior),
-///   productos más vendidos, métodos de pago y modalidades.
-/// - Operación: pedidos en curso por estado y los que más esperan, cajas
-///   abiertas, reseñas y alertas (productos agotados, sucursales cerradas,
-///   clientes bloqueados).
+/// - Selector de periodo (Hoy / 7 días / 30 días): todos los indicadores
+///   se comparan con el periodo anterior de la misma duración.
+/// - Indicadores: ventas, pedidos entregados, ticket promedio,
+///   cancelaciones, pedidos en curso y cajas abiertas.
+/// - Evolución de ventas, horas pico, productos más vendidos, métodos de
+///   pago y modalidad, últimos pedidos, caja, reseñas y alertas.
+/// - Exportar las ventas del periodo a Excel (CSV).
 ///
 /// "Ventas" = pedidos Entregados (igual que el historial de ventas).
 class DashboardNegocio extends StatefulWidget {
@@ -37,11 +40,16 @@ class DashboardNegocio extends StatefulWidget {
 }
 
 class _DashboardNegocioState extends State<DashboardNegocio> {
-  // Las consultas compartidas se abren UNA vez y viven en la raíz del
-  // panel (nunca se quitan del árbol), para no repetir lecturas.
+  PeriodoDashboard _periodo = PeriodoDashboard.semana;
+
+  // Las consultas se abren UNA vez (60 días: el periodo más largo y su
+  // anterior) y viven en la raíz del panel; cambiar de periodo solo
+  // recalcula en memoria, sin volver a leer Firestore.
   late Stream<List<PedidoModel>> _ventas;
+  late Stream<List<PedidoModel>> _cancelados;
   late Stream<List<PedidoModel>> _enCurso;
   late Stream<List<CajaModel>> _cajas;
+  late Stream<List<SucursalModel>> _sucursales;
   late DateTime _hoy;
 
   @override
@@ -58,15 +66,22 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
 
   void _abrir() {
     _hoy = inicioDelDia(DateTime.now());
-    // 14 días: esta semana + la anterior (para comparar). Usa el índice que
-    // ya existe (idNegocio + estado + fechaCreacion).
+    final desde = _hoy.subtract(const Duration(days: 59));
+    final hasta = _hoy.add(const Duration(days: 1));
     _ventas = PedidoService.instancia.streamVentas(
       idNegocio: widget.idNegocio,
-      desde: _hoy.subtract(const Duration(days: 13)),
-      hasta: _hoy.add(const Duration(days: 1)),
+      desde: desde,
+      hasta: hasta,
+    );
+    _cancelados = DashboardService.instancia.streamPedidosPorEstado(
+      idNegocio: widget.idNegocio,
+      estado: PedidoEstado.cancelado,
+      desde: desde,
+      hasta: hasta,
     );
     _enCurso = PedidoService.instancia.streamPedidosEnCurso(widget.idNegocio);
     _cajas = DashboardService.instancia.streamCajasAbiertas(widget.idNegocio);
+    _sucursales = SucursalService.instancia.streamSucursales(widget.idNegocio);
   }
 
   @override
@@ -74,10 +89,16 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
     return StreamBuilder<List<PedidoModel>>(
       stream: _ventas,
       builder: (context, sVentas) => StreamBuilder<List<PedidoModel>>(
-        stream: _enCurso,
-        builder: (context, sCurso) => StreamBuilder<List<CajaModel>>(
-          stream: _cajas,
-          builder: (context, sCajas) => _contenido(context, sVentas, sCurso, sCajas),
+        stream: _cancelados,
+        builder: (context, sCanc) => StreamBuilder<List<PedidoModel>>(
+          stream: _enCurso,
+          builder: (context, sCurso) => StreamBuilder<List<CajaModel>>(
+            stream: _cajas,
+            builder: (context, sCajas) => StreamBuilder<List<SucursalModel>>(
+              stream: _sucursales,
+              builder: (context, sSuc) => _contenido(context, sVentas, sCanc, sCurso, sCajas, sSuc),
+            ),
+          ),
         ),
       ),
     );
@@ -86,75 +107,148 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
   Widget _contenido(
     BuildContext context,
     AsyncSnapshot<List<PedidoModel>> sVentas,
+    AsyncSnapshot<List<PedidoModel>> sCanc,
     AsyncSnapshot<List<PedidoModel>> sCurso,
     AsyncSnapshot<List<CajaModel>> sCajas,
+    AsyncSnapshot<List<SucursalModel>> sSuc,
   ) {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semanticColors;
     final texto = Theme.of(context).textTheme;
 
-    final ventas = sVentas.data;
+    final (desde, hasta) = _periodo.rango(_hoy);
+    final (desdeAnt, hastaAnt) = _periodo.rangoAnterior(_hoy);
+
+    final todas = sVentas.data;
+    final ventas = todas == null ? null : pedidosEntre(todas, desde, hasta);
+    final ventasAnt = todas == null ? null : pedidosEntre(todas, desdeAnt, hastaAnt);
+    final cancelados = sCanc.data == null ? null : pedidosEntre(sCanc.data!, desde, hasta);
+    final canceladosAnt = sCanc.data == null ? null : pedidosEntre(sCanc.data!, desdeAnt, hastaAnt);
     final enCurso = sCurso.data;
     final cajas = sCajas.data;
+    final nombresSucursal = {for (final s in sSuc.data ?? const <SucursalModel>[]) s.id: s.nombre};
 
     // ----------------------------------------------------------- cálculos
-    final ventasHoy = ventas == null ? null : pedidosDelDia(ventas, _hoy);
-    final totalHoy = ventasHoy == null ? null : sumarTotales(ventasHoy);
-    final ticketHoy = (ventasHoy == null || ventasHoy.isEmpty)
-        ? (ventasHoy == null ? null : 0.0)
-        : redondearDinero(totalHoy! / ventasHoy.length);
+    final total = ventas == null ? null : sumarTotales(ventas);
+    final totalAnt = ventasAnt == null ? null : sumarTotales(ventasAnt);
+    final ticket = (ventas == null || ventas.isEmpty) ? (ventas == null ? null : 0.0) : total! / ventas.length;
+    final ticketAnt = (ventasAnt == null || ventasAnt.isEmpty) ? null : totalAnt! / ventasAnt.length;
+    final totalPedidos = (ventas?.length ?? 0) + (cancelados?.length ?? 0);
+    final tasaCanc = (cancelados == null || totalPedidos == 0) ? null : cancelados.length / totalPedidos * 100;
 
-    final inicioSemana = _hoy.subtract(const Duration(days: 6));
-    final semana = ventas == null
-        ? null
-        : pedidosEntre(ventas, inicioSemana, _hoy.add(const Duration(days: 1)));
-    final semanaAnterior = ventas == null
-        ? null
-        : pedidosEntre(ventas, _hoy.subtract(const Duration(days: 13)), inicioSemana);
+    // Series para minigráficos y el gráfico principal: por hora (Hoy) o por día.
+    final esHoy = _periodo == PeriodoDashboard.hoy;
+    final serieVentas = ventas == null ? null : (esHoy ? porHora(ventas) : porDia(ventas, desde, hasta));
+    final seriePedidos =
+        ventas == null ? null : (esHoy ? porHora(ventas, contar: true) : porDia(ventas, desde, hasta, contar: true));
+
+    String nombreArchivo() =>
+        'ventas_${_periodo.name}_${_hoy.year}-${dosDigitos(_hoy.month)}-${dosDigitos(_hoy.day)}.csv';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Hoy', style: texto.titleMedium),
+        // ----------------------------------------------------- cabecera
+        Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.sm,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Resumen del negocio', style: texto.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  esHoy
+                      ? 'Hoy, ${fechaCorta(_hoy)} · comparado con ${_periodo.comparacion}'
+                      : '${fechaCorta(desde)} al ${fechaCorta(_hoy)} · comparado con ${_periodo.comparacion}',
+                  style: texto.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SelectorPeriodo(valor: _periodo, onChanged: (p) => setState(() => _periodo = p)),
+                OutlinedButton.icon(
+                  onPressed: ventas == null
+                      ? null
+                      : () => exportarCsv(
+                            context,
+                            nombreArchivo(),
+                            csvVentas(ventas, nombresSucursal: nombresSucursal),
+                          ),
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text('Exportar'),
+                ),
+              ],
+            ),
+          ],
+        ),
         const SizedBox(height: AppSpacing.md),
-        if (sVentas.hasError)
+        if (sVentas.hasError || sCanc.hasError)
           const TextoError(
-            'No se pudieron cargar las ventas. Revisa la conexión o que el índice '
-            'de Firestore (firestore.indexes.json) esté publicado.',
+            'No se pudieron cargar las ventas. Revisa la conexión o que los índices '
+            'de Firestore estén publicados.',
           ),
+
+        // ------------------------------------------------------- KPIs
         Wrap(
           spacing: AppSpacing.md,
           runSpacing: AppSpacing.md,
           children: [
-            AppMetricaCard(
-              icon: Icons.payments_outlined,
+            KpiCard(
+              icono: Icons.payments_outlined,
               color: semantic.success,
-              etiqueta: 'Ventas de hoy',
-              valor: totalHoy == null ? null : bs(totalHoy),
+              etiqueta: 'Ventas',
+              valor: total == null ? null : bs(total),
+              variacion: (total == null || totalAnt == null) ? null : variacionPorcentual(total, totalAnt),
               detalle: 'Pedidos entregados',
+              serie: serieVentas,
             ),
-            AppMetricaCard(
-              icon: Icons.check_circle_outline,
+            KpiCard(
+              icono: Icons.check_circle_outline,
               color: scheme.primary,
-              etiqueta: 'Entregados hoy',
-              valor: ventasHoy == null ? null : '${ventasHoy.length}',
+              etiqueta: 'Pedidos entregados',
+              valor: ventas == null ? null : '${ventas.length}',
+              variacion: (ventas == null || ventasAnt == null)
+                  ? null
+                  : variacionPorcentual(ventas.length.toDouble(), ventasAnt.length.toDouble()),
+              detalle: esHoy ? 'Hoy' : 'Promedio ${(ventas?.length ?? 0) ~/ _periodo.dias} por día',
+              serie: seriePedidos,
             ),
-            AppMetricaCard(
-              icon: Icons.receipt_outlined,
+            KpiCard(
+              icono: Icons.receipt_outlined,
               color: semantic.info,
               etiqueta: 'Ticket promedio',
-              valor: ticketHoy == null ? null : bs(ticketHoy),
-              detalle: 'Por pedido, hoy',
+              valor: ticket == null ? null : bs(redondearDinero(ticket)),
+              variacion: (ticket == null || ticketAnt == null) ? null : variacionPorcentual(ticket, ticketAnt),
+              detalle: 'Gasto promedio por pedido',
             ),
-            AppMetricaCard(
-              icon: Icons.local_fire_department_outlined,
+            KpiCard(
+              icono: Icons.cancel_outlined,
+              color: scheme.error,
+              etiqueta: 'Cancelados',
+              valor: cancelados == null ? null : '${cancelados.length}',
+              variacion: (cancelados == null || canceladosAnt == null)
+                  ? null
+                  : variacionPorcentual(cancelados.length.toDouble(), canceladosAnt.length.toDouble()),
+              subirEsMalo: true,
+              detalle: tasaCanc == null ? 'Sin pedidos en el periodo' : '${tasaCanc.toStringAsFixed(1)}% de los pedidos',
+            ),
+            KpiCard(
+              icono: Icons.local_fire_department_outlined,
               color: AppBrand.rojo,
-              etiqueta: 'Pedidos en curso',
+              etiqueta: 'En curso ahora',
               valor: enCurso == null ? null : '${enCurso.length}',
-              detalle: 'Sin terminar ahora',
+              detalle: 'Pedidos sin terminar',
             ),
-            AppMetricaCard(
-              icon: Icons.point_of_sale_outlined,
+            KpiCard(
+              icono: Icons.point_of_sale_outlined,
               color: semantic.warning,
               etiqueta: 'Cajas abiertas',
               valor: cajas == null ? null : '${cajas.length}',
@@ -163,12 +257,27 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
+
+        // --------------------------------------------- evolución de ventas
+        PanelDashboard(
+          titulo: esHoy ? 'Ventas de hoy por hora' : 'Evolución de las ventas',
+          icono: Icons.show_chart_rounded,
+          subtitulo: ventas == null
+              ? null
+              : '${ventas.length} pedidos entregados · ${bs(total ?? 0)} · pasa el mouse sobre el gráfico para ver cada valor',
+          child: serieVentas == null
+              ? const CargandoSeccion()
+              : _graficoVentas(serieVentas, desde, esHoy),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
         GrillaDashboard(
           children: [
-            _PanelVentasSemana(semana: semana, semanaAnterior: semanaAnterior, hoy: _hoy),
+            _PanelHorasPico(ventas: ventas),
             _PanelEnCurso(enCurso: enCurso, error: sCurso.hasError),
-            _PanelTopProductos(entregados: semana),
-            _PanelPagosYModalidad(semana: semana),
+            _PanelTopProductos(entregados: ventas, periodo: _periodo),
+            _PanelPagosYModalidad(ventas: ventas, periodo: _periodo),
+            _PanelUltimosPedidos(enCurso: enCurso, todas: todas, cancelados: sCanc.data),
             _PanelCajas(cajas: cajas, error: sCajas.hasError),
             _PanelResenas(idNegocio: widget.idNegocio),
             _PanelAlertas(idNegocio: widget.idNegocio, enCurso: enCurso),
@@ -177,83 +286,92 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
       ],
     );
   }
+
+  Widget _graficoVentas(List<double> serie, DateTime desde, bool esHoy) {
+    if (esHoy) {
+      // Solo el tramo del día con actividad (o 08–22 si todavía no hay ventas).
+      var primera = serie.indexWhere((v) => v > 0);
+      var ultima = serie.lastIndexWhere((v) => v > 0);
+      final ahora = DateTime.now().hour;
+      if (primera < 0) {
+        primera = 8;
+        ultima = 22;
+      }
+      primera = primera.clamp(0, 23).toInt();
+      ultima = [ultima, ahora, primera + 3].reduce((a, b) => a > b ? a : b).clamp(0, 23).toInt();
+      final tramo = serie.sublist(primera, ultima + 1);
+      return GraficoArea(
+        valores: tramo,
+        etiquetas: [for (var h = primera; h <= ultima; h++) '${dosDigitos(h)}h'],
+        formato: compacto,
+        cadaEtiqueta: tramo.length > 12 ? 2 : 1,
+      );
+    }
+    final etiquetas = [
+      for (var i = 0; i < serie.length; i++)
+        serie.length <= 7
+            ? diasCortos[desde.add(Duration(days: i)).weekday - 1]
+            : fechaCorta(desde.add(Duration(days: i))),
+    ];
+    if (etiquetas.isNotEmpty) etiquetas[etiquetas.length - 1] = 'Hoy';
+    return GraficoArea(
+      valores: serie,
+      etiquetas: etiquetas,
+      formato: compacto,
+      cadaEtiqueta: serie.length > 7 ? 5 : 1,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Ventas de los últimos 7 días
+// Horas pico
 // ---------------------------------------------------------------------------
-class _PanelVentasSemana extends StatelessWidget {
-  final List<PedidoModel>? semana;
-  final List<PedidoModel>? semanaAnterior;
-  final DateTime hoy;
-
-  const _PanelVentasSemana({
-    required this.semana,
-    required this.semanaAnterior,
-    required this.hoy,
-  });
+class _PanelHorasPico extends StatelessWidget {
+  final List<PedidoModel>? ventas;
+  const _PanelHorasPico({required this.ventas});
 
   @override
   Widget build(BuildContext context) {
-    final semantic = context.semanticColors;
     final texto = Theme.of(context).textTheme;
-    final datos = semana;
+    final datos = ventas;
+    Widget contenido;
     if (datos == null) {
-      return const PanelDashboard(
-        titulo: 'Ventas de los últimos 7 días',
-        icono: Icons.bar_chart_rounded,
-        child: CargandoSeccion(),
-      );
-    }
-    final dias = [for (var i = 6; i >= 0; i--) hoy.subtract(Duration(days: i))];
-    final valores = [for (final d in dias) sumarTotales(pedidosDelDia(datos, d))];
-    final etiquetas = [
-      for (var i = 0; i < dias.length; i++) i == dias.length - 1 ? 'Hoy' : diasCortos[dias[i].weekday - 1],
-    ];
-    final total = sumarTotales(datos);
-    final anterior = sumarTotales(semanaAnterior ?? const []);
-    final variacion = variacionPorcentual(total, anterior);
-    final mejorIndice = valores.indexWhere((v) => v == valores.reduce((a, b) => a > b ? a : b));
-
-    return PanelDashboard(
-      titulo: 'Ventas de los últimos 7 días',
-      icono: Icons.bar_chart_rounded,
-      subtitulo: '${datos.length} pedidos entregados · ${bs(total)}',
-      child: Column(
+      contenido = const CargandoSeccion();
+    } else if (datos.isEmpty) {
+      contenido = const TextoVacio('Todavía no hay ventas en este periodo.');
+    } else {
+      final porH = porHora(datos, contar: true);
+      var primera = porH.indexWhere((v) => v > 0);
+      var ultima = porH.lastIndexWhere((v) => v > 0);
+      if (ultima - primera < 5) {
+        primera = (primera - 2).clamp(0, 23).toInt();
+        ultima = (ultima + 2).clamp(0, 23).toInt();
+      }
+      final tramo = porH.sublist(primera, ultima + 1);
+      final pico = porH.indexOf(porH.reduce((a, b) => a > b ? a : b));
+      contenido = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GraficoBarras(
-            valores: valores,
-            etiquetas: etiquetas,
-            formato: (v) => v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0),
+            valores: tramo,
+            etiquetas: [for (var h = primera; h <= ultima; h++) dosDigitos(h)],
+            formato: (v) => v.toStringAsFixed(0),
+            alto: 160,
           ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.lg,
-            runSpacing: AppSpacing.xs,
-            children: [
-              if (variacion != null)
-                Text.rich(TextSpan(children: [
-                  TextSpan(
-                    text: '${variacion >= 0 ? '▲' : '▼'} ${variacion.abs().toStringAsFixed(0)}% ',
-                    style: TextStyle(
-                      color: variacion >= 0 ? semantic.success : Theme.of(context).colorScheme.error,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const TextSpan(text: 'frente a la semana anterior'),
-                ]), style: texto.bodySmall)
-              else
-                Text('Sin ventas la semana anterior para comparar.', style: texto.bodySmall),
-              if (total > 0 && mejorIndice >= 0)
-                Text(
-                  'Mejor día: ${etiquetas[mejorIndice]} (${bs(valores[mejorIndice])})',
-                  style: texto.bodySmall,
-                ),
-            ],
+          Text(
+            'Hora con más pedidos: ${dosDigitos(pico)}:00 a ${dosDigitos((pico + 1) % 24)}:00 '
+            '(${porH[pico].toStringAsFixed(0)} pedidos).',
+            style: texto.bodySmall,
           ),
         ],
-      ),
+      );
+    }
+    return PanelDashboard(
+      titulo: 'Horas pico',
+      icono: Icons.schedule_rounded,
+      subtitulo: 'Pedidos entregados según la hora en que se hicieron',
+      child: contenido,
     );
   }
 }
@@ -296,7 +414,6 @@ class _PanelEnCurso extends StatelessWidget {
         PedidoEstado.enCamino: Icons.delivery_dining_outlined,
         PedidoEstado.llego: Icons.where_to_vote_outlined,
       };
-      // Los que más esperan: la lista ya viene del más antiguo al más nuevo.
       final masAntiguos = lista.take(3).toList();
       contenido = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,11 +465,12 @@ class _PanelEnCurso extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Productos más vendidos (últimos 7 días)
+// Productos más vendidos
 // ---------------------------------------------------------------------------
 class _PanelTopProductos extends StatefulWidget {
   final List<PedidoModel>? entregados;
-  const _PanelTopProductos({required this.entregados});
+  final PeriodoDashboard periodo;
+  const _PanelTopProductos({required this.entregados, required this.periodo});
 
   @override
   State<_PanelTopProductos> createState() => _PanelTopProductosState();
@@ -374,8 +492,7 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
     _recalcularSiCambio();
   }
 
-  /// Solo vuelve a leer el detalle si cambió el conjunto de pedidos
-  /// (no en cada redibujado del panel).
+  /// Solo vuelve a leer el detalle si cambió el conjunto de pedidos.
   void _recalcularSiCambio() {
     final lista = widget.entregados;
     if (lista == null) return;
@@ -393,7 +510,7 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
     if (widget.entregados == null || _top == null) {
       contenido = const CargandoSeccion();
     } else if (widget.entregados!.isEmpty) {
-      contenido = const TextoVacio('Todavía no hay ventas en los últimos 7 días.');
+      contenido = const TextoVacio('Todavía no hay ventas en este periodo.');
     } else {
       contenido = FutureBuilder<List<ProductoVendido>>(
         future: _top,
@@ -456,7 +573,7 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
     return PanelDashboard(
       titulo: 'Productos más vendidos',
       icono: Icons.emoji_events_outlined,
-      subtitulo: 'Últimos 7 días, por unidades',
+      subtitulo: '${widget.periodo == PeriodoDashboard.hoy ? 'Hoy' : 'Últimos ${widget.periodo.dias} días'}, por unidades',
       child: contenido,
     );
   }
@@ -466,18 +583,19 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
 // Métodos de pago y modalidad
 // ---------------------------------------------------------------------------
 class _PanelPagosYModalidad extends StatelessWidget {
-  final List<PedidoModel>? semana;
-  const _PanelPagosYModalidad({required this.semana});
+  final List<PedidoModel>? ventas;
+  final PeriodoDashboard periodo;
+  const _PanelPagosYModalidad({required this.ventas, required this.periodo});
 
   @override
   Widget build(BuildContext context) {
     final texto = Theme.of(context).textTheme;
     final semantic = context.semanticColors;
-    final datos = semana;
+    final datos = ventas;
     return PanelDashboard(
       titulo: 'Cómo compran tus clientes',
       icono: Icons.pie_chart_outline_rounded,
-      subtitulo: 'Ventas de los últimos 7 días',
+      subtitulo: periodo == PeriodoDashboard.hoy ? 'Ventas de hoy' : 'Ventas de los últimos ${periodo.dias} días',
       child: datos == null
           ? const CargandoSeccion()
           : Column(
@@ -488,7 +606,7 @@ class _PanelPagosYModalidad extends StatelessWidget {
                 ListaProporciones(
                   datos: agruparSuma(datos, (p) => p.metodoPago),
                   formato: bs,
-                  vacio: 'Todavía no hay ventas esta semana.',
+                  vacio: 'Todavía no hay ventas en este periodo.',
                   colores: {
                     MetodoPago.efectivo: semantic.success,
                     MetodoPago.qr: semantic.info,
@@ -501,10 +619,88 @@ class _PanelPagosYModalidad extends StatelessWidget {
                 ListaProporciones(
                   datos: agruparSuma(datos, (p) => p.modalidad),
                   formato: bs,
-                  vacio: 'Todavía no hay ventas esta semana.',
+                  vacio: 'Todavía no hay ventas en este periodo.',
                 ),
               ],
             ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Últimos pedidos
+// ---------------------------------------------------------------------------
+class _PanelUltimosPedidos extends StatelessWidget {
+  final List<PedidoModel>? enCurso;
+  final List<PedidoModel>? todas;
+  final List<PedidoModel>? cancelados;
+  const _PanelUltimosPedidos({required this.enCurso, required this.todas, required this.cancelados});
+
+  AppStatusTone _tono(String estado) => switch (estado) {
+        PedidoEstado.entregado => AppStatusTone.success,
+        PedidoEstado.cancelado => AppStatusTone.danger,
+        PedidoEstado.pendiente => AppStatusTone.neutral,
+        _ => AppStatusTone.warning,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final texto = Theme.of(context).textTheme;
+    Widget contenido;
+    if (enCurso == null || todas == null) {
+      contenido = const CargandoSeccion();
+    } else {
+      final ultimos = [...enCurso!, ...todas!, ...?cancelados]
+        ..sort((a, b) => (b.fechaCreacion ?? DateTime.now()).compareTo(a.fechaCreacion ?? DateTime.now()));
+      final lista = ultimos.take(6).toList();
+      contenido = lista.isEmpty
+          ? const TextoVacio('Todavía no hay pedidos.')
+          : Column(
+              children: [
+                for (final p in lista)
+                  InkWell(
+                    borderRadius: AppRadius.mdAll,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => PedidoDetalleScreen(idPedido: p.id, esPersonal: true)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '#${p.id.substring(0, 6)} · ${p.etiquetaModalidad}',
+                                  style: texto.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  p.fechaCreacion == null
+                                      ? p.metodoPago
+                                      : '${fechaCorta(p.fechaCreacion!)} ${horaCorta(p.fechaCreacion!)} · ${p.metodoPago}',
+                                  style: texto.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(bs(p.total), style: texto.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(width: AppSpacing.sm),
+                          AppStatusBadge(label: p.estado, tone: _tono(p.estado)),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+    }
+    return PanelDashboard(
+      titulo: 'Últimos pedidos',
+      icono: Icons.receipt_long_outlined,
+      subtitulo: 'Toca un pedido para ver el detalle',
+      child: contenido,
     );
   }
 }
@@ -536,7 +732,7 @@ class _PanelCajas extends StatelessWidget {
               icono: c.montoContado != null ? Icons.lock_clock_outlined : Icons.point_of_sale_outlined,
               color: c.montoContado != null ? semantic.warning : semantic.success,
               texto: '${c.nombreCajero.isEmpty ? 'Cajero' : c.nombreCajero}'
-                  '${c.fechaApertura == null ? '' : ' · desde las ${_hora(c.fechaApertura!)}'}'
+                  '${c.fechaApertura == null ? '' : ' · desde las ${horaCorta(c.fechaApertura!)}'}'
                   '${c.montoContado != null ? ' · en cierre' : ''}',
               valor: 'Inicial ${bs(c.montoInicial)}',
             ),
@@ -550,9 +746,6 @@ class _PanelCajas extends StatelessWidget {
       child: contenido,
     );
   }
-
-  String _hora(DateTime f) =>
-      '${f.hour.toString().padLeft(2, '0')}:${f.minute.toString().padLeft(2, '0')}';
 }
 
 // ---------------------------------------------------------------------------
@@ -572,6 +765,7 @@ class _PanelResenasState extends State<_PanelResenas> {
   @override
   Widget build(BuildContext context) {
     final texto = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     return PanelDashboard(
       titulo: 'Reseñas de clientes',
       icono: Icons.star_outline_rounded,
@@ -591,6 +785,7 @@ class _PanelResenasState extends State<_PanelResenas> {
             for (var e = 5; e >= 1; e--)
               '$e ★': visibles.where((r) => r.calificacion == e).length.toDouble(),
           };
+          final ultima = visibles.where((r) => r.comentario.trim().isNotEmpty).firstOrNull;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -619,6 +814,19 @@ class _PanelResenasState extends State<_PanelResenas> {
                 vacio: 'No hay reseñas visibles.',
                 colores: {for (var e = 1; e <= 5; e++) '$e ★': AppBrand.dorado},
               ),
+              if (ultima != null) ...[
+                const Divider(),
+                Text(
+                  '"${ultima.comentario.trim()}"',
+                  style: texto.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '— ${ultima.nombreCliente} · ${'★' * ultima.calificacion}',
+                  style: texto.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
             ],
           );
         },

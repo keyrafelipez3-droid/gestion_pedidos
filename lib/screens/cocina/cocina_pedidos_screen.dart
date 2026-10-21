@@ -7,6 +7,7 @@ import '../../utils/errores.dart';
 import '../../widgets/boton_accion.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/aviso_pedidos_nuevos.dart';
 import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
 import '../cliente/pedido_detalle_screen.dart';
@@ -38,7 +39,9 @@ class CocinaPedidosScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Pedidos pendientes (Cocina)')),
       body: idNegocio == null
           ? const Center(child: Text('No se pudo identificar tu negocio.'))
-          : StreamBuilder<List<PedidoModel>>(
+          : AvisoPedidosNuevos(
+              idNegocio: idNegocio,
+              child: StreamBuilder<List<PedidoModel>>(
               stream: PedidoService.instancia.streamPedidosCocina(idNegocio),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
@@ -98,6 +101,7 @@ class CocinaPedidosScreen extends StatelessWidget {
                   },
                 );
               },
+            ),
             ),
     );
   }

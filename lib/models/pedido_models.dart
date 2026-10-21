@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/idioma.dart';
 import 'carrito_models.dart' show OpcionSeleccionada;
 
 class PedidoModalidad {
@@ -62,8 +63,10 @@ class PedidoEstado {
     pendiente: [enPreparacion, cancelado],
     enPreparacion: [listo, cancelado],
     listo: [enCamino, entregado, cancelado],
-    enCamino: [llego, entregado],
-    llego: [entregado],
+    // Delivery: si el cliente no aparece o no se puede entregar, el Cajero
+    // o el Administrador también pueden cancelarlo (con motivo).
+    enCamino: [llego, entregado, cancelado],
+    llego: [entregado, cancelado],
   };
 
   static bool puedePasar(String actual, String nuevo) =>
@@ -163,9 +166,9 @@ class PedidoModel {
   String get etiquetaModalidad {
     final n = numeroMesa;
     if (modalidad == PedidoModalidad.mesa && n != null && n.isNotEmpty) {
-      return 'Mesa $n';
+      return tr('Mesa {numero}', {'numero': n});
     }
-    return modalidad;
+    return tr(modalidad);
   }
 
   Map<String, dynamic> toMap() => {

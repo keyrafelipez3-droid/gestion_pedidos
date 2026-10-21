@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/app_config.dart';
+import '../../l10n/idioma.dart';
 import '../../legal/textos_legales.dart';
 import '../../theme/design_tokens.dart';
 
@@ -23,7 +24,7 @@ class LegalScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(titulo)),
+      appBar: AppBar(title: Text(tr(titulo))),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -37,11 +38,30 @@ class LegalScreen extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Text(
-                        'Aviso (solo en modo desarrollo): faltan datos de la '
-                        'plataforma en lib/config/app_config.dart. Los textos '
-                        'muestran marcadores "[COMPLETAR ...]".',
+                        tr('Aviso (solo en modo desarrollo): faltan datos de la plataforma en lib/config/app_config.dart. Los textos muestran marcadores "[COMPLETAR ...]".'),
                         style: textos.bodyMedium
                             ?.copyWith(color: scheme.onErrorContainer),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                if (IdiomaController.instancia.codigo.value != 'es') ...[
+                  Card(
+                    color: scheme.secondaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Row(
+                        children: [
+                          Icon(Icons.translate, color: scheme.onSecondaryContainer),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              tr('Este documento legal está disponible solo en español, que es la versión válida.'),
+                              style: textos.bodyMedium?.copyWith(color: scheme.onSecondaryContainer),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -50,7 +70,7 @@ class LegalScreen extends StatelessWidget {
                 Text(titulo, style: textos.headlineSmall),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Versión ${AppConfig.versionTerminos}',
+                  tr('Versión {versionTerminos}', {'versionTerminos': AppConfig.versionTerminos}),
                   style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: AppSpacing.lg),

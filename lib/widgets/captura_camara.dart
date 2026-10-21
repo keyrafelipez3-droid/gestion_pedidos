@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/idioma.dart';
 import '../theme/design_tokens.dart';
 
 /// Abre la cámara dentro de la app (pensado para el navegador, donde el
@@ -51,7 +52,7 @@ class _DialogoCamaraState extends State<_DialogoCamara> {
       final camaras = await availableCameras();
       if (!mounted) return;
       if (camaras.isEmpty) {
-        setState(() => _error = 'No se encontró ninguna cámara en este dispositivo.');
+        setState(() => _error = tr('No se encontró ninguna cámara en este dispositivo.'));
         return;
       }
       final preferida = widget.frontal ? CameraLensDirection.front : CameraLensDirection.back;
@@ -62,7 +63,7 @@ class _DialogoCamaraState extends State<_DialogoCamara> {
     } on CameraException catch (e) {
       _mostrarError(e);
     } catch (_) {
-      if (mounted) setState(() => _error = 'No se pudo acceder a la cámara.');
+      if (mounted) setState(() => _error = tr('No se pudo acceder a la cámara.'));
     }
   }
 
@@ -101,11 +102,8 @@ class _DialogoCamaraState extends State<_DialogoCamara> {
         codigo.contains('notallowed');
     setState(() {
       _error = sinPermiso
-          ? 'No se dio permiso para usar la cámara. Actívalo en el navegador '
-              '(ícono de la cámara en la barra de direcciones) o en los ajustes '
-              'del dispositivo, y vuelve a intentarlo.'
-          : 'No se pudo abrir la cámara. Revisa que no la esté usando otra '
-              'aplicación e inténtalo de nuevo.';
+          ? tr('No se dio permiso para usar la cámara. Actívalo en el navegador (ícono de la cámara en la barra de direcciones) o en los ajustes del dispositivo, y vuelve a intentarlo.')
+          : tr('No se pudo abrir la cámara. Revisa que no la esté usando otra aplicación e inténtalo de nuevo.');
     });
   }
 
@@ -128,7 +126,7 @@ class _DialogoCamaraState extends State<_DialogoCamara> {
       if (!mounted) return;
       setState(() {
         _tomando = false;
-        _error = 'No se pudo tomar la foto. Inténtalo de nuevo.';
+        _error = tr('No se pudo tomar la foto. Inténtalo de nuevo.');
       });
     }
   }
@@ -166,16 +164,16 @@ class _DialogoCamaraState extends State<_DialogoCamara> {
     }
 
     return AlertDialog(
-      title: const Text('Tomar foto'),
+      title: Text(tr('Tomar foto')),
       content: SizedBox(width: 480, child: vista),
       actions: [
         TextButton(
           onPressed: _tomando ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
+          child: Text(tr('Cancelar')),
         ),
         if (_camaras.length > 1 && _error == null)
           IconButton(
-            tooltip: 'Cambiar de cámara',
+            tooltip: tr('Cambiar de cámara'),
             onPressed: _tomando || ctrl == null ? null : _cambiarCamara,
             icon: const Icon(Icons.cameraswitch_outlined),
           ),
@@ -185,7 +183,7 @@ class _DialogoCamaraState extends State<_DialogoCamara> {
               setState(() => _error = null);
               _iniciar();
             },
-            child: const Text('Reintentar'),
+            child: Text(tr('Reintentar')),
           )
         else
           FilledButton.icon(
@@ -193,7 +191,7 @@ class _DialogoCamaraState extends State<_DialogoCamara> {
             icon: _tomando
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.photo_camera_outlined),
-            label: const Text('Capturar'),
+            label: Text(tr('Capturar')),
           ),
       ],
     );

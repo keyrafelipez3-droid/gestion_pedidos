@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/idioma.dart';
+
 class HorarioDia {
   final bool activo;
   final String apertura;
@@ -76,7 +78,7 @@ class SucursalModel {
   /// Soporta horarios que cruzan la medianoche (ej. 18:00 a 02:00).
   AperturaSucursal estadoApertura([DateTime? ahora]) {
     final t = ahora ?? DateTime.now();
-    if (!estado) return const AperturaSucursal(false, 'Esta sucursal no está disponible.');
+    if (!estado) return AperturaSucursal(false, tr('Esta sucursal no está disponible.'));
     if (!horarios.values.any((h) => h.activo)) {
       return const AperturaSucursal(true, '');
     }
@@ -87,10 +89,10 @@ class SucursalModel {
       final c = _aMinutos(hoy.cierre);
       if (a != null && c != null) {
         if (a < c && minAhora >= a && minAhora < c) {
-          return AperturaSucursal(true, 'Abierto hasta las ${hoy.cierre}');
+          return AperturaSucursal(true, tr('Abierto hasta las {hora}', {'hora': hoy.cierre}));
         }
         if (a > c && minAhora >= a) {
-          return AperturaSucursal(true, 'Abierto hasta las ${hoy.cierre} (mañana)');
+          return AperturaSucursal(true, tr('Abierto hasta las {hora} (mañana)', {'hora': hoy.cierre}));
         }
       }
     }
@@ -100,25 +102,29 @@ class SucursalModel {
       final a = _aMinutos(ayer.apertura);
       final c = _aMinutos(ayer.cierre);
       if (a != null && c != null && a > c && minAhora < c) {
-        return AperturaSucursal(true, 'Abierto hasta las ${ayer.cierre}');
+        return AperturaSucursal(true, tr('Abierto hasta las {hora}', {'hora': ayer.cierre}));
       }
     }
     // Cerrada: buscar la próxima apertura.
     if (hoy != null && hoy.activo) {
       final a = _aMinutos(hoy.apertura);
       if (a != null && minAhora < a) {
-        return AperturaSucursal(false, 'Cerrado ahora. Abre hoy a las ${hoy.apertura}.');
+        return AperturaSucursal(false, tr('Cerrado ahora. Abre hoy a las {hora}.', {'hora': hoy.apertura}));
       }
     }
     for (var i = 1; i <= 7; i++) {
       final dia = dias[(t.weekday - 1 + i) % 7];
       final h = horarios[dia];
       if (h != null && h.activo && _aMinutos(h.apertura) != null) {
-        final cuando = i == 1 ? 'mañana' : 'el $dia';
-        return AperturaSucursal(false, 'Cerrado ahora. Abre $cuando a las ${h.apertura}.');
+        return AperturaSucursal(
+          false,
+          i == 1
+              ? tr('Cerrado ahora. Abre mañana a las {hora}.', {'hora': h.apertura})
+              : tr('Cerrado ahora. Abre el {dia} a las {hora}.', {'dia': tr(dia), 'hora': h.apertura}),
+        );
       }
     }
-    return const AperturaSucursal(false, 'Cerrado ahora.');
+    return AperturaSucursal(false, tr('Cerrado ahora.'));
   }
 
   static Map<String, HorarioDia> horariosPorDefecto() => {

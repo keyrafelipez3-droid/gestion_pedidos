@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/usuario_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/app_cargando.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/selector_imagen.dart';
-import '../../widgets/app_cargando.dart';
 import '../legal/legal_screen.dart';
+import 'dos_pasos_screen.dart';
 
 /// HU-06 — "Como usuario, quiero modificar mis datos de cuenta, contraseña,
 /// notificaciones y preferencias."
@@ -76,7 +78,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Datos de la cuenta actualizados.'),
+        content: Text(tr('Datos de la cuenta actualizados.')),
         backgroundColor: context.semanticColors.success,
       ),
     );
@@ -134,6 +136,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
               final error = await AuthService.instancia.cambiarPassword(
                 passwordActual: actualCtrl.text,
                 passwordNueva: nuevaCtrl.text,
+                pedirCodigo: (error) => pedirCodigoDosPasos(context, error: error),
               );
               setDialogState(() => guardando = false);
 
@@ -150,14 +153,14 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: const Text('Contraseña actualizada correctamente.'),
+                  content: Text(tr('Contraseña actualizada correctamente.')),
                   backgroundColor: context.semanticColors.success,
                 ),
               );
             }
 
             return AlertDialog(
-              title: const Text('Cambiar contraseña'),
+              title: Text(tr('Cambiar contraseña')),
               content: Form(
                 key: formKeyPassword,
                 child: SingleChildScrollView(
@@ -169,7 +172,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         obscureText: !verActual,
                         obscuringCharacter: '*',
                         decoration: InputDecoration(
-                          labelText: 'Contraseña actual *',
+                          labelText: tr('Contraseña actual *'),
                           suffixIcon: IconButton(
                             icon: Icon(verActual
                                 ? Icons.visibility_off
@@ -179,7 +182,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           ),
                         ),
                         validator: (v) => (v == null || v.isEmpty)
-                            ? 'Ingresa tu contraseña actual'
+                            ? tr('Ingresa tu contraseña actual')
                             : null,
                       ),
                       const SizedBox(height: 12),
@@ -188,7 +191,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         obscureText: !verNueva,
                         obscuringCharacter: '*',
                         decoration: InputDecoration(
-                          labelText: 'Nueva contraseña *',
+                          labelText: tr('Nueva contraseña *'),
                           suffixIcon: IconButton(
                             icon: Icon(
                               verNueva ? Icons.visibility_off : Icons.visibility,
@@ -199,10 +202,10 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return 'Ingresa la nueva contraseña';
+                            return tr('Ingresa la nueva contraseña');
                           }
                           if (v.length < 6) {
-                            return 'Mínimo 6 caracteres';
+                            return tr('Mínimo 6 caracteres');
                           }
                           return null;
                         },
@@ -212,12 +215,12 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         controller: confirmarCtrl,
                         obscureText: !verNueva,
                         obscuringCharacter: '*',
-                        decoration: const InputDecoration(
-                          labelText: 'Confirmar nueva contraseña *',
+                        decoration: InputDecoration(
+                          labelText: tr('Confirmar nueva contraseña *'),
                         ),
                         validator: (v) {
                           if (v != nuevaCtrl.text) {
-                            return 'Las contraseñas no coinciden';
+                            return tr('Las contraseñas no coinciden');
                           }
                           return null;
                         },
@@ -231,7 +234,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                   onPressed: guardando
                       ? null
                       : () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancelar'),
+                  child: Text(tr('Cancelar')),
                 ),
                 FilledButton(
                   onPressed: guardando ? null : guardar,
@@ -241,7 +244,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           width: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Guardar'),
+                      : Text(tr('Guardar')),
                 ),
               ],
             );
@@ -266,27 +269,22 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar mi cuenta'),
+        title: Text(tr('Eliminar mi cuenta')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Esta acción no se puede deshacer.\n\n'
-                'Se borrarán tu perfil, tus direcciones, tus favoritos y tu '
-                'carrito. Tus pedidos pasados se conservan sin tu nombre ni '
-                'tu dirección, porque el negocio los necesita para su '
-                'contabilidad y reclamos. Las imágenes que subiste se borran '
-                'solo si lo pides por correo (mira la Política de privacidad).',
+              Text(
+                tr('Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos y tu carrito. Tus pedidos pasados se conservan sin tu nombre ni tu dirección, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).'),
               ),
               const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: passCtrl,
                 obscureText: true,
                 obscuringCharacter: '*',
-                decoration: const InputDecoration(
-                  labelText: 'Tu contraseña actual *',
+                decoration: InputDecoration(
+                  labelText: tr('Tu contraseña actual *'),
                   prefixIcon: Icon(Icons.lock_outline),
                 ),
               ),
@@ -296,7 +294,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -304,7 +302,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
               foregroundColor: Theme.of(dialogContext).colorScheme.onError,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Eliminar definitivamente'),
+            child: Text(tr('Eliminar definitivamente')),
           ),
         ],
       ),
@@ -315,14 +313,17 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
     if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Escribe tu contraseña para confirmar.')),
+        SnackBar(content: Text(tr('Escribe tu contraseña para confirmar.'))),
       );
       return;
     }
 
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final error = await AuthService.instancia.eliminarCuenta(password: password);
+    final error = await AuthService.instancia.eliminarCuenta(
+      password: password,
+      pedirCodigo: (error) => pedirCodigoDosPasos(context, error: error),
+    );
     if (error != null) {
       messenger.showSnackBar(SnackBar(content: Text(error)));
       return;
@@ -332,7 +333,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     SesionActual.instancia.limpiar();
     navigator.popUntil((route) => route.isFirst);
     messenger.showSnackBar(
-      const SnackBar(content: Text('Tu cuenta fue eliminada.')),
+      SnackBar(content: Text(tr('Tu cuenta fue eliminada.'))),
     );
   }
 
@@ -344,8 +345,8 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
     final usuario = _usuario;
     if (usuario == null) {
-      return const Scaffold(
-        body: Center(child: Text('No se pudo cargar tu cuenta.')),
+      return Scaffold(
+        body: Center(child: Text(tr('No se pudo cargar tu cuenta.'))),
       );
     }
 
@@ -354,7 +355,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.incrustada,
-        title: const Text('Mi cuenta'),
+        title: Text(tr('Mi cuenta')),
       ),
       body: SafeArea(
         child: Center(
@@ -416,14 +417,14 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
                   _SeccionCuenta(
                     icono: Icons.person_outline,
-                    titulo: 'Perfil',
+                    titulo: tr('Perfil'),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           SelectorImagen(
-                            etiqueta: 'Foto de perfil (opcional)',
+                            etiqueta: tr('Foto de perfil (opcional)'),
                             controller: _fotoPerfilCtrl,
                             rutaStorage: 'usuarios/${usuario.idUsuario}/perfil',
                             // Foto de perfil: abre primero la cámara frontal (selfie).
@@ -432,12 +433,12 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           const SizedBox(height: AppSpacing.md),
                           TextFormField(
                             controller: _nombreCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Nombre completo *',
+                            decoration: InputDecoration(
+                              labelText: tr('Nombre completo *'),
                               prefixIcon: Icon(Icons.person_outline),
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Ingresa tu nombre'
+                                ? tr('Ingresa tu nombre')
                                 : null,
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -453,10 +454,10 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           TextFormField(
                             initialValue: usuario.email,
                             enabled: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Correo electrónico',
+                            decoration: InputDecoration(
+                              labelText: tr('Correo electrónico'),
                               prefixIcon: Icon(Icons.email_outlined),
-                              helperText: 'El correo no se puede modificar aquí',
+                              helperText: tr('El correo no se puede modificar aquí'),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.lg),
@@ -471,7 +472,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Text('Guardar cambios'),
+                                : Text(tr('Guardar cambios')),
                           ),
                         ],
                       ),
@@ -481,20 +482,37 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
                   _SeccionCuenta(
                     icono: Icons.lock_outline,
-                    titulo: 'Seguridad',
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.password_outlined),
-                      title: const Text('Cambiar contraseña'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _abrirDialogoCambiarPassword,
+                    titulo: tr('Seguridad'),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.password_outlined),
+                          title: Text(tr('Cambiar contraseña')),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: _abrirDialogoCambiarPassword,
+                        ),
+                        const Divider(height: 1),
+                        const TileDosPasos(),
+                      ],
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
 
+                  // El panel del personal está siempre en español; el
+                  // idioma solo lo elige el cliente.
+                  if (usuario.esCliente) ...[
+                    _SeccionCuenta(
+                      icono: Icons.translate,
+                      titulo: tr('Idioma'),
+                      child: const TileIdioma(),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                  ],
+
                   _SeccionCuenta(
                     icono: Icons.notifications_outlined,
-                    titulo: 'Notificaciones',
+                    titulo: tr('Notificaciones'),
                     child: SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       secondary: _guardandoNotificaciones
@@ -504,9 +522,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.notifications_active_outlined),
-                      title: const Text('Recibir notificaciones'),
-                      subtitle: const Text(
-                        'Avisos sobre el estado de tus pedidos',
+                      title: Text(tr('Recibir notificaciones')),
+                      subtitle: Text(
+                        tr('Avisos sobre el estado de tus pedidos'),
                       ),
                       value: usuario.notificacionesActivas,
                       onChanged: _guardandoNotificaciones
@@ -518,13 +536,13 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
                   _SeccionCuenta(
                     icono: Icons.privacy_tip_outlined,
-                    titulo: 'Privacidad y datos',
+                    titulo: tr('Privacidad y datos'),
                     child: Column(
                       children: [
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.policy_outlined),
-                          title: const Text('Política de privacidad'),
+                          title: Text(tr('Política de privacidad')),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -537,7 +555,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.description_outlined),
-                          title: const Text('Términos y condiciones'),
+                          title: Text(tr('Términos y condiciones')),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -555,23 +573,23 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                               color: Theme.of(context).colorScheme.error,
                             ),
                             title: Text(
-                              'Eliminar mi cuenta',
+                              tr('Eliminar mi cuenta'),
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.error,
                               ),
                             ),
-                            subtitle: const Text(
-                              'Borra tu perfil, direcciones, favoritos y carrito',
+                            subtitle: Text(
+                              tr('Borra tu perfil, direcciones, favoritos y carrito'),
                             ),
                             onTap: _abrirDialogoEliminarCuenta,
                           )
                         else
-                          const ListTile(
+                          ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: Icon(Icons.info_outline),
-                            title: Text('Cuenta del personal'),
+                            title: Text(tr('Cuenta del personal')),
                             subtitle: Text(
-                              'La cuenta la administra el Administrador de tu negocio.',
+                              tr('La cuenta la administra el Administrador de tu negocio.'),
                             ),
                           ),
                       ],

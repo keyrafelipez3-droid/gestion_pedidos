@@ -1,6 +1,8 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../l10n/idioma.dart';
+
 /// Error con un mensaje listo para mostrar al usuario.
 class UbicacionException implements Exception {
   final String mensaje;
@@ -21,8 +23,8 @@ class UbicacionService {
   Future<void> asegurarPermiso() async {
     final servicioActivo = await Geolocator.isLocationServiceEnabled();
     if (!servicioActivo) {
-      throw const UbicacionException(
-        'Activa la ubicación (GPS) de tu dispositivo e inténtalo de nuevo.',
+      throw UbicacionException(
+        tr('Activa la ubicación (GPS) de tu dispositivo e inténtalo de nuevo.'),
       );
     }
     var permiso = await Geolocator.checkPermission();
@@ -30,14 +32,13 @@ class UbicacionService {
       permiso = await Geolocator.requestPermission();
     }
     if (permiso == LocationPermission.denied) {
-      throw const UbicacionException(
-        'No diste permiso de ubicación. Puedes marcar el punto moviendo el mapa.',
+      throw UbicacionException(
+        tr('No diste permiso de ubicación. Puedes marcar el punto moviendo el mapa.'),
       );
     }
     if (permiso == LocationPermission.deniedForever) {
-      throw const UbicacionException(
-        'El permiso de ubicación está bloqueado. Actívalo en los ajustes del '
-        'dispositivo o del navegador, o marca el punto moviendo el mapa.',
+      throw UbicacionException(
+        tr('El permiso de ubicación está bloqueado. Actívalo en los ajustes del dispositivo o del navegador, o marca el punto moviendo el mapa.'),
       );
     }
   }
@@ -65,8 +66,8 @@ class UbicacionService {
       );
       return LatLng(pos.latitude, pos.longitude);
     } catch (_) {
-      throw const UbicacionException(
-        'No se pudo obtener tu ubicación. Intenta de nuevo o marca el punto en el mapa.',
+      throw UbicacionException(
+        tr('No se pudo obtener tu ubicación. Intenta de nuevo o marca el punto en el mapa.'),
       );
     }
   }

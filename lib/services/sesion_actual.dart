@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../l10n/idioma.dart';
 import '../models/usuario_model.dart';
 import 'app_theme_controller.dart';
 import 'auth_service.dart';
@@ -34,6 +35,8 @@ class SesionActual {
       return;
     }
     usuario.value = u;
+    // El panel del personal se muestra siempre en español.
+    IdiomaController.instancia.soloEspanol(u != null && !u.esCliente);
     if (u?.idNegocio != null) {
       await AppThemeController.instancia.cargar(idNegocio: u!.idNegocio);
     } else {
@@ -54,6 +57,7 @@ class SesionActual {
   /// sesión en el mismo dispositivo no vea datos ni tema de la anterior.
   void limpiar() {
     usuario.value = null;
+    IdiomaController.instancia.soloEspanol(false);
     AppThemeController.instancia.limpiar();
   }
 

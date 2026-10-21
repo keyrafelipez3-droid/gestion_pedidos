@@ -1,5 +1,7 @@
 import 'package:phone_numbers_parser/phone_numbers_parser.dart';
 
+import '../l10n/idioma.dart';
+
 /// País disponible para ingresar un número de teléfono.
 class PaisTelefono {
   final String nombre;
@@ -8,7 +10,7 @@ class PaisTelefono {
 
   const PaisTelefono(this.nombre, this.iso, this.codigo);
 
-  String get etiqueta => '$nombre (+$codigo)';
+  String get etiqueta => '${tr(nombre)} (+$codigo)';
 }
 
 /// Utilidades para guardar y validar teléfonos en formato internacional
@@ -85,15 +87,15 @@ class Telefono {
   }) {
     final digitos = _soloDigitos(numeroLocal);
     if (digitos.isEmpty) {
-      return obligatorio ? 'Ingresa el teléfono' : null;
+      return obligatorio ? tr('Ingresa el teléfono') : null;
     }
     try {
       final numero = PhoneNumber.parse('+${pais.codigo}$digitos');
       if (!numero.isValid()) {
-        return 'Número no válido para ${pais.nombre}';
+        return tr('Número no válido para {nombre}', {'nombre': tr(pais.nombre)});
       }
     } catch (_) {
-      return 'Número no válido para ${pais.nombre}';
+      return tr('Número no válido para {nombre}', {'nombre': tr(pais.nombre)});
     }
     return null;
   }

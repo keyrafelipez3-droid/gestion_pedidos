@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/pedido_models.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/formato.dart';
-import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
 import 'pedido_detalle_screen.dart';
@@ -35,7 +36,7 @@ class MisPedidosScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = SesionActual.instancia.actual?.idUsuario ?? '';
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis pedidos')),
+      appBar: AppBar(title: Text(tr('Mis pedidos'))),
       body: AppContenidoCentrado(child: StreamBuilder<List<PedidoModel>>(
         stream: PedidoService.instancia.streamPedidosCliente(uid),
         builder: (context, snapshot) {
@@ -44,9 +45,9 @@ class MisPedidosScreen extends StatelessWidget {
           }
           final pedidos = snapshot.data!;
           if (pedidos.isEmpty) {
-            return const AppEmptyState(
+            return AppEmptyState(
               icon: Icons.receipt_long_outlined,
-              title: 'Todavía no hiciste ningún pedido',
+              title: tr('Todavía no hiciste ningún pedido'),
             );
           }
           return ListView.separated(
@@ -63,11 +64,11 @@ class MisPedidosScreen extends StatelessWidget {
                   ),
                   leading: AvatarModalidad(modalidad: p.modalidad),
                   title: Text(
-                    'Pedido #${p.id.substring(0, 6)}',
+                    tr('Pedido #{id}', {'id': p.id.substring(0, 6)}),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(
-                    '${p.modalidad} · Bs ${p.total.toStringAsFixed(2)}'
+                    '${tr(p.modalidad)} · Bs ${p.total.toStringAsFixed(2)}'
                     '${p.fechaCreacion == null ? '' : '\n${formatoFechaHora(p.fechaCreacion!)}'}',
                   ),
                   isThreeLine: p.fechaCreacion != null,

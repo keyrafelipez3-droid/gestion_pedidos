@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/idioma.dart';
 import '../models/pedido_models.dart';
 import '../theme/design_tokens.dart';
 
@@ -10,8 +11,8 @@ class LineaEstadoPedido extends StatelessWidget {
   const LineaEstadoPedido({super.key, required this.pedido});
 
   List<String> get _pasos => pedido.esDelivery
-      ? const ['Recibido', 'Preparando', 'Listo', 'En camino', 'Entregado']
-      : const ['Recibido', 'Preparando', 'Listo', 'Entregado'];
+      ? [tr('Recibido'), tr('Preparando'), tr('Listo'), tr('En camino'), tr('Entregado')]
+      : [tr('Recibido'), tr('Preparando'), tr('Listo'), tr('Entregado')];
 
   int get _actual {
     final ultimo = _pasos.length - 1;

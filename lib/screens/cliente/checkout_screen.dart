@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/carrito_models.dart';
 import '../../models/direccion_entrega_model.dart';
 import '../../models/mesa_model.dart';
@@ -13,8 +14,8 @@ import '../../services/mesa_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
-import '../../utils/errores.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/errores.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/selector_imagen.dart';
 import '../mapa/selector_ubicacion_screen.dart';
@@ -98,7 +99,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Confirmar pedido')),
+      appBar: AppBar(title: Text(tr('Confirmar pedido'))),
       body: AppContenidoCentrado(child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
@@ -113,7 +114,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'No se pueden hacer pedidos ahora. ${_apertura!.mensaje}',
+                        tr('No se pueden hacer pedidos ahora. {mensaje}', {'mensaje': _apertura!.mensaje}),
                         style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
                       ),
                     ),
@@ -123,23 +124,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
-          Text('1. ¿Cómo quieres tu pedido?', style: Theme.of(context).textTheme.titleSmall),
+          Text(tr('1. ¿Cómo quieres tu pedido?'), style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.sm,
             children: [
               ChoiceChip(
-                label: const Text('Recoger'),
+                label: Text(tr('Recoger')),
                 selected: _modalidad == PedidoModalidad.recoger,
                 onSelected: (_) => setState(() => _modalidad = PedidoModalidad.recoger),
               ),
               ChoiceChip(
-                label: const Text('Mesa'),
+                label: Text(tr('Mesa')),
                 selected: _modalidad == PedidoModalidad.mesa,
                 onSelected: (_) => setState(() => _modalidad = PedidoModalidad.mesa),
               ),
               ChoiceChip(
-                label: const Text('Delivery'),
+                label: Text(tr('Delivery')),
                 selected: _modalidad == PedidoModalidad.delivery,
                 onSelected: (_) => setState(() => _modalidad = PedidoModalidad.delivery),
               ),
@@ -162,14 +163,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ],
           const Divider(height: AppSpacing.xl),
-          Text('2. ¿Cómo vas a pagar?', style: Theme.of(context).textTheme.titleSmall),
+          Text(tr('2. ¿Cómo vas a pagar?'), style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.sm,
             children: [
               for (final m in MetodoPago.todos)
                 ChoiceChip(
-                  label: Text(m),
+                  label: Text(tr(m)),
                   selected: _metodoPago == m,
                   onSelected: (_) => setState(() => _metodoPago = m),
                 ),
@@ -182,7 +183,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (_metodoPago != MetodoPago.efectivo) ...[
             const SizedBox(height: AppSpacing.md),
             SelectorImagen(
-              etiqueta: 'Comprobante de pago (obligatorio)',
+              etiqueta: tr('Comprobante de pago (obligatorio)'),
               controller: _comprobanteCtrl,
               rutaStorage:
                   'negocios/${widget.negocio.idNegocio}/comprobantes/${_uid}_${DateTime.now().millisecondsSinceEpoch}',
@@ -190,7 +191,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             if (_comprobanteCtrl.text.trim().isEmpty) ...[
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Sube tu comprobante o pega el link para poder confirmar el pedido.',
+                tr('Sube tu comprobante o pega el link para poder confirmar el pedido.'),
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.error,
                   fontSize: 12,
@@ -199,22 +200,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ],
           const Divider(height: AppSpacing.xl),
-          Text('3. ¿Alguna nota para tu pedido?', style: Theme.of(context).textTheme.titleSmall),
+          Text(tr('3. ¿Alguna nota para tu pedido?'), style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _notasCtrl,
             maxLines: 2,
-            decoration: const InputDecoration(
-              hintText: 'Ej. sin cebolla, tocar el timbre, etc. (opcional)',
+            decoration: InputDecoration(
+              hintText: tr('Ej. sin cebolla, tocar el timbre, etc. (opcional)'),
             ),
           ),
           const Divider(height: AppSpacing.xl),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(tr('Total'), style: TextStyle(fontWeight: FontWeight.w600)),
               Text(
-                'Bs ${_total.toStringAsFixed(2)}',
+                tr('Bs {total}', {'total': _total.toStringAsFixed(2)}),
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
@@ -231,7 +232,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Confirmar pedido'),
+                : Text(tr('Confirmar pedido')),
           ),
         ],
       )),
@@ -248,7 +249,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final ap = fresca.estadoApertura();
         if (!ap.abierta) {
           if (mounted) setState(() => _sucursal = fresca);
-          throw Exception('No se pueden hacer pedidos ahora. ${ap.mensaje}');
+          throw Exception(tr('No se pueden hacer pedidos ahora. {mensaje}', {'mensaje': ap.mensaje}));
         }
       }
       final idPedido = await PedidoService.instancia.confirmarPedido(
@@ -301,8 +302,7 @@ class _QrDelNegocio extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Text(
-            'Este negocio todavía no subió su QR de pago. Coordina el pago '
-            'directamente con el negocio antes de confirmar.',
+            tr('Este negocio todavía no subió su QR de pago. Coordina el pago directamente con el negocio antes de confirmar.'),
             style: TextStyle(
               color: Theme.of(context).colorScheme.onErrorContainer,
             ),
@@ -317,7 +317,7 @@ class _QrDelNegocio extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Escanea este código para pagar, luego sube tu comprobante.',
+              tr('Escanea este código para pagar, luego sube tu comprobante.'),
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -359,15 +359,15 @@ class _SelectorMesa extends StatelessWidget {
       builder: (context, snapshot) {
         final mesas = snapshot.data ?? [];
         if (mesas.isEmpty) {
-          return const Text('Este local todavía no tiene mesas registradas.');
+          return Text(tr('Este local todavía no tiene mesas registradas.'));
         }
         return DropdownButtonFormField<String>(
           value: seleccionada,
-          decoration: const InputDecoration(labelText: 'Elige tu mesa'),
+          decoration: InputDecoration(labelText: tr('Elige tu mesa')),
           items: mesas
               .map((m) => DropdownMenuItem(
                     value: m.id,
-                    child: Text('Mesa ${m.numero} (${m.estado})'),
+                    child: Text(tr('Mesa {numero} ({estado})', {'numero': m.numero, 'estado': tr(m.estado)})),
                   ))
               .toList(),
           onChanged: onChanged,
@@ -398,7 +398,7 @@ class _SelectorDireccion extends StatelessWidget {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Nueva dirección'),
+          title: Text(tr('Nueva dirección')),
           content: SizedBox(
             width: 420,
             child: SingleChildScrollView(
@@ -408,7 +408,7 @@ class _SelectorDireccion extends StatelessWidget {
                 children: [
                   TextField(
                     controller: etiquetaCtrl,
-                    decoration: const InputDecoration(labelText: 'Etiqueta (ej. Casa, Trabajo)'),
+                    decoration: InputDecoration(labelText: tr('Etiqueta (ej. Casa, Trabajo)')),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   OutlinedButton.icon(
@@ -417,8 +417,8 @@ class _SelectorDireccion extends StatelessWidget {
                     ),
                     label: Text(
                       ubicacion == null
-                          ? 'Marcar ubicación en el mapa *'
-                          : 'Ubicación marcada (tocar para cambiar)',
+                          ? tr('Marcar ubicación en el mapa *')
+                          : tr('Ubicación marcada (tocar para cambiar)'),
                     ),
                     onPressed: () async {
                       final elegida = await Navigator.of(dialogContext).push<UbicacionElegida>(
@@ -443,17 +443,17 @@ class _SelectorDireccion extends StatelessWidget {
                   TextField(
                     controller: direccionCtrl,
                     maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Dirección *',
-                      helperText: 'Calle, número, edificio o zona. Puedes corregirla.',
+                    decoration: InputDecoration(
+                      labelText: tr('Dirección *'),
+                      helperText: tr('Calle, número, edificio o zona. Puedes corregirla.'),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   TextField(
                     controller: referenciaCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Referencia (opcional)',
-                      helperText: 'Ej. portón verde, piso 3, depto B',
+                    decoration: InputDecoration(
+                      labelText: tr('Referencia (opcional)'),
+                      helperText: tr('Ej. portón verde, piso 3, depto B'),
                     ),
                   ),
                   if (error != null) ...[
@@ -470,21 +470,21 @@ class _SelectorDireccion extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancelar'),
+              child: Text(tr('Cancelar')),
             ),
             FilledButton(
               onPressed: () {
                 if (ubicacion == null) {
-                  setState(() => error = 'Marca tu ubicación en el mapa para que el repartidor te encuentre.');
+                  setState(() => error = tr('Marca tu ubicación en el mapa para que el repartidor te encuentre.'));
                   return;
                 }
                 if (direccionCtrl.text.trim().isEmpty) {
-                  setState(() => error = 'Escribe la dirección.');
+                  setState(() => error = tr('Escribe la dirección.'));
                   return;
                 }
                 Navigator.of(dialogContext).pop(true);
               },
-              child: const Text('Guardar'),
+              child: Text(tr('Guardar')),
             ),
           ],
         ),
@@ -493,7 +493,7 @@ class _SelectorDireccion extends StatelessWidget {
     if (guardar != true || ubicacion == null || direccionCtrl.text.trim().isEmpty) return;
     final nueva = DireccionEntregaModel(
       id: '',
-      etiqueta: etiquetaCtrl.text.trim().isEmpty ? 'Dirección' : etiquetaCtrl.text.trim(),
+      etiqueta: etiquetaCtrl.text.trim().isEmpty ? tr('Dirección') : etiquetaCtrl.text.trim(),
       direccion: direccionCtrl.text.trim(),
       referencia: referenciaCtrl.text.trim(),
       latitud: ubicacion!.latitude,
@@ -511,10 +511,10 @@ class _SelectorDireccion extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Dirección de entrega', style: Theme.of(context).textTheme.titleSmall),
+            Text(tr('Dirección de entrega'), style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.sm),
             if (direcciones.isEmpty)
-              const Text('Todavía no tienes direcciones guardadas.')
+              Text(tr('Todavía no tienes direcciones guardadas.'))
             else
               ...direcciones.map((d) => RadioListTile<String>(
                     value: d.id,
@@ -523,14 +523,14 @@ class _SelectorDireccion extends StatelessWidget {
                     subtitle: Text(
                       d.tieneUbicacion
                           ? d.direccion
-                          : '${d.direccion}\n(Sin ubicación en el mapa: agrega una dirección nueva)',
+                          : tr('{direccion}\n(Sin ubicación en el mapa: agrega una dirección nueva)', {'direccion': d.direccion}),
                     ),
                     onChanged: (_) => onChanged(d),
                   )),
             const SizedBox(height: AppSpacing.xs),
             OutlinedButton.icon(
               icon: const Icon(Icons.add_location_alt_outlined),
-              label: const Text('Agregar dirección'),
+              label: Text(tr('Agregar dirección')),
               onPressed: () => _agregarDireccion(context),
             ),
           ],

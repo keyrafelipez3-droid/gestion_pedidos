@@ -9,6 +9,7 @@ import '../../../services/negocio_service.dart';
 import '../../../theme/design_tokens.dart';
 import '../../../widgets/app_metrica_card.dart';
 import 'dashboard_comun.dart';
+import 'dashboard_graficos.dart';
 
 /// Panel del SuperAdmin: cómo va toda la plataforma (todos los negocios),
 /// con datos reales de Firestore.
@@ -25,9 +26,12 @@ class DashboardPlataforma extends StatefulWidget {
 }
 
 class _DashboardPlataformaState extends State<DashboardPlataforma> {
+  PeriodoDashboard _periodo = PeriodoDashboard.semana;
   late final DateTime _hoy = inicioDelDia(DateTime.now());
+  // 60 días: el periodo más largo (30) y su anterior; cambiar de periodo
+  // solo recalcula en memoria.
   late final Stream<List<PedidoModel>> _pedidos =
-      DashboardService.instancia.streamPedidosPlataforma(_hoy.subtract(const Duration(days: 13)));
+      DashboardService.instancia.streamPedidosPlataforma(_hoy.subtract(const Duration(days: 59)));
   late final Stream<List<NegocioModel>> _negocios = NegocioService.instancia.streamNegocios();
   late final Stream<List<UsuarioModel>> _admins = AdminService.instancia.streamAdministradores();
   late final Stream<List<UsuarioModel>> _clientes = AdminService.instancia.streamTodosLosClientes();
@@ -65,21 +69,57 @@ class _DashboardPlataformaState extends State<DashboardPlataforma> {
     final admins = sAdm.data;
     final clientes = sCli.data;
 
-    final hoyPedidos = pedidos == null ? null : pedidosDelDia(pedidos, _hoy);
-    final hoyVentas = hoyPedidos?.where((p) => p.estado == PedidoEstado.entregado).toList();
-    final inicioSemana = _hoy.subtract(const Duration(days: 6));
-    final semana = pedidos == null
-        ? null
-        : pedidosEntre(pedidos, inicioSemana, _hoy.add(const Duration(days: 1)));
-    final semanaAnterior = pedidos == null
-        ? null
-        : pedidosEntre(pedidos, _hoy.subtract(const Duration(days: 13)), inicioSemana);
+    final (desde, hasta) = _periodo.rango(_hoy);
+    final (desdeAnt, hastaAnt) = _periodo.rangoAnterior(_hoy);
+    final esHoy = _periodo == PeriodoDashboard.hoy;
+
+    final periodo = pedidos == null ? null : pedidosEntre(pedidos, desde, hasta);
+    final anterior = pedidos == null ? null : pedidosEntre(pedidos, desdeAnt, hastaAnt);
+    List<PedidoModel>? entregados(List<PedidoModel>? l) =>
+        l?.where((p) => p.estado == PedidoEstado.entregado).toList();
+    final ventas = entregados(periodo);
+    final ventasAnt = entregados(anterior);
+    final total = ventas == null ? null : sumarTotales(ventas);
+    final totalAnt = ventasAnt == null ? null : sumarTotales(ventasAnt);
     final activos = negocios?.where((n) => n.estado).length;
+    final clientesNuevos = clientes?.where((c) {
+      final f = c.fechaRegistro;
+      return f != null && !f.isBefore(desde) && f.isBefore(hasta);
+    }).length;
+    final clientesNuevosAnt = clientes?.where((c) {
+      final f = c.fechaRegistro;
+      return f != null && !f.isBefore(desdeAnt) && f.isBefore(hastaAnt);
+    }).length;
+    final serieVentas = ventas == null ? null : (esHoy ? porHora(ventas) : porDia(ventas, desde, hasta));
+    final seriePedidos = periodo == null
+        ? null
+        : (esHoy ? porHora(periodo, contar: true) : porDia(periodo, desde, hasta, contar: true));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Hoy en la plataforma', style: texto.titleMedium),
+        Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.sm,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('La plataforma', style: texto.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  esHoy
+                      ? 'Hoy, ${fechaCorta(_hoy)} · comparado con ${_periodo.comparacion}'
+                      : '${fechaCorta(desde)} al ${fechaCorta(_hoy)} · comparado con ${_periodo.comparacion}',
+                  style: texto.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+            SelectorPeriodo(valor: _periodo, onChanged: (p) => setState(() => _periodo = p)),
+          ],
+        ),
         const SizedBox(height: AppSpacing.md),
         if (sPed.hasError)
           const TextoError('No se pudieron cargar los pedidos de la plataforma.'),
@@ -87,6 +127,36 @@ class _DashboardPlataformaState extends State<DashboardPlataforma> {
           spacing: AppSpacing.md,
           runSpacing: AppSpacing.md,
           children: [
+            KpiCard(
+              icono: Icons.payments_outlined,
+              color: semantic.success,
+              etiqueta: 'Ventas de la plataforma',
+              valor: total == null ? null : bs(total),
+              variacion: (total == null || totalAnt == null) ? null : variacionPorcentual(total, totalAnt),
+              detalle: 'Pedidos entregados',
+              serie: serieVentas,
+            ),
+            KpiCard(
+              icono: Icons.receipt_long_outlined,
+              color: AppBrand.rojo,
+              etiqueta: 'Pedidos',
+              valor: periodo == null ? null : '${periodo.length}',
+              variacion: (periodo == null || anterior == null)
+                  ? null
+                  : variacionPorcentual(periodo.length.toDouble(), anterior.length.toDouble()),
+              detalle: 'En todos los negocios',
+              serie: seriePedidos,
+            ),
+            KpiCard(
+              icono: Icons.person_add_alt_outlined,
+              color: semantic.info,
+              etiqueta: 'Clientes nuevos',
+              valor: clientesNuevos == null ? null : '$clientesNuevos',
+              variacion: (clientesNuevos == null || clientesNuevosAnt == null)
+                  ? null
+                  : variacionPorcentual(clientesNuevos.toDouble(), clientesNuevosAnt.toDouble()),
+              detalle: clientes == null ? null : '${clientes.length} registrados en total',
+            ),
             AppMetricaCard(
               icon: Icons.storefront_outlined,
               color: scheme.primary,
@@ -99,34 +169,20 @@ class _DashboardPlataformaState extends State<DashboardPlataforma> {
               etiqueta: 'Administradores',
               valor: admins == null ? null : '${admins.length}',
             ),
-            AppMetricaCard(
-              icon: Icons.people_outline,
-              color: semantic.info,
-              etiqueta: 'Clientes registrados',
-              valor: clientes == null ? null : '${clientes.length}',
-            ),
-            AppMetricaCard(
-              icon: Icons.receipt_long_outlined,
-              color: AppBrand.rojo,
-              etiqueta: 'Pedidos de hoy',
-              valor: hoyPedidos == null ? null : '${hoyPedidos.length}',
-              detalle: 'En todos los negocios',
-            ),
-            AppMetricaCard(
-              icon: Icons.payments_outlined,
-              color: semantic.success,
-              etiqueta: 'Ventas de hoy',
-              valor: hoyVentas == null ? null : bs(sumarTotales(hoyVentas)),
-              detalle: 'Pedidos entregados',
-            ),
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
+        PanelDashboard(
+          titulo: esHoy ? 'Ventas de hoy por hora' : 'Evolución de las ventas',
+          icono: Icons.show_chart_rounded,
+          subtitulo: ventas == null ? null : '${ventas.length} pedidos entregados · ${bs(total ?? 0)}',
+          child: serieVentas == null ? const CargandoSeccion() : _grafico(serieVentas, desde, esHoy),
+        ),
+        const SizedBox(height: AppSpacing.md),
         GrillaDashboard(
           children: [
-            _PanelVentasPlataforma(semana: semana, semanaAnterior: semanaAnterior, hoy: _hoy),
-            _PanelRankingNegocios(semana: semana, negocios: negocios),
-            _PanelEstadoPedidos(semana: semana),
+            _PanelRankingNegocios(semana: periodo, negocios: negocios, periodo: _periodo),
+            _PanelEstadoPedidos(semana: periodo, periodo: _periodo),
             _PanelClientes(clientes: clientes, hoy: _hoy),
             _PanelAtencionPlataforma(negocios: negocios, admins: admins),
           ],
@@ -134,65 +190,31 @@ class _DashboardPlataformaState extends State<DashboardPlataforma> {
       ],
     );
   }
-}
 
-class _PanelVentasPlataforma extends StatelessWidget {
-  final List<PedidoModel>? semana;
-  final List<PedidoModel>? semanaAnterior;
-  final DateTime hoy;
-  const _PanelVentasPlataforma({required this.semana, required this.semanaAnterior, required this.hoy});
-
-  @override
-  Widget build(BuildContext context) {
-    final semantic = context.semanticColors;
-    final texto = Theme.of(context).textTheme;
-    final datos = semana;
-    if (datos == null) {
-      return const PanelDashboard(
-        titulo: 'Ventas de la plataforma (7 días)',
-        icono: Icons.bar_chart_rounded,
-        child: CargandoSeccion(),
+  Widget _grafico(List<double> serie, DateTime desde, bool esHoy) {
+    if (esHoy) {
+      final ahora = DateTime.now().hour;
+      final fin = ahora < 8 ? 8 : ahora;
+      final tramo = serie.sublist(6, fin + 1);
+      return GraficoArea(
+        valores: tramo,
+        etiquetas: [for (var h = 6; h <= fin; h++) '${dosDigitos(h)}h'],
+        formato: compacto,
+        cadaEtiqueta: tramo.length > 12 ? 2 : 1,
       );
     }
-    final entregados = datos.where((p) => p.estado == PedidoEstado.entregado).toList();
-    final dias = [for (var i = 6; i >= 0; i--) hoy.subtract(Duration(days: i))];
-    final valores = [for (final d in dias) sumarTotales(pedidosDelDia(entregados, d))];
     final etiquetas = [
-      for (var i = 0; i < dias.length; i++) i == dias.length - 1 ? 'Hoy' : diasCortos[dias[i].weekday - 1],
+      for (var i = 0; i < serie.length; i++)
+        serie.length <= 7
+            ? diasCortos[desde.add(Duration(days: i)).weekday - 1]
+            : fechaCorta(desde.add(Duration(days: i))),
     ];
-    final total = sumarTotales(entregados);
-    final anterior = sumarTotales(
-      (semanaAnterior ?? const <PedidoModel>[]).where((p) => p.estado == PedidoEstado.entregado),
-    );
-    final variacion = variacionPorcentual(total, anterior);
-    return PanelDashboard(
-      titulo: 'Ventas de la plataforma (7 días)',
-      icono: Icons.bar_chart_rounded,
-      subtitulo: '${entregados.length} pedidos entregados · ${bs(total)}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GraficoBarras(
-            valores: valores,
-            etiquetas: etiquetas,
-            formato: (v) => v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (variacion != null)
-            Text.rich(TextSpan(children: [
-              TextSpan(
-                text: '${variacion >= 0 ? '▲' : '▼'} ${variacion.abs().toStringAsFixed(0)}% ',
-                style: TextStyle(
-                  color: variacion >= 0 ? semantic.success : Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const TextSpan(text: 'frente a la semana anterior'),
-            ]), style: texto.bodySmall)
-          else
-            Text('Sin ventas la semana anterior para comparar.', style: texto.bodySmall),
-        ],
-      ),
+    etiquetas[etiquetas.length - 1] = 'Hoy';
+    return GraficoArea(
+      valores: serie,
+      etiquetas: etiquetas,
+      formato: compacto,
+      cadaEtiqueta: serie.length > 7 ? 5 : 1,
     );
   }
 }
@@ -200,7 +222,8 @@ class _PanelVentasPlataforma extends StatelessWidget {
 class _PanelRankingNegocios extends StatelessWidget {
   final List<PedidoModel>? semana;
   final List<NegocioModel>? negocios;
-  const _PanelRankingNegocios({required this.semana, required this.negocios});
+  final PeriodoDashboard periodo;
+  const _PanelRankingNegocios({required this.semana, required this.negocios, required this.periodo});
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +246,7 @@ class _PanelRankingNegocios extends StatelessWidget {
       final orden = pedidosPorNegocio.keys.toList()
         ..sort((a, b) => (ventas[b] ?? 0).compareTo(ventas[a] ?? 0));
       if (orden.isEmpty) {
-        contenido = const TextoVacio('Ningún negocio recibió pedidos en los últimos 7 días.');
+        contenido = const TextoVacio('Ningún negocio recibió pedidos en este periodo.');
       } else {
         contenido = Column(
           children: [
@@ -267,7 +290,7 @@ class _PanelRankingNegocios extends StatelessWidget {
     return PanelDashboard(
       titulo: 'Negocios con más ventas',
       icono: Icons.emoji_events_outlined,
-      subtitulo: 'Últimos 7 días',
+      subtitulo: periodo == PeriodoDashboard.hoy ? 'Hoy' : 'Últimos ${periodo.dias} días',
       child: contenido,
     );
   }
@@ -275,7 +298,8 @@ class _PanelRankingNegocios extends StatelessWidget {
 
 class _PanelEstadoPedidos extends StatelessWidget {
   final List<PedidoModel>? semana;
-  const _PanelEstadoPedidos({required this.semana});
+  final PeriodoDashboard periodo;
+  const _PanelEstadoPedidos({required this.semana, required this.periodo});
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +310,7 @@ class _PanelEstadoPedidos extends StatelessWidget {
     if (datos == null) {
       contenido = const CargandoSeccion();
     } else if (datos.isEmpty) {
-      contenido = const TextoVacio('No hubo pedidos en los últimos 7 días.');
+      contenido = const TextoVacio('No hubo pedidos en este periodo.');
     } else {
       final entregados = datos.where((p) => p.estado == PedidoEstado.entregado).length;
       final cancelados = datos.where((p) => p.estado == PedidoEstado.cancelado).length;
@@ -323,9 +347,11 @@ class _PanelEstadoPedidos extends StatelessWidget {
       );
     }
     return PanelDashboard(
-      titulo: 'Pedidos de la semana',
+      titulo: 'Estado de los pedidos',
       icono: Icons.receipt_long_outlined,
-      subtitulo: 'Todos los negocios, últimos 7 días',
+      subtitulo: periodo == PeriodoDashboard.hoy
+          ? 'Todos los negocios, hoy'
+          : 'Todos los negocios, últimos ${periodo.dias} días',
       child: contenido,
     );
   }

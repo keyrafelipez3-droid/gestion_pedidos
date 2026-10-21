@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/carrito_models.dart';
 import '../../models/catalogo_models.dart';
 import '../../models/negocio_model.dart';
@@ -11,15 +12,15 @@ import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/colores.dart';
-import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
-import 'resenas_negocio_screen.dart';
 import '../../widgets/app_search_field.dart';
 import '../../widgets/app_status_badge.dart';
 import '../legal/info_negocio_screen.dart';
 import 'carrito_screen.dart';
+import 'resenas_negocio_screen.dart';
 
 /// HU-16/17/18/19/20/21: menú digital de un negocio — ver, buscar,
 /// filtrar por categoría, marcar favoritos y agregar al carrito.
@@ -59,7 +60,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
         title: Text(widget.negocio.nombre),
         actions: [
           IconButton(
-            tooltip: 'Reseñas',
+            tooltip: tr('Reseñas'),
             icon: const Icon(Icons.star_outline_rounded),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -68,7 +69,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'Información del negocio',
+            tooltip: tr('Información del negocio'),
             icon: const Icon(Icons.info_outline),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -96,7 +97,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
             ),
             child: AppSearchField(
               controller: _buscadorCtrl,
-              hint: 'Buscar en el menú...',
+              hint: tr('Buscar en el menú...'),
               onChanged: (v) => setState(() => _busqueda = v.trim().toLowerCase()),
             ),
           ),
@@ -131,10 +132,10 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                       .toList();
                 }
                 if (productos.isEmpty) {
-                  return const AppEmptyState(
+                  return AppEmptyState(
                     icon: Icons.restaurant_menu_outlined,
-                    title: 'No encontramos productos',
-                    message: 'Prueba con otra búsqueda o categoría.',
+                    title: tr('No encontramos productos'),
+                    message: tr('Prueba con otra búsqueda o categoría.'),
                   );
                 }
                 return StreamBuilder<Set<String>>(
@@ -231,7 +232,7 @@ class _SelectorSucursalCompacto extends StatelessWidget {
           child: DropdownButton<String>(
             isExpanded: true,
             value: seleccionado,
-            hint: const Text('Elige una sucursal'),
+            hint: Text(tr('Elige una sucursal')),
             items: sucursales
                 .map((s) => DropdownMenuItem(
                       value: s.id,
@@ -263,7 +264,7 @@ class _EstadoApertura extends StatelessWidget {
     // Sin horarios configurados no se muestra nada (no hay dato que afirmar).
     if (ap.abierta && ap.mensaje.isEmpty) return const SizedBox.shrink();
     return AppStatusBadge(
-      label: ap.abierta ? 'Abierto' : 'Cerrado',
+      label: ap.abierta ? tr('Abierto') : tr('Cerrado'),
       tone: ap.abierta ? AppStatusTone.success : AppStatusTone.danger,
     );
   }
@@ -296,7 +297,7 @@ class _FiltroCategorias extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.xs),
                 child: ChoiceChip(
-                  label: const Text('Todas'),
+                  label: Text(tr('Todas')),
                   selected: seleccionada == null,
                   onSelected: (_) => onChanged(null),
                 ),
@@ -424,7 +425,7 @@ class _TarjetaProducto extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Bs ${producto.precio.toStringAsFixed(2)}',
+                    tr('Bs {precio}', {'precio': producto.precio.toStringAsFixed(2)}),
                     style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   if (producto.descripcion.isNotEmpty) ...[
@@ -551,11 +552,11 @@ class _BarraCarrito extends StatelessWidget {
                     children: [
                       const Icon(Icons.shopping_cart_outlined),
                       const SizedBox(width: AppSpacing.sm),
-                      Text('Ver carrito ($cantidad)'),
+                      Text(tr('Ver carrito ({cantidad})', {'cantidad': cantidad})),
                     ],
                   ),
                   Text(
-                    'Bs ${total.toStringAsFixed(2)}',
+                    tr('Bs {total}', {'total': total.toStringAsFixed(2)}),
                     style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onPrimary),
                   ),
                 ],

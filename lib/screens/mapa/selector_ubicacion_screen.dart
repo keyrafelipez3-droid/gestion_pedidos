@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../config/app_config.dart';
+import '../../l10n/idioma.dart';
 import '../../services/geocodificacion_service.dart';
 import '../../services/ubicacion_service.dart';
 import '../../theme/design_tokens.dart';
@@ -92,12 +93,12 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
       setState(() {
         _resultados = lugares;
         if (lugares.isEmpty) {
-          _aviso = 'No encontramos esa dirección. Prueba con otra o mueve el mapa.';
+          _aviso = tr('No encontramos esa dirección. Prueba con otra o mueve el mapa.');
         }
       });
     } catch (_) {
       if (mounted) {
-        setState(() => _aviso = 'No se pudo buscar ahora. Mueve el mapa para marcar el punto.');
+        setState(() => _aviso = tr('No se pudo buscar ahora. Mueve el mapa para marcar el punto.'));
       }
     } finally {
       if (mounted) setState(() => _buscando = false);
@@ -116,7 +117,7 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Marca tu ubicación')),
+      appBar: AppBar(title: Text(tr('Marca tu ubicación'))),
       body: Column(
         children: [
           Expanded(
@@ -173,8 +174,8 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
                                   controller: _busquedaCtrl,
                                   textInputAction: TextInputAction.search,
                                   onSubmitted: (_) => _buscar(),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Buscar calle, zona o lugar',
+                                  decoration: InputDecoration(
+                                    hintText: tr('Buscar calle, zona o lugar'),
                                     border: InputBorder.none,
                                     filled: false,
                                   ),
@@ -190,7 +191,7 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
                                       ),
                                     )
                                   : IconButton(
-                                      tooltip: 'Buscar',
+                                      tooltip: tr('Buscar'),
                                       icon: const Icon(Icons.search),
                                       onPressed: _buscar,
                                     ),
@@ -247,7 +248,7 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
                   bottom: AppSpacing.md,
                   child: FloatingActionButton.small(
                     heroTag: 'mi-ubicacion',
-                    tooltip: 'Usar mi ubicación',
+                    tooltip: tr('Usar mi ubicación'),
                     onPressed: _cargandoGps ? null : () => _irAMiUbicacion(),
                     child: _cargandoGps
                         ? const SizedBox(
@@ -270,7 +271,7 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Mueve el mapa hasta dejar el pin en la puerta de tu domicilio.',
+                    tr('Mueve el mapa hasta dejar el pin en la puerta de tu domicilio.'),
                     style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -284,7 +285,7 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.check),
-                    label: const Text('Confirmar ubicación'),
+                    label: Text(tr('Confirmar ubicación')),
                   ),
                 ],
               ),
