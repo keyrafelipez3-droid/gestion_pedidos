@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../firebase_options.dart';
+import '../models/cliente_negocio_model.dart';
 import '../models/usuario_model.dart';
 
 /// Operaciones exclusivas del Administrador sobre la colección `usuarios`.
@@ -126,9 +127,10 @@ class AdminService {
           ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
   }
 
-  /// HU-04 — Lista en tiempo real de todos los Clientes registrados
-  /// (se registran ellos mismos desde la app, ver HU-01).
-  Stream<List<UsuarioModel>> streamClientes() {
+  /// Lista en tiempo real de TODOS los Clientes de la plataforma. Solo el
+  /// SuperAdmin puede leerlos (las reglas lo exigen): un Administrador ve
+  /// únicamente a los clientes de su propio negocio.
+  Stream<List<UsuarioModel>> streamTodosLosClientes() {
     return _db
         .collection('usuarios')
         .where('rol', isEqualTo: Rol.cliente)
@@ -137,7 +139,43 @@ class AdminService {
         .map((qs) => qs.docs.map(UsuarioModel.fromSnapshot).toList());
   }
 
-  /// Activa / desactiva la cuenta de un empleado o cliente (no lo borra).
+  /// HU-04 — Clientes de UN negocio: quienes ya hicieron al menos un
+  /// pedido allí (se registran en `negocios/{id}/clientes` al confirmar
+  /// su primer pedido).
+  Stream<List<ClienteNegocioModel>> streamClientesDeNegocio(String idNegocio) {
+    return _db
+        .collection('negocios')
+        .doc(idNegocio)
+        .collection('clientes')
+        .snapshots()
+        .map((qs) => qs.docs.map(ClienteNegocioModel.fromSnapshot).toList()
+          ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
+  }
+
+  /// Bloquea o desbloquea a un cliente SOLO en este negocio. Un cliente
+  /// bloqueado ya no puede hacer pedidos aquí; en los demás negocios sigue
+  /// igual. Es reversible y no borra nada.
+  Future<void> cambiarBloqueoCliente({
+    required String idNegocio,
+    required String idCliente,
+    required bool bloqueado,
+    String? motivo,
+    required String idAdmin,
+  }) {
+    return _db
+        .collection('negocios')
+        .doc(idNegocio)
+        .collection('clientes')
+        .doc(idCliente)
+        .update({
+      'bloqueado': bloqueado,
+      'motivoBloqueo': bloqueado ? (motivo ?? '') : FieldValue.delete(),
+      'fechaBloqueo': bloqueado ? FieldValue.serverTimestamp() : FieldValue.delete(),
+      'idAdminBloqueo': bloqueado ? idAdmin : FieldValue.delete(),
+    });
+  }
+
+  /// Activa / desactiva la cuenta de un empleado (no lo borra).
   Future<void> cambiarEstado(String idUsuario, bool estado) {
     return _db.collection('usuarios').doc(idUsuario).update({
       'estado': estado,
