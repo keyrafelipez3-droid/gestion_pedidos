@@ -9,6 +9,7 @@ import '../../services/sesion_actual.dart';
 import '../../services/ubicacion_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
+import '../../utils/errores.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 
@@ -145,9 +146,8 @@ class _TarjetaEntregaState extends State<_TarjetaEntrega> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exito)));
     } catch (e) {
       if (!mounted) return;
-      final texto = e.toString().replaceFirst('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo completar: $texto')),
+        SnackBar(content: Text(textoError(e))),
       );
     } finally {
       if (mounted) setState(() => _ocupado = false);

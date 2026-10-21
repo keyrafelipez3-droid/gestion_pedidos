@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/carrito_models.dart';
 import '../models/mesa_model.dart';
 import '../models/pedido_models.dart';
+import '../utils/errores.dart';
 import 'sesion_actual.dart';
 
 /// HU-24 a HU-31: confirmar pedido (a partir del carrito), consultarlo,
@@ -511,20 +512,55 @@ class PedidoService {
     String comentario = '',
     bool limpiarUbicacion = false,
   }) async {
-    final batch = _db.batch();
-    batch.update(_pedidos.doc(idPedido), {
-      'estado': nuevoEstado,
-      // Si el pedido iba en camino, se borra la posición del repartidor.
-      if (limpiarUbicacion) 'ubicacionRepartidor': null,
-      if (limpiarUbicacion) 'ubicacionActualizada': null,
+    final ref = _pedidos.doc(idPedido);
+    // Transacción: lee el estado REAL, valida el cambio y recién ahí escribe
+    // pedido + historial juntos. Si alguien más lo cambió mientras tanto,
+    // Firestore reintenta y la validación detecta el cambio.
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) {
+        throw const PedidoEstadoException('El pedido ya no existe.');
+      }
+      final actual = (snap.data()?['estado'] ?? '') as String;
+      _validarCambio(actual, nuevoEstado);
+      tx.update(ref, {
+        'estado': nuevoEstado,
+        // Si el pedido iba en camino, se borra la posición del repartidor.
+        if (limpiarUbicacion) 'ubicacionRepartidor': null,
+        if (limpiarUbicacion) 'ubicacionActualizada': null,
+      });
+      final historial = HistorialEstadoModel(
+        id: '',
+        estado: nuevoEstado,
+        idUsuarioQueCambio: idUsuarioQueCambio,
+        comentario: comentario,
+      );
+      tx.set(ref.collection('historialEstados').doc(), historial.toMap());
     });
-    final historial = HistorialEstadoModel(
-      id: '',
-      estado: nuevoEstado,
-      idUsuarioQueCambio: idUsuarioQueCambio,
-      comentario: comentario,
-    );
-    batch.set(_pedidos.doc(idPedido).collection('historialEstados').doc(), historial.toMap());
-    await batch.commit();
+  }
+
+  /// Comprueba, ANTES de hacer otras operaciones (como registrar un cobro),
+  /// que el pedido todavía puede pasar a [nuevoEstado]. Lanza
+  /// [PedidoEstadoException] con un mensaje claro si ya no se puede.
+  Future<void> verificarCambio(String idPedido, String nuevoEstado) async {
+    final snap = await _pedidos.doc(idPedido).get();
+    if (!snap.exists) {
+      throw const PedidoEstadoException('El pedido ya no existe.');
+    }
+    _validarCambio((snap.data()?['estado'] ?? '') as String, nuevoEstado);
+  }
+
+  void _validarCambio(String actual, String nuevo) {
+    if (actual == nuevo) {
+      throw PedidoEstadoException(
+        'Este pedido ya estaba en "$nuevo". La pantalla se actualizó, revisa el estado.',
+      );
+    }
+    if (!PedidoEstado.puedePasar(actual, nuevo)) {
+      throw PedidoEstadoException(
+        'No se puede pasar de "$actual" a "$nuevo". Es posible que otra persona '
+        'haya cambiado el pedido; revisa el estado actual.',
+      );
+    }
   }
 }

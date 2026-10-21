@@ -54,6 +54,20 @@ class PedidoEstado {
     entregado,
     cancelado,
   ];
+
+  /// Cambios de estado permitidos. El servicio los valida contra el estado
+  /// REAL del pedido en Firestore (no el que ve la pantalla), para que dos
+  /// personas no puedan pisarse ni repetir un cambio.
+  static const Map<String, List<String>> _transiciones = {
+    pendiente: [enPreparacion, cancelado],
+    enPreparacion: [listo, cancelado],
+    listo: [enCamino, entregado, cancelado],
+    enCamino: [llego, entregado],
+    llego: [entregado],
+  };
+
+  static bool puedePasar(String actual, String nuevo) =>
+      (_transiciones[actual] ?? const <String>[]).contains(nuevo);
 }
 
 /// Documento de `pedidos/{pedidoId}` (raíz). Se crea a partir del

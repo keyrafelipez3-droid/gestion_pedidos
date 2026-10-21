@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/pedido_models.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../utils/errores.dart';
+import '../../widgets/boton_accion.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_iconos_pedido.dart';
@@ -24,7 +26,7 @@ class CocinaPedidosScreen extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo actualizar: $e')),
+        SnackBar(content: Text(textoError(e))),
       );
     }
   }
@@ -78,13 +80,13 @@ class CocinaPedidosScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        trailing: FilledButton(
+                        trailing: BotonAccion(
+                          texto: enPreparacion ? 'Marcar listo' : 'Empezar',
                           onPressed: () => _avanzar(
                             context,
                             p,
                             enPreparacion ? PedidoEstado.listo : PedidoEstado.enPreparacion,
                           ),
-                          child: Text(enPreparacion ? 'Marcar listo' : 'Empezar'),
                         ),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
