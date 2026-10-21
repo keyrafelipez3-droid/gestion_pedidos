@@ -42,6 +42,17 @@ class UbicacionService {
     }
   }
 
+  /// Posiciones del dispositivo a medida que se mueve (cada
+  /// [distanciaMinima] metros). Quien lo use debe cancelar la suscripción
+  /// apenas deje de necesitarla.
+  Stream<LatLng> seguirPosicion({int distanciaMinima = 15}) =>
+      Geolocator.getPositionStream(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: distanciaMinima,
+        ),
+      ).map((p) => LatLng(p.latitude, p.longitude));
+
   /// Posición actual del dispositivo.
   Future<LatLng> obtenerPosicionActual() async {
     await asegurarPermiso();

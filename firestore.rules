@@ -342,12 +342,25 @@ service cloud.firestore {
                 && request.resource.data.idRepartidor == request.auth.uid
                 && request.resource.data.nombreRepartidor is string
                 && request.resource.data.telefonoRepartidor is string)
+              // Avisar que llego (solo cambia el estado).
               || (resource.data.get('idRepartidor', null) == request.auth.uid
                 && cambios().hasOnly(['estado'])
-                && ((resource.data.estado == 'En camino'
-                      && request.resource.data.estado in ['En el lugar', 'Entregado'])
-                    || (resource.data.estado == 'En el lugar'
-                      && request.resource.data.estado == 'Entregado')))
+                && resource.data.estado == 'En camino'
+                && request.resource.data.estado == 'En el lugar')
+              // Entregar: al cerrar se borra la posicion en vivo.
+              || (resource.data.get('idRepartidor', null) == request.auth.uid
+                && cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
+                && resource.data.estado in ['En camino', 'En el lugar']
+                && request.resource.data.estado == 'Entregado'
+                && request.resource.data.get('ubicacionRepartidor', null) == null
+                && request.resource.data.get('ubicacionActualizada', null) == null)
+              // Posicion en vivo: solo mientras el pedido esta en camino.
+              || (resource.data.get('idRepartidor', null) == request.auth.uid
+                && resource.data.estado in ['En camino', 'En el lugar']
+                && request.resource.data.estado == resource.data.estado
+                && cambios().hasOnly(['ubicacionRepartidor', 'ubicacionActualizada'])
+                && request.resource.data.ubicacionRepartidor is latlng
+                && request.resource.data.ubicacionActualizada == request.time)
             ))
         || (esPersonalDelNegocio()
             && resource.data.get('idNegocio', null) == idNegocioActual()
@@ -355,6 +368,11 @@ service cloud.firestore {
               // Cambio de estado (Cocina, Cajero o Administrador).
               (cambios().hasOnly(['estado'])
                 && request.resource.data.estado is string)
+              // Cierre de un pedido en camino: tambien se borra la posicion.
+              || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
+                && request.resource.data.estado is string
+                && request.resource.data.get('ubicacionRepartidor', null) == null
+                && request.resource.data.get('ubicacionActualizada', null) == null)
               // Cobro (solo Cajero): no se puede "des-cobrar" un pedido.
               || (isCajero()
                 && cambios().hasOnly(['cuentaAbierta', 'cobrado', 'idCaja', 'metodoPago'])

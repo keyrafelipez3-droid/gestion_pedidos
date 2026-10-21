@@ -102,6 +102,12 @@ class PedidoModel {
   final String? nombreRepartidor;
   final String? telefonoRepartidor;
 
+  /// Posición en vivo del repartidor. Solo existe mientras el pedido está
+  /// en camino; se borra al entregarlo.
+  final double? latRepartidor;
+  final double? lngRepartidor;
+  final DateTime? ubicacionActualizada;
+
   const PedidoModel({
     required this.id,
     required this.idCliente,
@@ -127,6 +133,9 @@ class PedidoModel {
     this.idRepartidor,
     this.nombreRepartidor,
     this.telefonoRepartidor,
+    this.latRepartidor,
+    this.lngRepartidor,
+    this.ubicacionActualizada,
   });
 
   bool get esDelivery => modalidad == PedidoModalidad.delivery;
@@ -176,6 +185,8 @@ class PedidoModel {
     final rawTotal = data['total'];
     final ts = data['fechaCreacion'] as Timestamp?;
     final rawDireccion = data['direccionEntrega'];
+    final ubicacion = data['ubicacionRepartidor'];
+    final tsUbicacion = data['ubicacionActualizada'];
     return PedidoModel(
       id: doc.id,
       idCliente: data['idCliente'] as String? ?? '',
@@ -202,6 +213,9 @@ class PedidoModel {
       idRepartidor: data['idRepartidor'] as String?,
       nombreRepartidor: data['nombreRepartidor'] as String?,
       telefonoRepartidor: data['telefonoRepartidor'] as String?,
+      latRepartidor: ubicacion is GeoPoint ? ubicacion.latitude : null,
+      lngRepartidor: ubicacion is GeoPoint ? ubicacion.longitude : null,
+      ubicacionActualizada: tsUbicacion is Timestamp ? tsUbicacion.toDate() : null,
     );
   }
 }

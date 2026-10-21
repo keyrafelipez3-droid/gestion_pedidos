@@ -16,7 +16,7 @@ class AppConfig {
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.
-  static const String versionTerminos = '2026-10-21';
+  static const String versionTerminos = '2026-10-22';
 
   /// Quién ofrece la plataforma (persona o empresa titular).
   static const String titularPlataforma =

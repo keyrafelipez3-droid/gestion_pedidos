@@ -38,6 +38,10 @@ class TextosLegales {
               'de entrega. Si usas "Mi ubicación", el dispositivo te pide '
               'permiso y la usamos solo para colocar ese punto; no la '
               'guardamos de forma continua.',
+          'Ubicación del repartidor: mientras tu pedido de delivery va en '
+              'camino, el repartidor comparte su posición con la plataforma '
+              'y tú la ves en un mapa. Esa posición se borra cuando el pedido '
+              'se entrega.',
           'Datos de tus pedidos: productos, total, forma de pago, notas y '
               'estado, y el comprobante de pago si lo subes.',
           'Imágenes que subas: foto de perfil y comprobantes de pago.',
