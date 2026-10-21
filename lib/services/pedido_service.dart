@@ -277,6 +277,25 @@ class PedidoService {
     });
   }
 
+  /// HU-42: ventas del negocio = pedidos Entregados con fecha dentro de
+  /// [desde, hasta) (hasta no incluido), del más reciente al más antiguo.
+  /// Requiere un índice compuesto en Firestore: idNegocio + estado +
+  /// fechaCreacion (descendente); la consola de Flutter muestra el enlace
+  /// para crearlo la primera vez.
+  Stream<List<PedidoModel>> streamVentas({
+    required String idNegocio,
+    required DateTime desde,
+    required DateTime hasta,
+  }) =>
+      _pedidos
+          .where('idNegocio', isEqualTo: idNegocio)
+          .where('estado', isEqualTo: PedidoEstado.entregado)
+          .where('fechaCreacion', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+          .where('fechaCreacion', isLessThan: Timestamp.fromDate(hasta))
+          .orderBy('fechaCreacion', descending: true)
+          .snapshots()
+          .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+
   /// HU-30: Cocina consulta solo los pedidos pendientes/en preparación
   /// (no necesita ver los ya entregados o cancelados).
   Stream<List<PedidoModel>> streamPedidosCocina(String idNegocio) =>
