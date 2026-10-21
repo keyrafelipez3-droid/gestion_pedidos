@@ -4,6 +4,7 @@ import '../../models/sucursal_model.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/campo_telefono.dart';
 import '../../widgets/app_search_field.dart';
 import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_status_badge.dart';
@@ -72,11 +73,7 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                     decoration: const InputDecoration(labelText: 'Dirección'),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  TextFormField(
-                    controller: telefono,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(labelText: 'Teléfono'),
-                  ),
+                  CampoTelefono(controller: telefono),
                   const SizedBox(height: AppSpacing.md),
                   SelectorImagen(
                     etiqueta: 'Foto de la sucursal (opcional)',

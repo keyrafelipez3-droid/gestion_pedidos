@@ -6,6 +6,7 @@ import '../../services/negocio_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/selector_imagen.dart';
+import '../../widgets/campo_telefono.dart';
 import '../../widgets/app_cargando.dart';
 
 /// HU-07 — Pantalla para que el Administrador configure la información
@@ -178,13 +179,9 @@ class _NegocioScreenState extends State<NegocioScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
 
-                    TextFormField(
+                    CampoTelefono(
                       controller: _telefonoCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Teléfono de contacto',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                      ),
+                      etiqueta: 'Teléfono de contacto',
                     ),
                     const SizedBox(height: AppSpacing.lg),
 

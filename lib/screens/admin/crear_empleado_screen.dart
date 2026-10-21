@@ -5,6 +5,7 @@ import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/sucursal_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../widgets/campo_telefono.dart';
 
 /// HU-05 — Formulario para que un Administrador cree la cuenta de un
 /// empleado y le asigne su rol (y opcionalmente su sucursal).
@@ -144,17 +145,10 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    TextFormField(
+                    CampoTelefono(
                       controller: _telefonoCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Teléfono',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Ingresa el teléfono'
-                          : null,
+                      obligatorio: true,
+                      contorno: true,
                     ),
                     const SizedBox(height: 16),
 

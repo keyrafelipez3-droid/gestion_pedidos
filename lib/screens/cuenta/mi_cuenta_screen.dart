@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/campo_telefono.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../widgets/app_cargando.dart';
 import '../legal/legal_screen.dart';
@@ -434,16 +435,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                                 : null,
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          TextFormField(
+                          CampoTelefono(
                             controller: _telefonoCtrl,
-                            keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(
-                              labelText: 'Teléfono *',
-                              prefixIcon: Icon(Icons.phone_outlined),
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Ingresa tu teléfono'
-                                : null,
+                            obligatorio: true,
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           // El correo no se puede editar acá: cambiar el
