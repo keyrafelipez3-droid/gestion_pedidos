@@ -1,11 +1,11 @@
 {
-    "name": "gestion_pedidos",
-    "short_name": "gestion_pedidos",
+    "name": "Caro | Pedidos de comida",
+    "short_name": "Caro",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B0B0B",
+    "theme_color": "#F2BC45",
+    "description": "Caro: pedidos de comida, mesas, caja y reparto para tu negocio.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

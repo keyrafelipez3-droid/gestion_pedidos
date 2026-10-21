@@ -98,7 +98,7 @@ class _CategoriasTab extends StatelessWidget {
               children: [
                 TextFormField(
                   controller: nombre,
-                  decoration: const InputDecoration(labelText: 'Nombre'),
+                  decoration: const InputDecoration(labelText: 'Nombre *'),
                   validator: (v) => v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -286,7 +286,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                     TextFormField(
                       controller: nombre,
                       decoration: const InputDecoration(
-                        labelText: 'Nombre',
+                        labelText: 'Nombre *',
                         border: OutlineInputBorder(),
                       ),
                       validator: (v) => v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
@@ -305,7 +305,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                       controller: precio,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Precio',
+                        labelText: 'Precio *',
                         prefixText: 'Bs ',
                         border: OutlineInputBorder(),
                       ),
@@ -602,7 +602,7 @@ class _ComplementosTab extends StatelessWidget {
                 TextFormField(
                   controller: nombre,
                   decoration: const InputDecoration(
-                    labelText: 'Nombre',
+                    labelText: 'Nombre *',
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) => v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
@@ -620,7 +620,7 @@ class _ComplementosTab extends StatelessWidget {
                   controller: precio,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'Precio adicional',
+                    labelText: 'Precio adicional *',
                     prefixText: 'Bs ',
                     border: OutlineInputBorder(),
                   ),
@@ -786,7 +786,7 @@ class _VariantesTab extends StatelessWidget {
                   TextFormField(
                     controller: nombre,
                     decoration: const InputDecoration(
-                      labelText: 'Nombre de variante',
+                      labelText: 'Nombre de variante *',
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
@@ -796,7 +796,7 @@ class _VariantesTab extends StatelessWidget {
                     controller: precio,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
-                      labelText: 'Precio adicional',
+                      labelText: 'Precio adicional *',
                       prefixText: 'Bs ',
                       border: OutlineInputBorder(),
                     ),

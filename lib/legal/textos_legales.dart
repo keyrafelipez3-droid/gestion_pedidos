@@ -20,7 +20,7 @@ class TextosLegales {
 
   static List<SeccionLegal> politicaPrivacidad() => [
         SeccionLegal('1. Quién es responsable', [
-          '${AppConfig.nombrePlataforma} es una plataforma que ofrece '
+          '${AppConfig.nombrePlataforma} es una plataforma ofrecida por '
               '${AppConfig.titularPlataforma} para que distintos negocios '
               'reciban y gestionen pedidos. Cada negocio aparece identificado '
               'en su ficha y es quien atiende tu pedido.',

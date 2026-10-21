@@ -64,7 +64,7 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                 children: [
                   TextFormField(
                     controller: nombre,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    decoration: const InputDecoration(labelText: 'Nombre *'),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Ingresa el nombre' : null,
                   ),
                   const SizedBox(height: AppSpacing.md),

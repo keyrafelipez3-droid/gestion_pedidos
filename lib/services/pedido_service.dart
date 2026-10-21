@@ -257,27 +257,6 @@ class PedidoService {
         return lista;
       });
 
-  /// Cierra la cuenta de la mesa: todos sus pedidos (menos los cancelados)
-  /// quedan con el método de pago elegido y dejan de estar "abiertos".
-  /// Liberar la mesa en sí lo hace MesaService.liberarMesa.
-  Future<void> cerrarCuentaMesa({
-    required String idNegocio,
-    required String idMesa,
-    required String metodoPago,
-  }) async {
-    final qs = await _consultaCuentaMesa(idNegocio, idMesa).get();
-    if (qs.docs.isEmpty) return;
-    final batch = _db.batch();
-    for (final doc in qs.docs) {
-      final estado = doc.data()['estado'] as String? ?? '';
-      batch.update(doc.reference, {
-        'cuentaAbierta': false,
-        if (estado != PedidoEstado.cancelado) 'metodoPago': metodoPago,
-      });
-    }
-    await batch.commit();
-  }
-
   /// HU-46: cuántas mesas de la sucursal tienen una cuenta abierta (con
   /// algún pedido no cancelado). La caja no se puede cerrar mientras haya.
   Future<int> contarMesasConCuentaAbierta({

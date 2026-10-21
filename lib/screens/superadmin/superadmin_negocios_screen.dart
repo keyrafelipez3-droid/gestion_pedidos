@@ -29,7 +29,7 @@ class SuperAdminNegociosScreen extends StatelessWidget {
           child: TextFormField(
             controller: nombreCtrl,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Nombre del negocio'),
+            decoration: const InputDecoration(labelText: 'Nombre del negocio *'),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Ingresa el nombre' : null,
           ),

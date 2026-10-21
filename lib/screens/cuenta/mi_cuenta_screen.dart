@@ -167,8 +167,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                       TextFormField(
                         controller: actualCtrl,
                         obscureText: !verActual,
+                        obscuringCharacter: '*',
                         decoration: InputDecoration(
-                          labelText: 'Contraseña actual',
+                          labelText: 'Contraseña actual *',
                           suffixIcon: IconButton(
                             icon: Icon(verActual
                                 ? Icons.visibility_off
@@ -185,8 +186,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                       TextFormField(
                         controller: nuevaCtrl,
                         obscureText: !verNueva,
+                        obscuringCharacter: '*',
                         decoration: InputDecoration(
-                          labelText: 'Nueva contraseña',
+                          labelText: 'Nueva contraseña *',
                           suffixIcon: IconButton(
                             icon: Icon(
                               verNueva ? Icons.visibility_off : Icons.visibility,
@@ -209,8 +211,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                       TextFormField(
                         controller: confirmarCtrl,
                         obscureText: !verNueva,
+                        obscuringCharacter: '*',
                         decoration: const InputDecoration(
-                          labelText: 'Confirmar nueva contraseña',
+                          labelText: 'Confirmar nueva contraseña *',
                         ),
                         validator: (v) {
                           if (v != nuevaCtrl.text) {
@@ -281,6 +284,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
               TextField(
                 controller: passCtrl,
                 obscureText: true,
+                obscuringCharacter: '*',
                 decoration: const InputDecoration(
                   labelText: 'Tu contraseña actual *',
                   prefixIcon: Icon(Icons.lock_outline),

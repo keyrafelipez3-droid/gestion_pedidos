@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   AppConfig._();
 
-  static const String nombrePlataforma = 'Gestión de Pedidos';
+  static const String nombrePlataforma = 'Caro';
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.
@@ -20,10 +20,10 @@ class AppConfig {
 
   /// Quién ofrece la plataforma (persona o empresa titular).
   static const String titularPlataforma =
-      '[COMPLETAR: nombre legal del titular de la plataforma]';
+      'Alaitz Keyra Felipez Ledezma y Susan Dilana Romero Valdez';
 
   /// Correo para consultas de privacidad y solicitudes sobre datos.
-  static const String correoPrivacidad = '[COMPLETAR: correo de privacidad]';
+  static const String correoPrivacidad = 'keyrafelipez3@gmail.com';
 
   static const String ciudadPais = 'Cochabamba, Bolivia';
 

@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'models/negocio_model.dart';
 import 'screens/auth_gate.dart';
 import 'services/app_theme_controller.dart';
+import 'theme/design_tokens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,7 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: negocio?.nombre.isNotEmpty == true
               ? negocio!.nombre
-              : 'Gestión de Pedidos',
+              : AppBrand.nombre,
           debugShowCheckedModeBanner: false,
           theme: AppThemeController.instancia.buildTheme(Brightness.light),
           // HU-10 (Fase 5): "Modo" (claro/oscuro) es una preferencia del
