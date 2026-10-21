@@ -311,7 +311,7 @@ class _TarjetaBienvenida extends StatelessWidget {
               vertical: AppSpacing.xl,
               horizontal: AppSpacing.lg,
             ),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
