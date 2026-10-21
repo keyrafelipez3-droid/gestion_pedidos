@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../models/carrito_models.dart';
 import '../../models/direccion_entrega_model.dart';
@@ -13,6 +14,7 @@ import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/selector_imagen.dart';
+import '../mapa/selector_ubicacion_screen.dart';
 import 'pedido_detalle_screen.dart';
 
 /// HU-24/25/26/27: elegir modalidad (mesa/recoger/delivery), dirección
@@ -335,47 +337,112 @@ class _SelectorDireccion extends StatelessWidget {
     final etiquetaCtrl = TextEditingController();
     final direccionCtrl = TextEditingController();
     final referenciaCtrl = TextEditingController();
+    LatLng? ubicacion;
+    String? error;
     final guardar = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nueva dirección'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: etiquetaCtrl,
-              decoration: const InputDecoration(labelText: 'Etiqueta (ej. Casa, Trabajo)'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Nueva dirección'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: etiquetaCtrl,
+                    decoration: const InputDecoration(labelText: 'Etiqueta (ej. Casa, Trabajo)'),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton.icon(
+                    icon: Icon(
+                      ubicacion == null ? Icons.add_location_alt_outlined : Icons.check_circle,
+                    ),
+                    label: Text(
+                      ubicacion == null
+                          ? 'Marcar ubicación en el mapa *'
+                          : 'Ubicación marcada (tocar para cambiar)',
+                    ),
+                    onPressed: () async {
+                      final elegida = await Navigator.of(dialogContext).push<UbicacionElegida>(
+                        MaterialPageRoute(
+                          builder: (_) => SelectorUbicacionScreen(inicial: ubicacion),
+                        ),
+                      );
+                      if (elegida == null) return;
+                      setState(() {
+                        ubicacion = elegida.punto;
+                        error = null;
+                        // Se sugiere la dirección encontrada, sin pisar lo
+                        // que el usuario ya hubiera escrito.
+                        if (direccionCtrl.text.trim().isEmpty &&
+                            elegida.direccionSugerida != null) {
+                          direccionCtrl.text = elegida.direccionSugerida!;
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: direccionCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Dirección *',
+                      helperText: 'Calle, número, edificio o zona. Puedes corregirla.',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: referenciaCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Referencia (opcional)',
+                      helperText: 'Ej. portón verde, piso 3, depto B',
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      error!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: direccionCtrl,
-              decoration: const InputDecoration(labelText: 'Dirección'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: referenciaCtrl,
-              decoration: const InputDecoration(labelText: 'Referencia (opcional)'),
+            FilledButton(
+              onPressed: () {
+                if (ubicacion == null) {
+                  setState(() => error = 'Marca tu ubicación en el mapa para que el repartidor te encuentre.');
+                  return;
+                }
+                if (direccionCtrl.text.trim().isEmpty) {
+                  setState(() => error = 'Escribe la dirección.');
+                  return;
+                }
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Guardar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
-    if (guardar != true || direccionCtrl.text.trim().isEmpty) return;
+    if (guardar != true || ubicacion == null || direccionCtrl.text.trim().isEmpty) return;
     final nueva = DireccionEntregaModel(
       id: '',
       etiqueta: etiquetaCtrl.text.trim().isEmpty ? 'Dirección' : etiquetaCtrl.text.trim(),
       direccion: direccionCtrl.text.trim(),
       referencia: referenciaCtrl.text.trim(),
+      latitud: ubicacion!.latitude,
+      longitud: ubicacion!.longitude,
     );
     await DireccionesService.instancia.guardarDireccion(uid, nueva);
   }
@@ -398,7 +465,11 @@ class _SelectorDireccion extends StatelessWidget {
                     value: d.id,
                     groupValue: seleccionada?.id,
                     title: Text(d.etiqueta),
-                    subtitle: Text(d.direccion),
+                    subtitle: Text(
+                      d.tieneUbicacion
+                          ? d.direccion
+                          : '${d.direccion}\n(Sin ubicación en el mapa: agrega una dirección nueva)',
+                    ),
                     onChanged: (_) => onChanged(d),
                   )),
             const SizedBox(height: AppSpacing.xs),

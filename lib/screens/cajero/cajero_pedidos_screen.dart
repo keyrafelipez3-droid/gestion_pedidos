@@ -23,7 +23,13 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
   late final TabController _tabs;
 
   static const _grupos = <String, List<String>>{
-    'Activos': [PedidoEstado.pendiente, PedidoEstado.enPreparacion, PedidoEstado.listo],
+    'Activos': [
+      PedidoEstado.pendiente,
+      PedidoEstado.enPreparacion,
+      PedidoEstado.listo,
+      PedidoEstado.enCamino,
+      PedidoEstado.llego,
+    ],
     'Entregados': [PedidoEstado.entregado],
     'Cancelados': [PedidoEstado.cancelado],
   };
@@ -48,6 +54,8 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
         return AppStatusTone.danger;
       case PedidoEstado.enPreparacion:
       case PedidoEstado.listo:
+      case PedidoEstado.enCamino:
+      case PedidoEstado.llego:
         return AppStatusTone.warning;
       default:
         return AppStatusTone.neutral;

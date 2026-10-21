@@ -65,6 +65,13 @@ service cloud.firestore {
         && tieneNegocio();
     }
 
+    function isRepartidor() {
+      return signedIn()
+        && datosUsuarioActual().rol == 'Repartidor'
+        && datosUsuarioActual().estado == true
+        && tieneNegocio();
+    }
+
     function esPersonalDelNegocio() {
       return isAdmin() || isCajero() || isCocina();
     }
@@ -268,7 +275,14 @@ service cloud.firestore {
     match /pedidos/{pedidoId} {
       allow read: if isSuperAdmin()
         || (signedIn() && resource.data.idCliente == request.auth.uid)
-        || (esPersonalDelNegocio() && resource.data.get('idNegocio', null) == idNegocioActual());
+        || (esPersonalDelNegocio() && resource.data.get('idNegocio', null) == idNegocioActual())
+        // Repartidor: solo pedidos de delivery de su negocio que estan
+        // listos para tomar o que el mismo tomo.
+        || (isRepartidor()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && resource.data.get('modalidad', '') == 'Delivery'
+            && (resource.data.get('idRepartidor', null) == request.auth.uid
+                || resource.data.estado == 'Listo'));
 
       allow create: if (signedIn()
           && request.resource.data.idCliente == request.auth.uid
@@ -287,7 +301,8 @@ service cloud.firestore {
                ['idCliente', 'idNegocio', 'idSucursal', 'modalidad', 'idMesa',
                 'direccionEntrega', 'metodoPago', 'comprobantePagoUrl', 'estado',
                 'total', 'notas', 'fechaCreacion', 'origen', 'creadoPor',
-                'numeroMesa', 'cuentaAbierta', 'cobrado', 'idCaja'])
+                'numeroMesa', 'cuentaAbierta', 'cobrado', 'idCaja',
+                'nombreCliente', 'telefonoCliente'])
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
                .data.get('idNegocio', null) == request.resource.data.idNegocio
           && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid))
@@ -309,9 +324,31 @@ service cloud.firestore {
         // solo puede quitar su identificador y su direccion de entrega.
         || (signedIn()
             && resource.data.idCliente == request.auth.uid
-            && cambios().hasOnly(['idCliente', 'direccionEntrega'])
+            && cambios().hasOnly(['idCliente', 'direccionEntrega', 'nombreCliente', 'telefonoCliente'])
             && request.resource.data.idCliente == 'cuenta-eliminada'
-            && request.resource.data.get('direccionEntrega', null) == null)
+            && request.resource.data.get('direccionEntrega', null) == null
+            && request.resource.data.get('nombreCliente', null) == null
+            && request.resource.data.get('telefonoCliente', null) == null)
+        // Repartidor: toma un pedido Listo (queda asignado a el) y luego
+        // avisa que llego y lo entrega. Solo cambia estado y sus datos.
+        || (isRepartidor()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && resource.data.get('modalidad', '') == 'Delivery'
+            && (
+              (resource.data.estado == 'Listo'
+                && resource.data.get('idRepartidor', null) == null
+                && cambios().hasOnly(['estado', 'idRepartidor', 'nombreRepartidor', 'telefonoRepartidor'])
+                && request.resource.data.estado == 'En camino'
+                && request.resource.data.idRepartidor == request.auth.uid
+                && request.resource.data.nombreRepartidor is string
+                && request.resource.data.telefonoRepartidor is string)
+              || (resource.data.get('idRepartidor', null) == request.auth.uid
+                && cambios().hasOnly(['estado'])
+                && ((resource.data.estado == 'En camino'
+                      && request.resource.data.estado in ['En el lugar', 'Entregado'])
+                    || (resource.data.estado == 'En el lugar'
+                      && request.resource.data.estado == 'Entregado')))
+            ))
         || (esPersonalDelNegocio()
             && resource.data.get('idNegocio', null) == idNegocioActual()
             && (
@@ -366,6 +403,8 @@ service cloud.firestore {
                   && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
                 || (esPersonalDelNegocio()
                   && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual())
+                || (isRepartidor()
+                  && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idRepartidor', null) == request.auth.uid)
               ));
 
         allow update, delete: if isSuperAdmin();

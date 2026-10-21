@@ -43,8 +43,17 @@ class PedidoService {
     final pedidoDoc = _pedidos.doc();
     final numeroMesa = await _numeroDeMesa(idSucursal, idMesa);
 
+    // Solo en delivery: nombre y teléfono para que el repartidor pueda
+    // contactar al cliente durante la entrega (y nadie más que el personal
+    // de este negocio los ve; se borran si el cliente elimina su cuenta).
+    final esDelivery = modalidad == PedidoModalidad.delivery;
+    final usuario = SesionActual.instancia.actual;
+    final telefonoCliente = usuario?.telefono ?? '';
+
     final pedido = PedidoModel(
       id: pedidoDoc.id,
+      nombreCliente: esDelivery ? usuario?.nombre : null,
+      telefonoCliente: esDelivery && telefonoCliente.isNotEmpty ? telefonoCliente : null,
       idCliente: idCliente,
       idNegocio: idNegocio,
       idSucursal: idSucursal,
@@ -356,6 +365,123 @@ class PedidoService {
         lista.sort((a, b) => (a.fecha ?? DateTime(0)).compareTo(b.fecha ?? DateTime(0)));
         return lista;
       });
+
+  // ---------------------------------------------------------------------
+  // Reparto (Delivery)
+  // ---------------------------------------------------------------------
+
+  /// Pedidos de delivery ya listos que ningún repartidor ha tomado todavía.
+  /// Si el repartidor está asignado a una sucursal, solo ve los de ella.
+  Stream<List<PedidoModel>> streamEntregasDisponibles(
+    String idNegocio, {
+    String? idSucursal,
+  }) =>
+      _pedidos
+          .where('idNegocio', isEqualTo: idNegocio)
+          .where('modalidad', isEqualTo: PedidoModalidad.delivery)
+          .where('estado', isEqualTo: PedidoEstado.listo)
+          .snapshots()
+          .map((qs) {
+        final lista = qs.docs
+            .map(PedidoModel.fromSnapshot)
+            .where((p) => p.idRepartidor == null)
+            .where((p) => idSucursal == null || idSucursal.isEmpty || p.idSucursal == idSucursal)
+            .toList();
+        lista.sort((a, b) =>
+            (a.fechaCreacion ?? DateTime(0)).compareTo(b.fechaCreacion ?? DateTime(0)));
+        return lista;
+      });
+
+  /// Entregas que este repartidor tiene en curso (En camino o Llegó).
+  Stream<List<PedidoModel>> streamMisEntregas(String idNegocio, String idRepartidor) =>
+      _pedidos
+          .where('idNegocio', isEqualTo: idNegocio)
+          .where('modalidad', isEqualTo: PedidoModalidad.delivery)
+          .where('idRepartidor', isEqualTo: idRepartidor)
+          .snapshots()
+          .map((qs) {
+        final lista = qs.docs.map(PedidoModel.fromSnapshot).where((p) => p.enReparto).toList();
+        lista.sort((a, b) =>
+            (a.fechaCreacion ?? DateTime(0)).compareTo(b.fechaCreacion ?? DateTime(0)));
+        return lista;
+      });
+
+  /// El repartidor toma un pedido Listo: queda asignado a él y pasa a
+  /// "En camino". Si otro repartidor lo tomó antes, las reglas de Firestore
+  /// lo rechazan (el pedido ya no está Listo) y se avisa con un mensaje claro.
+  ///
+  /// Dos pasos a propósito (igual que al crear un pedido): primero el
+  /// pedido, después el historial, porque las reglas del historial leen el
+  /// pedido ya confirmado.
+  Future<void> tomarEntrega({
+    required String idPedido,
+    required String idRepartidor,
+    required String nombreRepartidor,
+    required String telefonoRepartidor,
+  }) async {
+    try {
+      await _pedidos.doc(idPedido).update({
+        'estado': PedidoEstado.enCamino,
+        'idRepartidor': idRepartidor,
+        'nombreRepartidor': nombreRepartidor,
+        'telefonoRepartidor': telefonoRepartidor,
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw Exception('Otro repartidor ya tomó este pedido.');
+      }
+      rethrow;
+    }
+    await _registrarHistorial(
+      idPedido,
+      PedidoEstado.enCamino,
+      idRepartidor,
+      'El repartidor $nombreRepartidor salió con el pedido.',
+    );
+  }
+
+  /// "Ya llegué": el repartidor avisa al cliente que está en el lugar.
+  Future<void> avisarLlegada({
+    required String idPedido,
+    required String idRepartidor,
+  }) async {
+    await _pedidos.doc(idPedido).update({'estado': PedidoEstado.llego});
+    await _registrarHistorial(
+      idPedido,
+      PedidoEstado.llego,
+      idRepartidor,
+      'El repartidor llegó al lugar de entrega.',
+    );
+  }
+
+  /// El repartidor entrega el pedido al cliente.
+  Future<void> entregarPedido({
+    required String idPedido,
+    required String idRepartidor,
+  }) async {
+    await _pedidos.doc(idPedido).update({'estado': PedidoEstado.entregado});
+    await _registrarHistorial(
+      idPedido,
+      PedidoEstado.entregado,
+      idRepartidor,
+      'Pedido entregado por el repartidor.',
+    );
+  }
+
+  Future<void> _registrarHistorial(
+    String idPedido,
+    String estado,
+    String idUsuario,
+    String comentario,
+  ) {
+    final historial = HistorialEstadoModel(
+      id: '',
+      estado: estado,
+      idUsuarioQueCambio: idUsuario,
+      comentario: comentario,
+    );
+    return _pedidos.doc(idPedido).collection('historialEstados').add(historial.toMap());
+  }
 
   /// HU-31 (Cocina actualiza preparación) y HU-29 (Cajero gestiona el
   /// pedido): cambia el estado del pedido y deja registro en el

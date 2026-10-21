@@ -31,7 +31,13 @@ class TextosLegales {
           'Datos de tu cuenta: nombre, correo electrónico y teléfono. Tu '
               'contraseña la gestiona el servicio de autenticación de Google '
               'Firebase y nosotros no podemos verla.',
-          'Datos de entrega: las direcciones que guardes en tu cuenta.',
+          'Datos de entrega: las direcciones que guardes en tu cuenta. Si '
+              'eliges delivery, tu nombre y teléfono se guardan junto al '
+              'pedido para que el repartidor pueda contactarte.',
+          'Ubicación: el punto que marques en el mapa al guardar una dirección '
+              'de entrega. Si usas "Mi ubicación", el dispositivo te pide '
+              'permiso y la usamos solo para colocar ese punto; no la '
+              'guardamos de forma continua.',
           'Datos de tus pedidos: productos, total, forma de pago, notas y '
               'estado, y el comprobante de pago si lo subes.',
           'Imágenes que subas: foto de perfil y comprobantes de pago.',
@@ -46,8 +52,11 @@ class TextosLegales {
         SeccionLegal('4. Con quién los compartimos', [
           'Con el negocio al que le haces un pedido: ve tu nombre, tu '
               'teléfono, el contenido del pedido y, si eliges delivery, la '
-              'dirección de entrega. No compartimos tus datos con los demás '
-              'negocios de la plataforma.',
+              'dirección de entrega. Si es delivery, el repartidor del negocio '
+              'que toma tu pedido ve tu nombre, teléfono y dirección para '
+              'entregarlo, y tú ves el nombre y teléfono del repartidor '
+              'mientras tu pedido va en camino. No compartimos tus datos con '
+              'los demás negocios de la plataforma.',
           'Con proveedores técnicos que almacenan la información por '
               'nosotros: Google Firebase (cuentas y base de datos) y '
               'Cloudinary (imágenes).',
