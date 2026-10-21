@@ -16,6 +16,7 @@ import '../cuenta/mi_cuenta_screen.dart';
 import '../superadmin/superadmin_negocios_screen.dart';
 import 'catalogo_screen.dart';
 import 'clientes_screen.dart';
+import 'resenas_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
 import 'sucursales_screen.dart';
@@ -45,6 +46,7 @@ enum _SeccionAdmin {
   negocios,
   empleados,
   clientes,
+  resenas,
   miCuenta,
 }
 
@@ -230,6 +232,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           onTap: () => ir(_SeccionAdmin.clientes, () => const ClientesScreen()),
         ),
         AppSidebarItem(
+          icon: Icons.star_outline_rounded,
+          label: 'Reseñas',
+          selected: _seccion == _SeccionAdmin.resenas,
+          onTap: () => ir(_SeccionAdmin.resenas, () => const ResenasScreen()),
+        ),
+        AppSidebarItem(
           icon: Icons.manage_accounts_outlined,
           label: 'Mi cuenta',
           selected: _seccion == _SeccionAdmin.miCuenta,
@@ -261,6 +269,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const EmpleadosScreen(incrustada: true);
       case _SeccionAdmin.clientes:
         return const ClientesScreen(incrustada: true);
+      case _SeccionAdmin.resenas:
+        return const ResenasScreen(incrustada: true);
       case _SeccionAdmin.miCuenta:
         return const MiCuentaScreen(incrustada: true);
     }

@@ -262,6 +262,48 @@ service cloud.firestore {
 
         allow delete: if isSuperAdmin();
       }
+
+      // Resenas de pedidos entregados. El id es el del pedido (una por
+      // pedido). Las visibles las lee cualquiera con sesion; las ocultas,
+      // solo el Administrador del negocio y la propia autora. Solo el cliente
+      // del pedido entregado puede crearla (y no si esta bloqueado en el
+      // negocio); solo el Administrador la oculta; el cliente puede borrarla.
+      match /resenas/{resenaId} {
+        allow read: if isSuperAdmin()
+          || (isAdmin() && idNegocioActual() == documentId)
+          || (signedIn() && resource.data.estado == 'Visible')
+          || (signedIn() && resource.data.idCliente == request.auth.uid);
+
+        allow create: if signedIn()
+          && request.resource.data.idCliente == request.auth.uid
+          && request.resource.data.idPedido == resenaId
+          && request.resource.data.idNegocio == documentId
+          && request.resource.data.estado == 'Visible'
+          && request.resource.data.calificacion is int
+          && request.resource.data.calificacion >= 1
+          && request.resource.data.calificacion <= 5
+          && request.resource.data.comentario is string
+          && request.resource.data.comentario.size() <= 500
+          && request.resource.data.nombreCliente is string
+          && request.resource.data.nombreCliente.size() <= 60
+          && request.resource.data.fecha == request.time
+          && request.resource.data.keys().hasOnly(
+               ['idNegocio', 'idPedido', 'idCliente', 'nombreCliente',
+                'calificacion', 'comentario', 'fecha', 'estado'])
+          && get(/databases/$(database)/documents/pedidos/$(resenaId)).data.idCliente == request.auth.uid
+          && get(/databases/$(database)/documents/pedidos/$(resenaId)).data.estado == 'Entregado'
+          && get(/databases/$(database)/documents/pedidos/$(resenaId)).data.get('idNegocio', null) == documentId
+          && !clienteBloqueado(documentId, request.auth.uid);
+
+        allow update: if isSuperAdmin()
+          || (isAdmin()
+              && idNegocioActual() == documentId
+              && cambios().hasOnly(['estado', 'motivoModeracion', 'fechaModeracion', 'idAdminModeracion'])
+              && request.resource.data.estado in ['Visible', 'Oculta']);
+
+        allow delete: if isSuperAdmin()
+          || (signedIn() && resource.data.idCliente == request.auth.uid);
+      }
     }
 
     // ------------------------------------------------------------ pedidos

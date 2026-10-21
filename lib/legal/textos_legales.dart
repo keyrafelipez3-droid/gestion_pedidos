@@ -42,6 +42,9 @@ class TextosLegales {
               'camino, el repartidor comparte su posición con la plataforma '
               'y tú la ves en un mapa. Esa posición se borra cuando el pedido '
               'se entrega.',
+          'Reseñas: si calificas un pedido, se publican tu nombre corto '
+              '(por ejemplo "Ana P."), las estrellas y tu comentario para los '
+              'demás clientes de ese negocio. Puedes borrarla cuando quieras.',
           'Datos de tus pedidos: productos, total, forma de pago, notas y '
               'estado, y el comprobante de pago si lo subes.',
           'Imágenes que subas: foto de perfil y comprobantes de pago.',
@@ -54,6 +57,9 @@ class TextosLegales {
               'por parte de un negocio) y cumplir obligaciones legales.',
         ]),
         SeccionLegal('4. Con quién los compartimos', [
+          'Con otros clientes del negocio: tus reseñas publicadas. El '
+              'negocio puede ocultar reseñas ofensivas y bloquear cuentas que '
+              'las escriban.',
           'Con el negocio al que le haces un pedido: ve tu nombre, tu '
               'teléfono, el contenido del pedido y, si eliges delivery, la '
               'dirección de entrega. Si es delivery, el repartidor del negocio '
@@ -68,8 +74,8 @@ class TextosLegales {
         ]),
         SeccionLegal('5. Cuánto tiempo los conservamos', [
           'Mientras tengas tu cuenta activa. Si eliminas tu cuenta desde '
-              '"Mi cuenta", borramos tu perfil, tus direcciones, tus favoritos '
-              'y tu carrito.',
+              '"Mi cuenta", borramos tu perfil, tus direcciones, tus favoritos, '
+              'tus reseñas y tu carrito.',
           'Los registros de pedidos pasados se conservan sin tu identificador '
               'ni tu dirección, porque el negocio los necesita para su '
               'contabilidad y para atender reclamos. Pueden conservarse el '
