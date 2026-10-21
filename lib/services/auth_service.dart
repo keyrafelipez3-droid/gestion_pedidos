@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../config/app_config.dart';
+import '../models/pedido_models.dart';
 import '../models/usuario_model.dart';
 
 /// Encapsula toda la lógica de Firebase Authentication + el documento
@@ -62,7 +64,12 @@ class AuthService {
         estado: true,
       );
 
-      await _db.collection('usuarios').doc(uid).set(nuevoUsuario.toMap());
+      // Se guarda también qué versión de los términos aceptó y cuándo
+      // (prueba del consentimiento al registrarse).
+      final datos = nuevoUsuario.toMap()
+        ..['terminosVersion'] = AppConfig.versionTerminos
+        ..['terminosAceptadosEn'] = FieldValue.serverTimestamp();
+      await _db.collection('usuarios').doc(uid).set(datos);
 
       // Nombre visible en Firebase Auth (opcional, útil para depurar en la consola).
       await credencial.user!.updateDisplayName(nombre.trim());
@@ -174,6 +181,105 @@ class AuthService {
       return _mensajeError(e.code);
     } catch (e) {
       return 'Ocurrió un error inesperado. Intenta de nuevo.';
+    }
+  }
+
+  /// Elimina la cuenta de un Cliente (requisito de Google Play y Apple).
+  ///
+  /// - Pide la contraseña actual (reautenticación).
+  /// - No deja eliminar si hay pedidos en curso.
+  /// - Borra perfil, direcciones, favoritos y carrito.
+  /// - Los pedidos pasados se conservan SIN el identificador del cliente
+  ///   ni su dirección (el negocio los necesita para contabilidad y
+  ///   reclamos), y en la ficha del negocio se borran su nombre y teléfono.
+  /// - Las imágenes en Cloudinary no se pueden borrar desde la app (ver la
+  ///   política de privacidad).
+  /// Las cuentas del personal las administra el Administrador del negocio.
+  Future<String?> eliminarCuenta({required String password}) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      return 'No hay una sesión activa.';
+    }
+    try {
+      final uid = user.uid;
+      final doc = await _db.collection('usuarios').doc(uid).get();
+      if (doc.data()?['rol'] != Rol.cliente) {
+        return 'Las cuentas del personal las administra el Administrador de tu negocio.';
+      }
+
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: user.email!, password: password),
+      );
+
+      final pedidos =
+          await _db.collection('pedidos').where('idCliente', isEqualTo: uid).get();
+      final hayEnCurso = pedidos.docs.any((d) {
+        final estado = d.data()['estado'];
+        return estado != PedidoEstado.entregado && estado != PedidoEstado.cancelado;
+      });
+      if (hayEnCurso) {
+        return 'Tienes pedidos en curso. Espera a que se entreguen o cancélalos '
+            'antes de eliminar tu cuenta.';
+      }
+
+      // 1) Pedidos pasados: se quita el identificador y la dirección.
+      final negocios = <String>{};
+      var batch = _db.batch();
+      var operaciones = 0;
+      for (final p in pedidos.docs) {
+        final idNegocio = p.data()['idNegocio'];
+        if (idNegocio is String) negocios.add(idNegocio);
+        batch.update(p.reference, {
+          'idCliente': 'cuenta-eliminada',
+          'direccionEntrega': null,
+        });
+        if (++operaciones == 400) {
+          await batch.commit();
+          batch = _db.batch();
+          operaciones = 0;
+        }
+      }
+      if (operaciones > 0) await batch.commit();
+
+      // 2) Ficha del cliente en cada negocio donde pidió: sin nombre ni teléfono.
+      for (final idNegocio in negocios) {
+        try {
+          await _db
+              .collection('negocios')
+              .doc(idNegocio)
+              .collection('clientes')
+              .doc(uid)
+              .update({'nombre': 'Cuenta eliminada', 'telefono': ''});
+        } catch (_) {
+          // Si el negocio no tenía ficha de este cliente, no hay nada que limpiar.
+        }
+      }
+
+      // 3) Datos propios de la cuenta.
+      for (final sub in ['carritoItems', 'direcciones', 'favoritos', 'notificaciones']) {
+        final qs = await _db.collection('usuarios').doc(uid).collection(sub).get();
+        var b = _db.batch();
+        var n = 0;
+        for (final d in qs.docs) {
+          b.delete(d.reference);
+          if (++n == 400) {
+            await b.commit();
+            b = _db.batch();
+            n = 0;
+          }
+        }
+        if (n > 0) await b.commit();
+      }
+      await _db.collection('usuarios').doc(uid).delete();
+
+      // 4) Por último, la cuenta de acceso.
+      await user.delete();
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _mensajeError(e.code);
+    } catch (e) {
+      return 'No se pudo eliminar la cuenta. Intenta de nuevo o escribe a '
+          '${AppConfig.correoPrivacidad}.';
     }
   }
 

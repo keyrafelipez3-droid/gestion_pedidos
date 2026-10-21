@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../legal/legal_screen.dart';
 
 /// HU-01 — Pantalla de registro para Clientes.
 /// ("Registrarme con mis datos básicos")
@@ -29,6 +30,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
   bool _cargando = false;
   bool _verPassword = false;
+  bool _aceptaTerminos = false;
+  bool _errorTerminos = false;
 
   @override
   void dispose() {
@@ -43,7 +46,12 @@ class _RegistroScreenState extends State<RegistroScreen> {
   Future<void> _registrar() async {
     // Oculta el teclado y valida el formulario.
     FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) return;
+    final formularioValido = _formKey.currentState!.validate();
+    if (!_aceptaTerminos) {
+      setState(() => _errorTerminos = true);
+      return;
+    }
+    if (!formularioValido) return;
 
     setState(() => _cargando = true);
 
@@ -89,6 +97,12 @@ class _RegistroScreenState extends State<RegistroScreen> {
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _registrar,
       mostrarEncabezado: !esAmplio,
+      aceptaTerminos: _aceptaTerminos,
+      errorTerminos: _errorTerminos,
+      onCambiarTerminos: (v) => setState(() {
+        _aceptaTerminos = v;
+        if (v) _errorTerminos = false;
+      }),
     );
 
     if (esAmplio) {
@@ -202,6 +216,9 @@ class _Formulario extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
   final bool mostrarEncabezado;
+  final bool aceptaTerminos;
+  final bool errorTerminos;
+  final ValueChanged<bool> onCambiarTerminos;
 
   const _Formulario({
     required this.formKey,
@@ -215,6 +232,9 @@ class _Formulario extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     required this.mostrarEncabezado,
+    required this.aceptaTerminos,
+    required this.errorTerminos,
+    required this.onCambiarTerminos,
   });
 
   @override
@@ -254,7 +274,7 @@ class _Formulario extends StatelessWidget {
             controller: nombreCtrl,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
-              labelText: 'Nombre completo',
+              labelText: 'Nombre completo *',
               prefixIcon: Icon(Icons.person_outline),
             ),
             validator: (v) =>
@@ -266,7 +286,7 @@ class _Formulario extends StatelessWidget {
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
+              labelText: 'Correo electrónico *',
               prefixIcon: Icon(Icons.email_outlined),
             ),
             validator: (v) {
@@ -286,7 +306,7 @@ class _Formulario extends StatelessWidget {
             controller: telefonoCtrl,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
-              labelText: 'Teléfono',
+              labelText: 'Teléfono *',
               prefixIcon: Icon(Icons.phone_outlined),
             ),
             validator: (v) => (v == null || v.trim().isEmpty)
@@ -299,7 +319,7 @@ class _Formulario extends StatelessWidget {
             controller: passwordCtrl,
             obscureText: !verPassword,
             decoration: InputDecoration(
-              labelText: 'Contraseña',
+              labelText: 'Contraseña *',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -317,7 +337,7 @@ class _Formulario extends StatelessWidget {
             controller: confirmarCtrl,
             obscureText: !verPassword,
             decoration: const InputDecoration(
-              labelText: 'Confirmar contraseña',
+              labelText: 'Confirmar contraseña *',
               prefixIcon: Icon(Icons.lock_outline),
             ),
             validator: (v) => (v != passwordCtrl.text)
@@ -325,7 +345,51 @@ class _Formulario extends StatelessWidget {
                 : null,
             onFieldSubmitted: (_) => onSubmit(),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
+
+          // Consentimiento expreso: sin aceptar no se crea la cuenta.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: aceptaTerminos,
+                onChanged: cargando ? null : (v) => onCambiarTerminos(v ?? false),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('Acepto los '),
+                      _EnlaceLegal(
+                        texto: 'Términos y condiciones',
+                        tipo: TipoTextoLegal.terminos,
+                      ),
+                      const Text(' y la '),
+                      _EnlaceLegal(
+                        texto: 'Política de privacidad',
+                        tipo: TipoTextoLegal.politicaPrivacidad,
+                      ),
+                      const Text(' *'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (errorTerminos)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, bottom: AppSpacing.xs),
+              child: Text(
+                'Debes aceptar para crear tu cuenta',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: scheme.error),
+              ),
+            ),
+          const SizedBox(height: AppSpacing.md),
 
           FilledButton(
             onPressed: cargando ? null : onSubmit,
@@ -344,6 +408,29 @@ class _Formulario extends StatelessWidget {
             child: const Text('Ya tengo una cuenta'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Texto que abre la política de privacidad o los términos.
+class _EnlaceLegal extends StatelessWidget {
+  final String texto;
+  final TipoTextoLegal tipo;
+  const _EnlaceLegal({required this.texto, required this.tipo});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => LegalScreen(tipo: tipo)),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.primary,
+          decoration: TextDecoration.underline,
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
+import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../widgets/app_cargando.dart';
@@ -35,6 +36,11 @@ class _NegocioScreenState extends State<NegocioScreen> {
   final _descripcionCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
   final _qrPagoUrlCtrl = TextEditingController();
+  final _razonSocialCtrl = TextEditingController();
+  final _nitCtrl = TextEditingController();
+  final _direccionCtrl = TextEditingController();
+  final _ciudadCtrl = TextEditingController();
+  final _correoContactoCtrl = TextEditingController();
 
   NegocioModel? _negocioActual;
   bool _activo = true;
@@ -54,6 +60,11 @@ class _NegocioScreenState extends State<NegocioScreen> {
     _descripcionCtrl.text = negocio.descripcion;
     _telefonoCtrl.text = negocio.telefono;
     _qrPagoUrlCtrl.text = negocio.qrPagoUrl;
+    _razonSocialCtrl.text = negocio.razonSocial;
+    _nitCtrl.text = negocio.nit;
+    _direccionCtrl.text = negocio.direccion;
+    _ciudadCtrl.text = negocio.ciudad;
+    _correoContactoCtrl.text = negocio.correoContacto;
     _activo = negocio.estado;
     if (mounted) {
       setState(() {
@@ -77,6 +88,11 @@ class _NegocioScreenState extends State<NegocioScreen> {
       descripcion: _descripcionCtrl.text.trim(),
       telefono: _telefonoCtrl.text.trim(),
       qrPagoUrl: _qrPagoUrlCtrl.text.trim(),
+      razonSocial: _razonSocialCtrl.text.trim(),
+      nit: _nitCtrl.text.trim(),
+      direccion: _direccionCtrl.text.trim(),
+      ciudad: _ciudadCtrl.text.trim(),
+      correoContacto: _correoContactoCtrl.text.trim(),
       estado: _activo,
     );
 
@@ -107,6 +123,11 @@ class _NegocioScreenState extends State<NegocioScreen> {
     _descripcionCtrl.dispose();
     _telefonoCtrl.dispose();
     _qrPagoUrlCtrl.dispose();
+    _razonSocialCtrl.dispose();
+    _nitCtrl.dispose();
+    _direccionCtrl.dispose();
+    _ciudadCtrl.dispose();
+    _correoContactoCtrl.dispose();
     super.dispose();
   }
 
@@ -137,7 +158,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
                     TextFormField(
                       controller: _nombreCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'Nombre del negocio',
+                        labelText: 'Nombre del negocio *',
                         prefixIcon: Icon(Icons.storefront_outlined),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty)
@@ -168,6 +189,68 @@ class _NegocioScreenState extends State<NegocioScreen> {
                     const SizedBox(height: AppSpacing.lg),
 
                     Text(
+                      'Datos legales y de contacto',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Tus clientes los verán en la ficha del negocio, junto '
+                      'con la forma de presentar un reclamo. Completa solo '
+                      'lo que corresponda a tu negocio.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextFormField(
+                      controller: _razonSocialCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Razón social',
+                        prefixIcon: Icon(Icons.business_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _nitCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'NIT',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _direccionCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Dirección',
+                        prefixIcon: Icon(Icons.place_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _ciudadCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Ciudad',
+                        prefixIcon: Icon(Icons.location_city_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _correoContactoCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Correo de contacto',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                      validator: (v) {
+                        final t = (v ?? '').trim();
+                        if (t.isEmpty) return null;
+                        return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t)
+                            ? null
+                            : 'Correo no válido';
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    Text(
                       'QR de pago',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
@@ -185,16 +268,20 @@ class _NegocioScreenState extends State<NegocioScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
 
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Negocio activo'),
-                      subtitle: const Text(
-                        'Si lo desactivas, el catálogo deja de mostrarse a los clientes',
+                    // Solo el SuperAdmin activa o desactiva un negocio (las
+                    // reglas de Firestore no se lo permiten al Administrador).
+                    if (SesionActual.instancia.esSuperAdmin) ...[
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Negocio activo'),
+                        subtitle: const Text(
+                          'Si lo desactivas, el catálogo deja de mostrarse a los clientes',
+                        ),
+                        value: _activo,
+                        onChanged: (v) => setState(() => _activo = v),
                       ),
-                      value: _activo,
-                      onChanged: (v) => setState(() => _activo = v),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.lg),
+                    ],
 
                     FilledButton(
                       onPressed: _guardando ? null : _guardar,
