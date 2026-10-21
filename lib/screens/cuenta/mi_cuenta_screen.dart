@@ -426,6 +426,8 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                             etiqueta: 'Foto de perfil (opcional)',
                             controller: _fotoPerfilCtrl,
                             rutaStorage: 'usuarios/${usuario.idUsuario}/perfil',
+                            // Foto de perfil: abre primero la cámara frontal (selfie).
+                            camaraFrontal: true,
                           ),
                           const SizedBox(height: AppSpacing.md),
                           TextFormField(
