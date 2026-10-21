@@ -39,6 +39,8 @@ dependencies:
   cloud_firestore: ^6.9.0
   flutter_colorpicker: ^1.1.0
   image_picker: ^1.1.2
+  # Cámara dentro de la app en el navegador (foto de perfil, productos, comprobantes).
+  camera: ^0.11.1
   http: ^1.2.2
   phone_numbers_parser: ^9.0.0
   url_launcher: ^6.3.0

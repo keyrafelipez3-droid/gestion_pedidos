@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../../models/caja_models.dart' show redondearDinero;
 import '../../models/negocio_model.dart';
-import '../../models/pedido_models.dart';
 import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalogo_service.dart';
-import '../../services/negocio_service.dart';
-import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
-import '../../widgets/app_metrica_card.dart';
 import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
 import '../cuenta/mi_cuenta_screen.dart';
 import '../superadmin/superadmin_negocios_screen.dart';
 import 'catalogo_screen.dart';
+import 'dashboard/dashboard_negocio.dart';
+import 'dashboard/dashboard_plataforma.dart';
 import 'clientes_screen.dart';
 import 'resenas_screen.dart';
 import 'empleados_screen.dart';
@@ -412,138 +409,31 @@ class _ContenidoDashboard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           usuario.esSuperAdmin
-              ? _BannerBienvenida(nombre: usuario.nombre, bannerUrl: '')
+              ? _BannerBienvenida(
+                  nombre: usuario.nombre,
+                  bannerUrl: '',
+                  subtitulo: 'Supervisa todos los negocios de la plataforma.',
+                )
               : ValueListenableBuilder<NegocioModel?>(
                   valueListenable: AppThemeController.instancia.negocio,
                   builder: (context, negocio, _) => _BannerBienvenida(
                     nombre: usuario.nombre,
                     bannerUrl: negocio?.bannerUrl ?? '',
+                    subtitulo: 'Gestiona todo tu negocio desde un solo lugar.',
                   ),
                 ),
-          if (!usuario.esSuperAdmin) ...[
-            const SizedBox(height: AppSpacing.lg),
-            Text('Hoy', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.md),
-            _ResumenHoy(idNegocio: usuario.idNegocio!),
-          ],
           const SizedBox(height: AppSpacing.lg),
-          Text(
-            usuario.esSuperAdmin ? 'Resumen general' : 'Resumen del negocio',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          usuario.esSuperAdmin
-              ? const _FilaEstadisticasSuperAdmin()
-              : _FilaEstadisticas(idNegocio: usuario.idNegocio!),
+          if (usuario.esSuperAdmin)
+            const DashboardPlataforma()
+          else ...[
+            DashboardNegocio(idNegocio: usuario.idNegocio!),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Tu negocio', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.md),
+            _FilaEstadisticas(idNegocio: usuario.idNegocio!),
+          ],
         ],
       ),
-    );
-  }
-}
-
-/// Métricas del día del negocio, calculadas con los pedidos reales de
-/// Firestore (ventas = pedidos Entregados con fecha de hoy). Si todavía no
-/// hay ventas hoy, se muestra 0, no un valor de ejemplo.
-class _ResumenHoy extends StatefulWidget {
-  final String idNegocio;
-  const _ResumenHoy({required this.idNegocio});
-
-  @override
-  State<_ResumenHoy> createState() => _ResumenHoyState();
-}
-
-class _ResumenHoyState extends State<_ResumenHoy> {
-  // Las consultas se abren UNA vez (no en cada build): antes, cada venta
-  // nueva reconstruía la tarjeta y volvía a abrir las 5 consultas de
-  // "Pedidos activos", que parpadeaba en "cargando".
-  late Stream<List<PedidoModel>> _ventas;
-  late Stream<int> _activos;
-
-  @override
-  void initState() {
-    super.initState();
-    _abrirConsultas();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ResumenHoy oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.idNegocio != widget.idNegocio) _abrirConsultas();
-  }
-
-  void _abrirConsultas() {
-    final ahora = DateTime.now();
-    final desde = DateTime(ahora.year, ahora.month, ahora.day);
-    _ventas = PedidoService.instancia.streamVentas(
-      idNegocio: widget.idNegocio,
-      desde: desde,
-      hasta: desde.add(const Duration(days: 1)),
-    );
-    _activos = PedidoService.instancia.streamPedidosActivos(widget.idNegocio);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final semantic = context.semanticColors;
-    return StreamBuilder<List<PedidoModel>>(
-      stream: _ventas,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          // Lo más común: falta publicar el índice de Firestore
-          // (firestore.indexes.json). Mejor avisar que quedar "cargando".
-          return Text(
-            'No se pudieron cargar las métricas de hoy. Revisa la conexión '
-            'o que el índice de Firestore esté publicado.',
-            style: TextStyle(color: scheme.error),
-          );
-        }
-        final ventas = snapshot.data;
-        final total = ventas == null
-            ? null
-            : redondearDinero(ventas.fold<double>(0, (a, p) => a + p.total));
-        final cantidad = ventas?.length;
-        final promedio = (ventas == null || ventas.isEmpty)
-            ? null
-            : redondearDinero(total! / ventas.length);
-        return Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            AppMetricaCard(
-              icon: Icons.payments_outlined,
-              color: semantic.success,
-              etiqueta: 'Ventas de hoy',
-              valor: total == null ? null : 'Bs ${total.toStringAsFixed(2)}',
-              detalle: 'Pedidos entregados',
-            ),
-            AppMetricaCard(
-              icon: Icons.check_circle_outline,
-              color: scheme.primary,
-              etiqueta: 'Entregados hoy',
-              valor: cantidad == null ? null : '$cantidad',
-            ),
-            AppMetricaCard(
-              icon: Icons.receipt_outlined,
-              color: semantic.info,
-              etiqueta: 'Ticket promedio',
-              valor: cantidad == null
-                  ? null
-                  : (promedio == null ? 'Bs 0.00' : 'Bs ${promedio.toStringAsFixed(2)}'),
-            ),
-            StreamBuilder<int>(
-              stream: _activos,
-              builder: (context, snap) => AppMetricaCard(
-                icon: Icons.local_fire_department_outlined,
-                color: AppBrand.rojo,
-                etiqueta: 'Pedidos activos',
-                valor: snap.hasData ? '${snap.data}' : null,
-                detalle: 'En curso ahora',
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -563,7 +453,12 @@ String _saludo() {
 class _BannerBienvenida extends StatelessWidget {
   final String nombre;
   final String bannerUrl;
-  const _BannerBienvenida({required this.nombre, required this.bannerUrl});
+  final String subtitulo;
+  const _BannerBienvenida({
+    required this.nombre,
+    required this.bannerUrl,
+    required this.subtitulo,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -635,7 +530,7 @@ class _BannerBienvenida extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Gestiona todo tu negocio desde un solo lugar.',
+                          subtitulo,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.9),
                               ),
@@ -710,43 +605,6 @@ class _FilaEstadisticas extends StatelessWidget {
           color: semantic.success,
           etiqueta: 'Sucursales',
           stream: SucursalService.instancia.streamSucursales(idNegocio).map((l) => l.length),
-        ),
-      ],
-    );
-  }
-}
-
-/// Tarjetas de estadísticas del dashboard del SuperAdmin: como no
-/// pertenece a un negocio en particular (gestiona todos), ve números
-/// globales en vez de los de un negocio — igual de reales, nada inventado.
-class _FilaEstadisticasSuperAdmin extends StatelessWidget {
-  const _FilaEstadisticasSuperAdmin();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final semantic = context.semanticColors;
-    return Wrap(
-      spacing: AppSpacing.md,
-      runSpacing: AppSpacing.md,
-      children: [
-        AppStatCard(
-          icon: Icons.storefront_outlined,
-          color: scheme.primary,
-          etiqueta: 'Negocios',
-          stream: NegocioService.instancia.streamNegocios().map((l) => l.length),
-        ),
-        AppStatCard(
-          icon: Icons.admin_panel_settings_outlined,
-          color: semantic.warning,
-          etiqueta: 'Administradores',
-          stream: AdminService.instancia.streamAdministradores().map((l) => l.length),
-        ),
-        AppStatCard(
-          icon: Icons.people_outline,
-          color: semantic.info,
-          etiqueta: 'Clientes',
-          stream: AdminService.instancia.streamTodosLosClientes().map((l) => l.length),
         ),
       ],
     );

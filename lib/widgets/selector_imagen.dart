@@ -1,18 +1,27 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/storage_service.dart';
 import '../theme/design_tokens.dart';
+import 'captura_camara.dart';
 
 /// Selector de imagen reutilizable (Sprint 2, pedido del docente): en vez
 /// de solo pegar un link a una imagen ya alojada en otro lugar, deja SUBIR
-/// el archivo directamente (se guarda en Firebase Storage). El campo de
+/// el archivo directamente o TOMAR UNA FOTO con la cámara. El campo de
 /// texto para pegar un link se mantiene como alternativa, por si alguien
 /// ya tiene la imagen alojada en otro sitio.
 ///
+/// Cámara:
+///  * Android / iOS: abre la cámara del teléfono.
+///  * Navegador: abre una ventana con la vista de la cámara web (el
+///    navegador pide permiso la primera vez).
+///  * Windows / macOS / Linux de escritorio: no hay cámara compatible, así
+///    que el botón no se muestra.
+///
 /// [controller] es el mismo TextEditingController que ya tenía cada
 /// pantalla para el campo "...Url" — este widget solo lo rellena con la
-/// URL que devuelve Storage al subir, así que no cambia nada de cómo se
+/// URL que devuelve el servicio al subir, así que no cambia nada de cómo se
 /// guarda ni se usa esa URL después.
 ///
 /// [rutaStorage] debe ser estable para un mismo registro (ej.
@@ -23,11 +32,19 @@ class SelectorImagen extends StatefulWidget {
   final TextEditingController controller;
   final String rutaStorage;
 
+  /// Muestra el botón "Tomar foto" (si el dispositivo tiene cámara compatible).
+  final bool permitirCamara;
+
+  /// Abre primero la cámara frontal (útil para la foto de perfil).
+  final bool camaraFrontal;
+
   const SelectorImagen({
     super.key,
     required this.etiqueta,
     required this.controller,
     required this.rutaStorage,
+    this.permitirCamara = true,
+    this.camaraFrontal = false,
   });
 
   @override
@@ -38,33 +55,69 @@ class _SelectorImagenState extends State<SelectorImagen> {
   bool _subiendo = false;
   String? _error;
 
-  Future<void> _elegirYSubir() async {
-    final ImagePicker picker = ImagePicker();
+  /// Tamaño máximo de la foto: suficiente para verse bien y que suba rápido.
+  static const double _ladoMaximo = 1600;
+
+  bool get _camaraDisponible {
+    if (!widget.permitirCamara) return false;
+    if (kIsWeb) return true;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  Future<void> _elegirDeGaleria() async {
+    final picker = ImagePicker();
     XFile? archivo;
     try {
-      archivo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      archivo = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: _ladoMaximo,
+        maxHeight: _ladoMaximo,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'No se pudo abrir el selector de archivos.');
       return;
     }
     if (archivo == null) return;
+    final bytes = await archivo.readAsBytes();
+    await _subir(bytes, _tipoDesdeNombre(archivo.name));
+  }
 
+  Future<void> _tomarFoto() async {
+    Uint8List? bytes;
+    try {
+      if (kIsWeb) {
+        // En el navegador, el selector de archivos no usa la cámara web:
+        // se abre la vista de la cámara dentro de la app.
+        bytes = await capturarConCamara(context, frontal: widget.camaraFrontal);
+      } else {
+        final foto = await ImagePicker().pickImage(
+          source: ImageSource.camera,
+          preferredCameraDevice: widget.camaraFrontal ? CameraDevice.front : CameraDevice.rear,
+          imageQuality: 85,
+          maxWidth: _ladoMaximo,
+          maxHeight: _ladoMaximo,
+        );
+        bytes = await foto?.readAsBytes();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'No se pudo abrir la cámara. Revisa que la app tenga permiso.');
+      return;
+    }
+    if (bytes == null) return; // canceló
+    await _subir(bytes, 'image/jpeg');
+  }
+
+  Future<void> _subir(Uint8List bytes, String contentType) async {
+    if (!mounted) return;
     setState(() {
       _subiendo = true;
       _error = null;
     });
-
     try {
-      final bytes = await archivo.readAsBytes();
-      final nombre = archivo.name.toLowerCase();
-      final extension = nombre.contains('.') ? nombre.split('.').last : 'jpg';
-      final contentType = switch (extension) {
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        'gif' => 'image/gif',
-        _ => 'image/jpeg',
-      };
       final url = await StorageService.instancia.subirImagen(
         ruta: widget.rutaStorage,
         bytes: bytes,
@@ -82,6 +135,17 @@ class _SelectorImagenState extends State<SelectorImagen> {
         _error = 'No se pudo subir la imagen. Intenta de nuevo.';
       });
     }
+  }
+
+  String _tipoDesdeNombre(String nombreArchivo) {
+    final nombre = nombreArchivo.toLowerCase();
+    final extension = nombre.contains('.') ? nombre.split('.').last : 'jpg';
+    return switch (extension) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'gif' => 'image/gif',
+      _ => 'image/jpeg',
+    };
   }
 
   @override
@@ -118,17 +182,35 @@ class _SelectorImagenState extends State<SelectorImagen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _subiendo ? null : _elegirYSubir,
-                    icon: _subiendo
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.upload_outlined, size: 18),
-                    label: Text(_subiendo ? 'Subiendo...' : 'Subir imagen'),
-                  ),
+                  if (_subiendo)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: AppSpacing.sm),
+                          Text('Subiendo imagen...'),
+                        ],
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _elegirDeGaleria,
+                          icon: const Icon(Icons.upload_outlined, size: 18),
+                          label: const Text('Subir imagen'),
+                        ),
+                        if (_camaraDisponible)
+                          OutlinedButton.icon(
+                            onPressed: _tomarFoto,
+                            icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                            label: const Text('Tomar foto'),
+                          ),
+                      ],
+                    ),
                   if (_error != null) ...[
                     const SizedBox(height: AppSpacing.xs),
                     Text(

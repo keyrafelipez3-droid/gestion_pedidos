@@ -324,10 +324,11 @@ class PedidoService {
           .snapshots()
           .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
 
-  /// Cantidad de pedidos del negocio que todavía no terminan (Pendiente,
-  /// En preparación, Listo, En camino, En el lugar). Una consulta por
-  /// estado (solo igualdades, sin índices nuevos) que se suman en vivo.
-  Stream<int> streamPedidosActivos(String idNegocio) {
+  /// Pedidos del negocio que todavía no terminan (Pendiente, En
+  /// preparación, Listo, En camino, En el lugar), del más antiguo al más
+  /// nuevo. Una consulta por estado (solo igualdades, sin índices nuevos)
+  /// que se combinan en vivo.
+  Stream<List<PedidoModel>> streamPedidosEnCurso(String idNegocio) {
     const estados = [
       PedidoEstado.pendiente,
       PedidoEstado.enPreparacion,
@@ -335,29 +336,34 @@ class PedidoService {
       PedidoEstado.enCamino,
       PedidoEstado.llego,
     ];
-    final conteos = List<int>.filled(estados.length, 0);
+    final porEstado = List<List<PedidoModel>>.generate(estados.length, (_) => const []);
     final recibidos = List<bool>.filled(estados.length, false);
     final subs = <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
-    late final StreamController<int> ctrl;
+    late final StreamController<List<PedidoModel>> ctrl;
     // broadcast: se puede volver a escuchar después de cancelar (por ejemplo
-    // si la tarjeta del panel se quita y vuelve a aparecer) sin el error
+    // si una tarjeta del panel se quita y vuelve a aparecer) sin el error
     // "Stream has already been listened to".
-    ctrl = StreamController<int>.broadcast(
+    ctrl = StreamController<List<PedidoModel>>.broadcast(
       onListen: () {
-        conteos.fillRange(0, conteos.length, 0);
-        recibidos.fillRange(0, recibidos.length, false);
+        for (var i = 0; i < estados.length; i++) {
+          porEstado[i] = const [];
+          recibidos[i] = false;
+        }
         for (var i = 0; i < estados.length; i++) {
           subs.add(_pedidos
               .where('idNegocio', isEqualTo: idNegocio)
               .where('estado', isEqualTo: estados[i])
               .snapshots()
               .listen((qs) {
-            conteos[i] = qs.size;
+            porEstado[i] = qs.docs.map(PedidoModel.fromSnapshot).toList();
             recibidos[i] = true;
-            // Recién cuando las 5 consultas respondieron se publica el total
+            // Recién cuando las 5 consultas respondieron se publica la lista
             // (antes se veía un número parcial que luego "saltaba").
             if (recibidos.every((r) => r)) {
-              ctrl.add(conteos.fold<int>(0, (a, b) => a + b));
+              final todos = porEstado.expand((l) => l).toList()
+                ..sort((a, b) => (a.fechaCreacion ?? DateTime.now())
+                    .compareTo(b.fechaCreacion ?? DateTime.now()));
+              ctrl.add(todos);
             }
           }, onError: ctrl.addError));
         }
@@ -372,6 +378,10 @@ class PedidoService {
     );
     return ctrl.stream;
   }
+
+  /// Cantidad de pedidos en curso del negocio (ver [streamPedidosEnCurso]).
+  Stream<int> streamPedidosActivos(String idNegocio) =>
+      streamPedidosEnCurso(idNegocio).map((l) => l.length);
 
   /// HU-30: Cocina consulta solo los pedidos pendientes/en preparación
   /// (no necesita ver los ya entregados o cancelados).
