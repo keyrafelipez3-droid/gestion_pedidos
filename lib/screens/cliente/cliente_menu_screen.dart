@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
+import '../../models/alergenos.dart';
 import '../../models/carrito_models.dart';
 import '../../models/catalogo_models.dart';
 import '../../models/negocio_model.dart';
@@ -12,6 +13,7 @@ import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/colores.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_fotos_comida.dart';
@@ -46,11 +48,47 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
 
   String get _uid => SesionActual.instancia.actual!.idUsuario;
   String get _idNegocio => widget.negocio.idNegocio;
+  List<String> get _misAlergias => SesionActual.instancia.actual?.alergias ?? const [];
 
   @override
   void dispose() {
     _buscadorCtrl.dispose();
     super.dispose();
+  }
+
+  /// Agrega al carrito. Si el producto tiene algo a lo que el cliente es
+  /// alérgico, primero le pregunta.
+  Future<void> _agregar(ProductoModel producto) async {
+    final conflicto = Alergenos.enComun(producto.alergenos, _misAlergias);
+    if (conflicto.isNotEmpty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.warning_amber_rounded, size: 36),
+          title: Text(tr('Contiene {lista}', {'lista': Alergenos.nombres(conflicto).toLowerCase()})),
+          content: Text(tr(
+            '"{producto}" contiene algo a lo que eres alérgico. Si lo agregas, la cocina verá tu alergia y tratará de prepararlo sin ese ingrediente.',
+            {'producto': producto.nombre},
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('No agregar'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Agregar igual'))),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    await CarritoService.instancia.agregarAlCarrito(
+      _uid,
+      CarritoItemModel(
+        id: '',
+        idProducto: producto.id,
+        nombreProducto: producto.nombre,
+        imagenUrl: producto.imagenUrl,
+        precioUnitario: producto.precio,
+        idNegocio: _idNegocio,
+      ),
+    );
   }
 
   @override
@@ -160,17 +198,8 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                           idNegocio: _idNegocio,
                           esFavoritoActual: favoritos.contains(productos[i].id),
                         ),
-                        onAgregar: () => CarritoService.instancia.agregarAlCarrito(
-                          _uid,
-                          CarritoItemModel(
-                            id: '',
-                            idProducto: productos[i].id,
-                            nombreProducto: productos[i].nombre,
-                            imagenUrl: productos[i].imagenUrl,
-                            precioUnitario: productos[i].precio,
-                            idNegocio: _idNegocio,
-                          ),
-                        ),
+                        alergiasCliente: _misAlergias,
+                        onAgregar: () => _agregar(productos[i]),
                       ),
                     );
                   },
@@ -397,12 +426,14 @@ class _TarjetaProducto extends StatelessWidget {
   final bool esFavorito;
   final VoidCallback onFavorito;
   final VoidCallback onAgregar;
+  final List<String> alergiasCliente;
 
   const _TarjetaProducto({
     required this.producto,
     required this.esFavorito,
     required this.onFavorito,
     required this.onAgregar,
+    this.alergiasCliente = const [],
   });
 
   @override
@@ -428,6 +459,14 @@ class _TarjetaProducto extends StatelessWidget {
                     tr('Bs {precio}', {'precio': producto.precio.toStringAsFixed(2)}),
                     style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
+                  if (producto.pocoStock)
+                    Text(
+                      tr('¡Quedan solo {n}!', {'n': producto.stock}),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   if (producto.descripcion.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -439,6 +478,10 @@ class _TarjetaProducto extends StatelessWidget {
                       ),
                     ),
                   ],
+                  ContieneAlergenos(
+                    alergenos: producto.alergenos,
+                    alergiasCliente: alergiasCliente,
+                  ),
                 ],
               ),
             ),

@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../l10n/idioma.dart';
+import '../models/alergenos.dart';
 import '../models/carrito_models.dart';
 import '../models/mesa_model.dart';
 import '../models/pedido_models.dart';
 import '../utils/errores.dart';
+import 'carrito_service.dart';
+import 'cupon_service.dart';
 import 'sesion_actual.dart';
 
 /// HU-24 a HU-31: confirmar pedido (a partir del carrito), consultarlo,
@@ -36,14 +39,31 @@ class PedidoService {
     String? comprobantePagoUrl,
     required List<CarritoItemModel> itemsCarrito,
     String notas = '',
+    List<String> alergias = const [],
+    String? codigoCupon,
+    double propina = 0,
+    DateTime? programadoPara,
+    String? facturaNit,
+    String? facturaRazonSocial,
   }) async {
     if (itemsCarrito.isEmpty) {
       throw Exception(tr('El carrito está vacío, no se puede confirmar el pedido.'));
     }
 
+    final subtotal = itemsCarrito.fold<double>(0, (acc, item) => acc + item.subtotal);
+    // El cupón se vuelve a comprobar aquí (pudo vencer o pausarse mientras
+    // el cliente confirmaba).
+    final cupon = codigoCupon == null
+        ? null
+        : await CuponService.instancia.validar(idNegocio, codigoCupon, subtotal);
+    final descuento = cupon?.descuentoPara(subtotal) ?? 0;
+    final total = double.parse((subtotal - descuento).toStringAsFixed(2));
+    if (total <= 0) {
+      throw Exception(tr('El total del pedido debe ser mayor a 0.'));
+    }
+
     await _registrarClienteEnNegocio(idNegocio: idNegocio, idCliente: idCliente);
 
-    final total = itemsCarrito.fold<double>(0, (acc, item) => acc + item.subtotal);
     final pedidoDoc = _pedidos.doc();
     final numeroMesa = await _numeroDeMesa(idSucursal, idMesa);
 
@@ -70,6 +90,16 @@ class PedidoService {
       estado: PedidoEstado.pendiente,
       total: total,
       notas: notas,
+      alergias: Alergenos.ordenar(alergias),
+      // Idioma en que el cliente escribió sus notas: el personal las ve
+      // traducidas al español.
+      idiomaCliente: IdiomaController.instancia.codigo.value,
+      codigoCupon: cupon?.codigo,
+      descuento: descuento,
+      propina: modalidad == PedidoModalidad.delivery && propina > 0 ? propina : 0,
+      programadoPara: programadoPara,
+      facturaNit: (facturaNit ?? '').trim().isEmpty ? null : facturaNit!.trim(),
+      facturaRazonSocial: (facturaNit ?? '').trim().isEmpty ? null : (facturaRazonSocial ?? '').trim(),
     );
 
     // OJO (bug encontrado probando): el pedido se crea en un PRIMER
@@ -187,6 +217,7 @@ class PedidoService {
     required MesaModel mesa,
     required List<CarritoItemModel> items,
     String notas = '',
+    List<String> alergias = const [],
   }) async {
     if (items.isEmpty) {
       throw Exception('Agrega al menos un producto al pedido.');
@@ -207,6 +238,7 @@ class PedidoService {
       estado: PedidoEstado.pendiente,
       total: total,
       notas: notas,
+      alergias: Alergenos.ordenar(alergias),
       origen: PedidoOrigen.cajero,
       creadoPor: idCajero,
       cuentaAbierta: true,
@@ -586,6 +618,95 @@ class PedidoService {
       );
       tx.set(ref.collection('historialEstados').doc(), historial.toMap());
     });
+    // Control de stock: se descuenta cuando la cocina empieza a preparar.
+    if (nuevoEstado == PedidoEstado.enPreparacion) {
+      await _descontarStock(idPedido).catchError((_) {});
+    }
+  }
+
+  /// Resta del stock lo que lleva el pedido (solo productos con control de
+  /// stock). Si alguno llega a 0, queda "No disponible" en el menú.
+  Future<void> _descontarStock(String idPedido) async {
+    final detalle = await _pedidos.doc(idPedido).collection('detalle').get();
+    final cantidades = <String, int>{};
+    for (final d in detalle.docs) {
+      final id = d.data()['idProducto'] as String? ?? '';
+      if (id.isEmpty) continue;
+      cantidades[id] = (cantidades[id] ?? 0) + ((d.data()['cantidad'] as num?)?.toInt() ?? 1);
+    }
+    for (final e in cantidades.entries) {
+      final ref = _db.collection('productos').doc(e.key);
+      await _db.runTransaction((tx) async {
+        final snap = await tx.get(ref);
+        final stock = (snap.data()?['stock'] as num?)?.toInt();
+        if (!snap.exists || stock == null) return; // sin control de stock
+        final nuevo = stock - e.value < 0 ? 0 : stock - e.value;
+        tx.update(ref, {
+          'stock': nuevo,
+          if (nuevo == 0) 'disponible': false,
+        });
+      });
+    }
+  }
+
+  /// Entregas que este repartidor terminó hoy (para ver sus propinas).
+  Stream<List<PedidoModel>> streamEntregadosHoy(String idNegocio, String idRepartidor) {
+    final ahora = DateTime.now();
+    final inicio = DateTime(ahora.year, ahora.month, ahora.day);
+    return _pedidos
+        .where('idNegocio', isEqualTo: idNegocio)
+        .where('modalidad', isEqualTo: PedidoModalidad.delivery)
+        .where('idRepartidor', isEqualTo: idRepartidor)
+        .snapshots()
+        .map((qs) => qs.docs
+            .map(PedidoModel.fromSnapshot)
+            .where((p) =>
+                p.estado == PedidoEstado.entregado &&
+                p.fechaCreacion != null &&
+                !p.fechaCreacion!.isBefore(inicio))
+            .toList());
+  }
+
+  /// "Volver a pedir": copia al carrito los productos de un pedido anterior
+  /// que sigan disponibles, con su precio de HOY. Devuelve cuántos se
+  /// agregaron y los nombres de los que ya no están.
+  Future<({int agregados, List<String> noDisponibles})> repetirPedido({
+    required String idCliente,
+    required PedidoModel pedido,
+  }) async {
+    final detalle = await _pedidos.doc(pedido.id).collection('detalle').get();
+    var agregados = 0;
+    final faltan = <String>[];
+    for (final d in detalle.docs.map(DetallePedidoModel.fromSnapshot)) {
+      final prod = await _db.collection('productos').doc(d.idProducto).get();
+      final data = prod.data();
+      final disponible = prod.exists &&
+          data?['estado'] != false &&
+          data?['disponible'] != false &&
+          data?['idNegocio'] == pedido.idNegocio;
+      if (!disponible) {
+        faltan.add(d.nombreProducto);
+        continue;
+      }
+      // Precio de HOY del producto (los extras conservan su precio).
+      await CarritoService.instancia.agregarAlCarrito(
+        idCliente,
+        CarritoItemModel(
+          id: '',
+          idProducto: d.idProducto,
+          nombreProducto: data!['nombre'] as String? ?? d.nombreProducto,
+          imagenUrl: data['imagenUrl'] as String? ?? '',
+          precioUnitario: (data['precio'] as num?)?.toDouble() ?? d.precioUnitario,
+          cantidad: d.cantidad,
+          variantes: d.variantes,
+          complementos: d.complementos,
+          notas: d.notas,
+          idNegocio: pedido.idNegocio,
+        ),
+      );
+      agregados += 1;
+    }
+    return (agregados: agregados, noDisponibles: faltan);
   }
 
   /// Cajero o Administrador cancelan un pedido indicando el motivo. El

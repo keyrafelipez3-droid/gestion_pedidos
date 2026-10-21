@@ -17,6 +17,7 @@ import 'catalogo_screen.dart';
 import 'dashboard/dashboard_negocio.dart';
 import 'dashboard/dashboard_plataforma.dart';
 import 'clientes_screen.dart';
+import 'cupones_screen.dart';
 import 'resenas_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
@@ -44,6 +45,7 @@ enum _SeccionAdmin {
   datosNegocio,
   catalogo,
   ventas,
+  cupones,
   negocios,
   empleados,
   clientes,
@@ -216,6 +218,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           selected: _seccion == _SeccionAdmin.ventas,
           onTap: () => ir(_SeccionAdmin.ventas, () => const VentasScreen()),
         ),
+        AppSidebarItem(
+          icon: Icons.local_offer_outlined,
+          label: 'Cupones',
+          selected: _seccion == _SeccionAdmin.cupones,
+          onTap: () => ir(_SeccionAdmin.cupones, () => const CuponesScreen()),
+        ),
       ]),
       AppSidebarSection(title: 'Configuración', items: [
         AppSidebarItem(
@@ -264,6 +272,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const CatalogoScreen(indiceInicial: 0, incrustada: true);
       case _SeccionAdmin.ventas:
         return const VentasScreen(incrustada: true);
+      case _SeccionAdmin.cupones:
+        return const CuponesScreen(incrustada: true);
       case _SeccionAdmin.negocios:
         return const SuperAdminNegociosScreen(incrustada: true);
       case _SeccionAdmin.empleados:

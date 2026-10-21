@@ -4,6 +4,8 @@ import '../../models/pedido_models.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/formato.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/aviso_pedidos_nuevos.dart';
 import '../../widgets/app_iconos_pedido.dart';
@@ -110,9 +112,36 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
                               'Pedido #${p.id.substring(0, 6)} · ${p.etiquetaModalidad}',
                               style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
-                            subtitle: Text(
-                              'Bs ${p.total.toStringAsFixed(2)}',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            subtitle: Wrap(
+                              spacing: AppSpacing.xs,
+                              runSpacing: AppSpacing.xs,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  'Bs ${p.total.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                if (p.programadoPara != null)
+                                  Chip(
+                                    avatar: const Icon(Icons.alarm, size: 16),
+                                    label: Text('Para ${formatoProgramado(p.programadoPara!)}'),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                if (p.codigoCupon != null)
+                                  Chip(
+                                    avatar: const Icon(Icons.local_offer_outlined, size: 16),
+                                    label: Text(p.codigoCupon!),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                if (p.pideFactura)
+                                  const Chip(
+                                    avatar: Icon(Icons.receipt_outlined, size: 16),
+                                    label: Text('Factura'),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                if (p.tieneAlergias) BandaAlergias(alergias: p.alergias, compacta: true),
+                                ChipIdiomaCliente(codigo: p.idiomaCliente),
+                              ],
                             ),
                             trailing: AppStatusBadge(label: p.estado, tone: _tono(p.estado)),
                             onTap: () => Navigator.of(context).push(

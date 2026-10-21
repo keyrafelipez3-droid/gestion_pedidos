@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
+import '../../models/alergenos.dart';
 import '../../models/pedido_models.dart';
 import '../../models/sucursal_model.dart';
 import '../../services/negocio_service.dart';
@@ -10,6 +11,7 @@ import '../../services/pedido_service.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/descarga.dart';
+import '../../utils/formato.dart';
 import '../../widgets/app_contenido_centrado.dart';
 
 /// Ticket (comprobante) de un pedido, con formato de recibo: datos del
@@ -132,6 +134,7 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   table{width:100%;border-collapse:collapse;font-size:13px;} td{padding:4px 0;vertical-align:top;}
   .der{text-align:right;white-space:nowrap;} .extra{color:#6b6459;font-size:11px;}
   .total td{font-weight:700;font-size:16px;padding-top:8px;}
+  .alergia{border:2px solid #b3261e;color:#b3261e;font-weight:700;padding:6px 8px;margin:8px 0;font-size:13px;}
   @media print{body{padding:0;} .ticket{border:0;}}
 </style></head><body onload="window.print()">
 <div class="ticket">
@@ -147,9 +150,14 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   <p class="gris">${esc(tr('Fecha: {fechaCreacion}', {'fechaCreacion': _fecha(p.fechaCreacion)}))}</p>
   <p class="gris">${esc(tr('Modalidad: {etiquetaModalidad}', {'etiquetaModalidad': p.etiquetaModalidad}))}</p>
   ${p.nombreCliente == null ? '' : '<p class="gris">${esc(tr('Cliente: {nombreCliente}', {'nombreCliente': p.nombreCliente}))}</p>'}
+  ${p.pideFactura ? '<p class="gris">${esc(tr('Factura a: {nit} · {razon}', {'nit': p.facturaNit, 'razon': p.facturaRazonSocial ?? ''}))}</p>' : ''}
+  ${p.programadoPara == null ? '' : '<p class="gris"><b>${esc(tr('Programado para: {hora}', {'hora': formatoProgramado(p.programadoPara!)}))}</b></p>'}
+  ${p.tieneAlergias ? '<p class="alergia">&#9888; ${esc(tr('ALERGIA'))}: ${esc(Alergenos.nombres(p.alergias))}</p>' : ''}
   <hr>
   <table>$filas
+    ${p.descuento > 0 ? '<tr><td>${esc(tr('Descuento ({codigo})', {'codigo': p.codigoCupon ?? ''}))}</td><td class="der">-Bs ${p.descuento.toStringAsFixed(2)}</td></tr>' : ''}
     <tr class="total"><td>${esc(tr('TOTAL'))}</td><td class="der">Bs ${p.total.toStringAsFixed(2)}</td></tr>
+    ${p.propina > 0 ? '<tr><td>${esc(tr('Propina'))}</td><td class="der">Bs ${p.propina.toStringAsFixed(2)}</td></tr>' : ''}
   </table>
   <hr>
   <p class="gris">${esc(tr('Pago: {metodo}', {'metodo': tr(p.metodoPago)}))}${p.cobrado ? ' · ${esc(tr('Cobrado'))}' : ''}</p>
@@ -224,6 +232,25 @@ class _Recibo extends StatelessWidget {
             Text(tr('Fecha: {fechaCreacion}', {'fechaCreacion': fecha(pedido.fechaCreacion)}), style: gris),
             Text(tr('Modalidad: {etiquetaModalidad}', {'etiquetaModalidad': pedido.etiquetaModalidad}), style: gris),
             if (pedido.nombreCliente != null) Text(tr('Cliente: {nombreCliente}', {'nombreCliente': pedido.nombreCliente}), style: gris),
+            if (pedido.pideFactura)
+              Text(tr('Factura a: {nit} · {razon}',
+                  {'nit': pedido.facturaNit, 'razon': pedido.facturaRazonSocial ?? ''}), style: gris),
+            if (pedido.programadoPara != null)
+              Text(tr('Programado para: {hora}', {'hora': formatoProgramado(pedido.programadoPara!)}),
+                  style: t(texto.bodySmall)?.copyWith(fontWeight: FontWeight.w700)),
+            if (pedido.tieneAlergias)
+              Container(
+                margin: const EdgeInsets.only(top: AppSpacing.sm),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFB3261E), width: 2),
+                  borderRadius: AppRadius.smAll,
+                ),
+                child: Text(
+                  '⚠ ${tr('ALERGIA')}: ${Alergenos.nombres(pedido.alergias)}',
+                  style: const TextStyle(color: Color(0xFFB3261E), fontWeight: FontWeight.w800),
+                ),
+              ),
             linea(),
             for (final i in datos.detalle)
               Padding(
@@ -246,6 +273,13 @@ class _Recibo extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: AppSpacing.sm),
+            if (pedido.descuento > 0)
+              Row(
+                children: [
+                  Expanded(child: Text(tr('Descuento ({codigo})', {'codigo': pedido.codigoCupon ?? ''}), style: gris)),
+                  Text('-Bs ${pedido.descuento.toStringAsFixed(2)}', style: gris),
+                ],
+              ),
             Row(
               children: [
                 Expanded(child: Text(tr('TOTAL'), style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800))),
@@ -253,6 +287,13 @@ class _Recibo extends StatelessWidget {
                     style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800)),
               ],
             ),
+            if (pedido.propina > 0)
+              Row(
+                children: [
+                  Expanded(child: Text(tr('Propina'), style: gris)),
+                  Text('Bs ${pedido.propina.toStringAsFixed(2)}', style: gris),
+                ],
+              ),
             linea(),
             Text('${tr('Pago: {metodo}', {'metodo': tr(pedido.metodoPago)})}${pedido.cobrado ? ' · ${tr('Cobrado')}' : ''}', style: gris),
             Text(tr('Estado: {estado}', {'estado': tr(pedido.estado)}), style: gris),

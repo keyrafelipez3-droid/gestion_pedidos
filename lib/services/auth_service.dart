@@ -188,6 +188,18 @@ class AuthService {
     }
   }
 
+  /// Guarda las alergias del cliente para marcarlas solas en sus pedidos.
+  Future<String?> actualizarAlergias(List<String> alergias) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return tr('No hay una sesión activa.');
+    try {
+      await _db.collection('usuarios').doc(uid).update({'alergias': alergias});
+      return null;
+    } catch (e) {
+      return tr('No se pudo guardar la preferencia. Intenta de nuevo.');
+    }
+  }
+
   /// HU-06 — Activar/desactivar las notificaciones del usuario.
   Future<String?> actualizarNotificaciones(bool activas) async {
     final uid = _auth.currentUser?.uid;

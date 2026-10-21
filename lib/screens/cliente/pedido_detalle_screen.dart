@@ -2,20 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../l10n/idioma.dart';
+import '../../models/alergenos.dart';
 import '../../models/caja_models.dart';
+import '../../models/catalogo_models.dart';
 import '../../models/pedido_models.dart';
 import '../../services/caja_service.dart';
+import '../../services/catalogo_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contacto.dart';
 import '../../utils/errores.dart';
+import '../../utils/formato.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/boton_accion.dart';
 import '../../widgets/cancelar_pedido.dart';
 import '../../widgets/linea_estado_pedido.dart';
 import '../../widgets/mapa_seguimiento.dart';
+import '../../widgets/texto_traducido.dart';
 import 'resena_pedido_card.dart';
 import 'ticket_pedido_screen.dart';
 
@@ -118,6 +124,101 @@ AppStatusTone _tonoEstado(String estado) {
   }
 }
 
+/// Líneas del pedido. Si el cliente tiene alergias, marca en rojo los
+/// productos que contienen alguna ("preparar sin cebolla").
+class _ProductosDelPedido extends StatefulWidget {
+  final PedidoModel pedido;
+  const _ProductosDelPedido({required this.pedido});
+
+  @override
+  State<_ProductosDelPedido> createState() => _ProductosDelPedidoState();
+}
+
+class _ProductosDelPedidoState extends State<_ProductosDelPedido> {
+  PedidoModel get pedido => widget.pedido;
+
+  // Se abren una sola vez (la pantalla se redibuja con cada cambio del pedido).
+  late final Stream<List<DetallePedidoModel>> _detalle =
+      PedidoService.instancia.streamDetalle(pedido.id);
+  late final Stream<List<ProductoModel>>? _productos = pedido.tieneAlergias
+      ? CatalogoService.instancia.streamProductos(pedido.idNegocio)
+      : null;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ProductoModel>>(
+      stream: _productos,
+      builder: (context, snapProductos) {
+        final alergenos = {
+          for (final p in snapProductos.data ?? const <ProductoModel>[]) p.id: p.alergenos,
+        };
+        return StreamBuilder<List<DetallePedidoModel>>(
+          stream: _detalle,
+          builder: (context, snapshot) => _lista(context, snapshot.data ?? const [], alergenos),
+        );
+      },
+    );
+  }
+
+  Widget _lista(BuildContext context, List<DetallePedidoModel> items, Map<String, List<String>> alergenos) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        for (final i in items)
+          Builder(builder: (context) {
+            final conflicto = Alergenos.enComun(alergenos[i.idProducto] ?? const [], pedido.alergias);
+            final extras = [...i.variantes, ...i.complementos].map((o) => o.nombre).join(', ');
+            return Card(
+              shape: conflicto.isEmpty
+                  ? null
+                  : RoundedRectangleBorder(
+                      borderRadius: AppRadius.mdAll,
+                      side: BorderSide(color: scheme.error, width: 2),
+                    ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: scheme.primaryContainer,
+                  foregroundColor: scheme.onPrimaryContainer,
+                  child: Text(
+                    '${i.cantidad}x',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                ),
+                title: Text(
+                  i.nombreProducto,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: (extras.isEmpty && i.notas.isEmpty && conflicto.isEmpty)
+                    ? null
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (extras.isNotEmpty) Text(extras),
+                          if (i.notas.isNotEmpty)
+                            TextoTraducido(
+                              texto: i.notas,
+                              idiomaOrigen: pedido.idiomaCliente,
+                              etiqueta: tr('Nota'),
+                            ),
+                          if (conflicto.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '⚠ ${tr('Contiene {lista}: preparar sin ese ingrediente', {'lista': Alergenos.nombres(conflicto).toLowerCase()})}',
+                                style: TextStyle(color: scheme.error, fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                        ],
+                      ),
+                trailing: Text(tr('Bs {subtotal}', {'subtotal': i.subtotal.toStringAsFixed(2)})),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
 String? _siguienteEstado(String actual) {
   // Delivery: si el pedido ya salió con un repartidor, el personal solo
   // puede cerrarlo como entregado (el avance normal lo hace el repartidor).
@@ -154,9 +255,14 @@ class _Detalle extends StatelessWidget {
     final soloCajeroPuede = requiereCobroCajero && !SesionActual.instancia.esCajero;
     final siguiente = soloCajeroPuede ? null : siguienteFlujo;
 
+    final referencia = (pedido.direccionEntrega?['referencia'] as String?)?.trim() ?? '';
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
+        if (pedido.tieneAlergias) ...[
+          BandaAlergias(alergias: pedido.alergias, paraPersonal: esPersonal),
+          const SizedBox(height: AppSpacing.md),
+        ],
         Card(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -184,12 +290,42 @@ class _Detalle extends StatelessWidget {
                 if (pedido.origen == PedidoOrigen.cajero)
                   Text(tr('Registrado por el Cajero')),
                 Text(tr('Método de pago: {metodoPago}', {'metodoPago': tr(pedido.metodoPago)})),
+                if (pedido.programadoPara != null)
+                  Text(
+                    tr('Programado para: {hora}', {'hora': formatoProgramado(pedido.programadoPara!)}),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                if (pedido.pideFactura)
+                  Text(tr('Factura a: {nit} · {razon}',
+                      {'nit': pedido.facturaNit, 'razon': pedido.facturaRazonSocial ?? ''})),
                 if (pedido.direccionEntrega != null)
                   Text(tr('Entrega en: {direccion}', {'direccion': pedido.direccionEntrega!['direccion'] ?? ''})),
-                if (pedido.notas.isNotEmpty) Text(tr('Nota: {notas}', {'notas': pedido.notas})),
+                if (esPersonal && pedido.idiomaCliente != 'es') ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  ChipIdiomaCliente(codigo: pedido.idiomaCliente),
+                ],
+                if (referencia.isNotEmpty)
+                  TextoTraducido(
+                    texto: referencia,
+                    idiomaOrigen: pedido.idiomaCliente,
+                    etiqueta: tr('Referencia'),
+                    icono: Icons.info_outline,
+                  ),
+                if (pedido.notas.isNotEmpty)
+                  TextoTraducido(
+                    texto: pedido.notas,
+                    idiomaOrigen: pedido.idiomaCliente,
+                    etiqueta: tr('Nota'),
+                    destacado: esPersonal,
+                  ),
                 const SizedBox(height: AppSpacing.sm),
+                if (pedido.descuento > 0)
+                  Text(tr('Descuento ({codigo}): −Bs {monto}',
+                      {'codigo': pedido.codigoCupon ?? '', 'monto': pedido.descuento.toStringAsFixed(2)})),
+                if (pedido.propina > 0)
+                  Text(tr('Propina para el repartidor: Bs {monto}', {'monto': pedido.propina.toStringAsFixed(2)})),
                 Text(
-                  tr('Total: Bs {total}', {'total': pedido.total.toStringAsFixed(2)}),
+                  tr('Total: Bs {total}', {'total': pedido.totalACobrar.toStringAsFixed(2)}),
                   style: Theme.of(context)
                       .textTheme
                       .titleLarge
@@ -228,40 +364,7 @@ class _Detalle extends StatelessWidget {
         Text(tr('Productos'),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: AppSpacing.sm),
-        StreamBuilder<List<DetallePedidoModel>>(
-          stream: PedidoService.instancia.streamDetalle(pedido.id),
-          builder: (context, snapshot) {
-            final items = snapshot.data ?? [];
-            return Column(
-              children: items
-                  .map((i) => Card(
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                            foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
-                            child: Text(
-                              '${i.cantidad}x',
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                            ),
-                          ),
-                          title: Text(
-                            i.nombreProducto,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          subtitle: [...i.variantes, ...i.complementos].isEmpty
-                              ? null
-                              : Text(
-                                  [...i.variantes, ...i.complementos]
-                                      .map((o) => o.nombre)
-                                      .join(', '),
-                                ),
-                          trailing: Text(tr('Bs {subtotal}', {'subtotal': i.subtotal.toStringAsFixed(2)})),
-                        ),
-                      ))
-                  .toList(),
-            );
-          },
-        ),
+        _ProductosDelPedido(pedido: pedido),
         const SizedBox(height: AppSpacing.md),
         Text(tr('Historial'),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),

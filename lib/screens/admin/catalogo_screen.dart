@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/catalogo_models.dart';
 import '../../services/catalogo_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_search_field.dart';
 import '../../widgets/app_imagen_red.dart';
@@ -268,6 +269,10 @@ class _ProductosTabState extends State<_ProductosTab> {
     var idCategoria = item?.idCategoria ?? '';
     var estado = item?.estado ?? true;
     var disponible = item?.disponible ?? true;
+    var alergenos = <String>[...?item?.alergenos];
+    var controlarStock = item?.controlaStock ?? false;
+    final stock = TextEditingController(text: item?.stock?.toString() ?? '');
+    final stockMinimo = TextEditingController(text: (item?.stockMinimo ?? 5).toString());
 
     if (!context.mounted) return;
     await showDialog<void>(
@@ -335,6 +340,68 @@ class _ProductosTabState extends State<_ProductosTab> {
                       rutaStorage:
                           'negocios/${SesionActual.instancia.idNegocio}/productos/$idEfectivo',
                     ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '¿Qué alérgenos contiene?',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Los clientes con esa alergia verán un aviso antes de pedirlo.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    SelectorAlergias(
+                      seleccionadas: alergenos,
+                      onChanged: (v) => setState(() => alergenos = v),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Controlar stock'),
+                      subtitle: const Text('Se descuenta cuando la cocina empieza a preparar. En 0 queda agotado.'),
+                      value: controlarStock,
+                      onChanged: (v) => setState(() => controlarStock = v),
+                    ),
+                    if (controlarStock)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: stock,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Cantidad disponible *',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) {
+                                if (!controlarStock) return null;
+                                final n = int.tryParse((v ?? '').trim());
+                                return n == null || n < 0 ? 'Número entero (0 o más)' : null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: stockMinimo,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Avisar con menos de',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) {
+                                if (!controlarStock) return null;
+                                final n = int.tryParse((v ?? '').trim());
+                                return n == null || n < 0 ? 'Número entero' : null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     SwitchListTile(
                       title: const Text('Activo'),
                       value: estado,
@@ -356,6 +423,7 @@ class _ProductosTabState extends State<_ProductosTab> {
               onPressed: () async {
                 if (!key.currentState!.validate()) return;
                 final valor = double.parse(precio.text.replaceAll(',', '.'));
+                final cantidad = controlarStock ? int.parse(stock.text.trim()) : null;
                 try {
                   await CatalogoService.instancia.guardarProducto(
                     ProductoModel(
@@ -366,8 +434,16 @@ class _ProductosTabState extends State<_ProductosTab> {
                       idCategoria: idCategoria,
                       imagenUrl: imagen.text.trim(),
                       estado: estado,
-                      disponible: disponible,
+                      // Si se repone stock, vuelve a estar disponible.
+                      disponible: cantidad == null
+                          ? disponible
+                          : cantidad == 0
+                              ? false
+                              : ((item?.agotado ?? false) ? true : disponible),
                       idNegocio: SesionActual.instancia.idNegocio,
+                      alergenos: alergenos,
+                      stock: cantidad,
+                      stockMinimo: int.tryParse(stockMinimo.text.trim()) ?? 5,
                     ),
                   );
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -389,6 +465,8 @@ class _ProductosTabState extends State<_ProductosTab> {
       descripcion.dispose();
       precio.dispose();
       imagen.dispose();
+      stock.dispose();
+      stockMinimo.dispose();
     });
   }
 
@@ -520,6 +598,13 @@ class _ProductosTabState extends State<_ProductosTab> {
                                             ? AppStatusTone.success
                                             : AppStatusTone.neutral,
                                       ),
+                                      if (item.agotado)
+                                        const AppStatusBadge(label: 'Agotado', tone: AppStatusTone.danger)
+                                      else if (item.pocoStock)
+                                        AppStatusBadge(label: 'Quedan ${item.stock}', tone: AppStatusTone.warning)
+                                      else if (item.controlaStock)
+                                        Text('Stock: ${item.stock}'),
+                                      ContieneAlergenos(alergenos: item.alergenos),
                                     ],
                                   ),
                                 ),

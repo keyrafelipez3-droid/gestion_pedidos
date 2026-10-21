@@ -5,6 +5,7 @@ import '../../models/usuario_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/campo_telefono.dart';
@@ -87,6 +88,22 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     _cargar();
   }
 
+  /// Guarda las alergias apenas se marcan (sin botón "Guardar").
+  Future<void> _cambiarAlergias(List<String> nuevas) async {
+    final anterior = _usuario;
+    if (anterior == null) return;
+    setState(() => _usuario = anterior.conAlergias(nuevas));
+    final error = await AuthService.instancia.actualizarAlergias(nuevas);
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => _usuario = anterior);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    final sesion = SesionActual.instancia.actual;
+    if (sesion != null) SesionActual.instancia.usuario.value = sesion.conAlergias(nuevas);
+  }
+
   Future<void> _cambiarNotificaciones(bool activas) async {
     setState(() => _guardandoNotificaciones = true);
     final error = await AuthService.instancia.actualizarNotificaciones(activas);
@@ -103,9 +120,11 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
           rol: _usuario!.rol,
           fotoPerfil: _usuario!.fotoPerfil,
           idSucursal: _usuario!.idSucursal,
+          idNegocio: _usuario!.idNegocio,
           estado: _usuario!.estado,
           fechaRegistro: _usuario!.fechaRegistro,
           notificacionesActivas: activas,
+          alergias: _usuario!.alergias,
         );
       }
     });
@@ -506,6 +525,25 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                       icono: Icons.translate,
                       titulo: tr('Idioma'),
                       child: const TileIdioma(),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    _SeccionCuenta(
+                      icono: Icons.health_and_safety_outlined,
+                      titulo: tr('Mis alergias'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tr('Se marcan solas en cada pedido y la cocina las ve en un aviso rojo. También te avisamos si un producto las contiene.'),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          SelectorAlergias(
+                            seleccionadas: usuario.alergias,
+                            onChanged: _cambiarAlergias,
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                   ],

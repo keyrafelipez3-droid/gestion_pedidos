@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'alergenos.dart';
+
 /// Roles válidos del sistema (deben coincidir exactamente con los strings
 /// usados en las reglas de seguridad de Firestore: rolDe(uid) / tieneRol([...])).
 ///
@@ -70,6 +72,10 @@ class UsuarioModel {
   // usuario quiere recibirlas o no. Por defecto activo.
   final bool notificacionesActivas;
 
+  /// Alergias del cliente (códigos de `Alergenos`). Se marcan solas en
+  /// cada pedido nuevo para que la cocina las vea.
+  final List<String> alergias;
+
   const UsuarioModel({
     required this.idUsuario,
     required this.nombre,
@@ -82,7 +88,24 @@ class UsuarioModel {
     this.estado = true,
     this.fechaRegistro,
     this.notificacionesActivas = true,
+    this.alergias = const [],
   });
+
+  /// Copia con otras alergias (para actualizar la sesión sin recargar).
+  UsuarioModel conAlergias(List<String> nuevas) => UsuarioModel(
+        idUsuario: idUsuario,
+        nombre: nombre,
+        email: email,
+        telefono: telefono,
+        rol: rol,
+        fotoPerfil: fotoPerfil,
+        idSucursal: idSucursal,
+        idNegocio: idNegocio,
+        estado: estado,
+        fechaRegistro: fechaRegistro,
+        notificacionesActivas: notificacionesActivas,
+        alergias: nuevas,
+      );
 
   bool get esSuperAdmin => rol == Rol.superAdmin;
   bool get esCliente => rol == Rol.cliente;
@@ -125,6 +148,7 @@ class UsuarioModel {
       estado: (data['estado'] ?? true) as bool,
       fechaRegistro: ts?.toDate(),
       notificacionesActivas: (data['notificacionesActivas'] ?? true) as bool,
+      alergias: Alergenos.desdeFirestore(data['alergias']),
     );
   }
 

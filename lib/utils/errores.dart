@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../l10n/idioma.dart';
+import '../services/cupon_service.dart';
 
 /// Error "esperado" al cambiar el estado de un pedido (otro usuario ya lo
 /// cambió, el pedido ya no existe, transición no permitida). El mensaje
@@ -17,6 +18,7 @@ class PedidoEstadoException implements Exception {
 /// sin exponer códigos internos de Firebase.
 String textoError(Object e) {
   if (e is PedidoEstadoException) return e.mensaje;
+  if (e is CuponException) return e.mensaje;
   if (e is FirebaseException) {
     switch (e.code) {
       case 'permission-denied':

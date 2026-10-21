@@ -56,6 +56,14 @@ class AppConfig {
   static const double mapaLatInicial = -17.3935;
   static const double mapaLngInicial = -66.1570;
 
+  /// Traducción automática de las notas que escriben los clientes
+  /// extranjeros (servicio gratuito MyMemory, sin clave).
+  static const String traductorUrl = 'https://api.mymemory.translated.net/get';
+
+  /// Opcional: un correo de contacto para MyMemory. Sin correo el límite
+  /// gratuito es menor; con correo es más alto. Vacío = no se envía.
+  static const String traductorCorreo = '';
+
   /// Dirección web pública (de la versión web desplegada) donde el
   /// usuario puede pedir la eliminación de su cuenta sin instalar la app.
   /// Google Play pide este enlace en el formulario "Seguridad de los

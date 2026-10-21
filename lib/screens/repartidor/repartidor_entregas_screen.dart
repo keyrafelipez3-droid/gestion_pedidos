@@ -12,6 +12,7 @@ import '../../utils/contacto.dart';
 import '../../utils/errores.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/texto_traducido.dart';
 
 /// Panel del Repartidor: pedidos de delivery listos para llevar y las
 /// entregas que ya tiene en curso. Desde acá toma un pedido, avisa "ya
@@ -26,7 +27,7 @@ class RepartidorEntregasScreen extends StatelessWidget {
     final usuario = sesion.actual;
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Mis entregas'),
@@ -34,6 +35,7 @@ class RepartidorEntregasScreen extends StatelessWidget {
             tabs: [
               Tab(text: 'Disponibles'),
               Tab(text: 'En curso'),
+              Tab(text: 'Hoy'),
             ],
           ),
         ),
@@ -59,9 +61,92 @@ class RepartidorEntregasScreen extends StatelessWidget {
                     disponible: false,
                     compartirUbicacion: true,
                   ),
+                  _ResumenHoy(
+                    stream: PedidoService.instancia.streamEntregadosHoy(idNegocio, usuario.idUsuario),
+                  ),
                 ],
               ),
       ),
+    );
+  }
+}
+
+/// Entregas terminadas hoy y propinas recibidas.
+class _ResumenHoy extends StatefulWidget {
+  final Stream<List<PedidoModel>> stream;
+  const _ResumenHoy({required this.stream});
+
+  @override
+  State<_ResumenHoy> createState() => _ResumenHoyState();
+}
+
+class _ResumenHoyState extends State<_ResumenHoy> {
+  late final Stream<List<PedidoModel>> _stream = widget.stream;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return StreamBuilder<List<PedidoModel>>(
+      stream: _stream,
+      builder: (context, s) {
+        if (s.hasError) return const Center(child: Text('No se pudieron cargar tus entregas de hoy.'));
+        if (!s.hasData) return const Center(child: CircularProgressIndicator());
+        final entregados = s.data!;
+        final propinas = entregados.fold<double>(0, (acc, p) => acc + p.propina);
+        final cobrado = entregados
+            .where((p) => p.metodoPago == MetodoPago.efectivo)
+            .fold<double>(0, (acc, p) => acc + p.totalACobrar);
+        Widget dato(String titulo, String valor, IconData icono) => Expanded(
+              child: Card(
+                color: scheme.primaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(icono, color: scheme.onPrimaryContainer),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(valor,
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w800, color: scheme.onPrimaryContainer)),
+                      Text(titulo, style: TextStyle(color: scheme.onPrimaryContainer)),
+                    ],
+                  ),
+                ),
+              ),
+            );
+        return ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
+            Row(
+              children: [
+                dato('Entregas', '${entregados.length}', Icons.check_circle_outline),
+                dato('Propinas', 'Bs ${propinas.toStringAsFixed(2)}', Icons.volunteer_activism_outlined),
+                dato('Efectivo cobrado', 'Bs ${cobrado.toStringAsFixed(2)}', Icons.payments_outlined),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (entregados.isEmpty)
+              const AppEmptyState(
+                icon: Icons.delivery_dining_outlined,
+                title: 'Todavía no entregaste pedidos hoy',
+              )
+            else
+              for (final p in entregados)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.receipt_long_outlined),
+                    title: Text('Pedido #${p.id.substring(0, 6)}'),
+                    subtitle: Text('${p.metodoPago} · Bs ${p.total.toStringAsFixed(2)}'),
+                    trailing: p.propina > 0
+                        ? Text('+Bs ${p.propina.toStringAsFixed(2)}',
+                            style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800))
+                        : null,
+                  ),
+                ),
+          ],
+        );
+      },
     );
   }
 }
@@ -193,16 +278,33 @@ class _TarjetaEntregaState extends State<_TarjetaEntrega> {
                   : (etiqueta.isEmpty ? direccion : '$etiqueta · $direccion'),
             ),
             if (referencia.isNotEmpty)
-              _Linea(icono: Icons.info_outline, texto: 'Referencia: $referencia'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: TextoTraducido(
+                  texto: referencia,
+                  idiomaOrigen: p.idiomaCliente,
+                  etiqueta: 'Referencia',
+                  icono: Icons.info_outline,
+                ),
+              ),
             if ((p.nombreCliente ?? '').isNotEmpty)
               _Linea(icono: Icons.person_outline, texto: p.nombreCliente!),
             if (p.notas.isNotEmpty)
-              _Linea(icono: Icons.sticky_note_2_outlined, texto: 'Nota: ${p.notas}'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: TextoTraducido(
+                  texto: p.notas,
+                  idiomaOrigen: p.idiomaCliente,
+                  etiqueta: 'Nota',
+                ),
+              ),
             _Linea(
               icono: Icons.payments_outlined,
               texto: cobraEnPuerta
-                  ? 'Cobrar en efectivo: Bs ${p.total.toStringAsFixed(2)}'
-                  : 'Pago: ${p.metodoPago} · Total Bs ${p.total.toStringAsFixed(2)}',
+                  ? 'Cobrar en efectivo: Bs ${p.totalACobrar.toStringAsFixed(2)}'
+                      '${p.propina > 0 ? ' (incluye propina Bs ${p.propina.toStringAsFixed(2)})' : ''}'
+                  : 'Pago: ${p.metodoPago} · Total Bs ${p.total.toStringAsFixed(2)}'
+                      '${p.propina > 0 ? ' · Propina Bs ${p.propina.toStringAsFixed(2)} en efectivo' : ''}',
             ),
             const SizedBox(height: AppSpacing.md),
             if (widget.disponible)
