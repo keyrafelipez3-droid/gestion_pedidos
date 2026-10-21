@@ -20,13 +20,19 @@ String csvVentas(
   final ordenados = List.of(pedidos)
     ..sort((a, b) => (a.fechaCreacion ?? DateTime(0)).compareTo(b.fechaCreacion ?? DateTime(0)));
   final filas = <String>[
-    ['Fecha', 'Hora', 'Pedido', 'Sucursal', 'Modalidad', 'Método de pago', 'Estado', 'Total (Bs)']
+    ['Fecha', 'Hora', 'Pedido', 'Sucursal', 'Modalidad', 'Método de pago', 'Estado',
+     'Cupón', 'Descuento (Bs)', 'Total (Bs)', 'Propina (Bs)', 'NIT/CI', 'Razón social']
         .join(';'),
   ];
+  String bs(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
   double total = 0;
+  double descuentos = 0;
+  double propinas = 0;
   for (final p in ordenados) {
     final f = p.fechaCreacion;
     total += p.total;
+    descuentos += p.descuento;
+    propinas += p.propina;
     filas.add([
       f == null ? '' : '${dos(f.day)}/${dos(f.month)}/${f.year}',
       f == null ? '' : '${dos(f.hour)}:${dos(f.minute)}',
@@ -35,10 +41,15 @@ String csvVentas(
       p.etiquetaModalidad,
       p.metodoPago,
       p.estado,
-      p.total.toStringAsFixed(2).replaceAll('.', ','),
+      p.codigoCupon ?? '',
+      p.descuento > 0 ? bs(p.descuento) : '',
+      bs(p.total),
+      p.propina > 0 ? bs(p.propina) : '',
+      p.facturaNit ?? '',
+      p.facturaRazonSocial ?? '',
     ].map(celda).join(';'));
   }
-  filas.add(['', '', '', '', '', '', 'TOTAL', total.toStringAsFixed(2).replaceAll('.', ',')].join(';'));
+  filas.add(['', '', '', '', '', '', 'TOTAL', '', bs(descuentos), bs(total), bs(propinas), '', ''].join(';'));
   return '﻿${filas.join('\r\n')}';
 }
 

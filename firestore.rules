@@ -81,6 +81,46 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    // Cupon, propina, pedido programado y factura de un pedido nuevo.
+    function extrasPedidoValidos(p) {
+      return p.get('propina', 0) is number
+        && p.get('propina', 0) >= 0
+        && p.get('propina', 0) <= 500
+        && (p.get('propina', 0) == 0 || p.modalidad == 'Delivery')
+        && (p.get('programadoPara', null) == null
+            || (p.programadoPara is timestamp
+                && p.programadoPara > request.time
+                && p.programadoPara < request.time + duration.value(3, 'd')))
+        && (p.get('facturaNit', null) == null
+            || (p.facturaNit is string && p.facturaNit.size() <= 20
+                && p.get('facturaRazonSocial', '') is string
+                && p.get('facturaRazonSocial', '').size() <= 80))
+        && p.get('descuento', 0) is number
+        && p.get('descuento', 0) >= 0
+        && (p.get('descuento', 0) == 0 || cuponValido(p));
+    }
+
+    // El descuento no puede pasar lo que da el cupon (vigente y activo).
+    function cuponValido(p) {
+      let cupon = get(/databases/$(database)/documents/negocios/$(p.idNegocio)/cupones/$(p.codigoCupon)).data;
+      let subtotal = p.total + p.descuento;
+      return p.codigoCupon is string
+        && cupon.activo == true
+        && (cupon.get('vence', null) == null || cupon.vence > request.time)
+        && subtotal >= cupon.get('minimo', 0)
+        && p.descuento <= (cupon.tipo == 'porcentaje'
+              ? subtotal * cupon.valor / 100 + 0.01
+              : cupon.valor + 0.01);
+    }
+
+    // Alergias: solo codigos de la lista fija de la app (lib/models/alergenos.dart).
+    function alergiasValidas(lista) {
+      return lista is list
+        && lista.size() <= 13
+        && lista.toSet().hasOnly(['mani', 'frutos_secos', 'gluten', 'lacteos', 'huevo',
+             'mariscos', 'pescado', 'soya', 'sesamo', 'cebolla', 'tomate', 'ajo', 'picante']);
+    }
+
     // El cliente fue bloqueado por el Administrador de ese negocio.
     function clienteBloqueado(idNegocio, uid) {
       let ref = /databases/$(database)/documents/negocios/$(idNegocio)/clientes/$(uid);
@@ -129,7 +169,8 @@ service cloud.firestore {
             && request.resource.data.email == resource.data.email)
         || (signedIn()
             && request.auth.uid == userId
-            && cambios().hasOnly(['nombre', 'telefono', 'fotoPerfil', 'notificacionesActivas']));
+            && cambios().hasOnly(['nombre', 'telefono', 'fotoPerfil', 'notificacionesActivas', 'alergias'])
+            && alergiasValidas(request.resource.data.get('alergias', [])));
 
       // Un Cliente puede eliminar su propia cuenta (requisito de Google
       // Play y Apple). Las cuentas del personal las elimina su Administrador.
@@ -198,7 +239,14 @@ service cloud.firestore {
       allow update: if isSuperAdmin()
         || (isAdmin()
             && resource.data.get('idNegocio', null) == idNegocioActual()
-            && request.resource.data.get('idNegocio', null) == idNegocioActual());
+            && request.resource.data.get('idNegocio', null) == idNegocioActual())
+        // Control de stock: la Cocina/Caja descuenta lo que se prepara.
+        || (esPersonalDelNegocio()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && cambios().hasOnly(['stock', 'disponible'])
+            && request.resource.data.stock is int
+            && request.resource.data.stock >= 0
+            && request.resource.data.stock < resource.data.stock);
       allow delete: if isSuperAdmin()
         || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
@@ -237,6 +285,14 @@ service cloud.firestore {
             && idNegocioActual() == documentId
             && !cambios().hasAny(['estado']));
       allow create, delete: if isSuperAdmin();
+
+      // Cupones de descuento: los lee cualquier usuario con sesion (el
+      // cliente escribe el codigo al pagar) y los gestiona el
+      // Administrador de este negocio.
+      match /cupones/{codigo} {
+        allow read: if signedIn();
+        allow write: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
+      }
 
       // Clientes de este negocio (se crea al hacer su primer pedido).
       // Guarda solo lo necesario para atenderlo: nombre y telefono. El
@@ -344,7 +400,12 @@ service cloud.firestore {
                 'direccionEntrega', 'metodoPago', 'comprobantePagoUrl', 'estado',
                 'total', 'notas', 'fechaCreacion', 'origen', 'creadoPor',
                 'numeroMesa', 'cuentaAbierta', 'cobrado', 'idCaja',
-                'nombreCliente', 'telefonoCliente'])
+                'nombreCliente', 'telefonoCliente', 'alergias', 'idiomaCliente',
+                'descuento', 'propina', 'codigoCupon', 'programadoPara',
+                'facturaNit', 'facturaRazonSocial'])
+          && extrasPedidoValidos(request.resource.data)
+          && alergiasValidas(request.resource.data.get('alergias', []))
+          && request.resource.data.get('idiomaCliente', 'es') in ['es', 'en', 'pt', 'fr']
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
                .data.get('idNegocio', null) == request.resource.data.idNegocio
           && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid))
@@ -357,6 +418,7 @@ service cloud.firestore {
             && request.resource.data.get('cobrado', false) == false
             && request.resource.data.get('idCaja', null) == null
             && request.resource.data.get('creadoPor', null) == request.auth.uid
+            && alergiasValidas(request.resource.data.get('alergias', []))
             && request.resource.data.total is number
             && request.resource.data.total > 0
             && request.resource.data.fechaCreacion == request.time);

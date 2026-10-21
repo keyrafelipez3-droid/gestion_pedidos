@@ -877,12 +877,18 @@ class _PanelAlertasState extends State<_PanelAlertas> {
                 return const CargandoSeccion();
               }
               final agotados = sProd.data!.where((p) => p.estado && !p.disponible).toList();
+              final pocoStock = sProd.data!.where((p) => p.estado && p.disponible && p.pocoStock).toList();
+              final programados = (widget.enCurso ?? const <PedidoModel>[])
+                  .where((p) => p.esParaMasTarde)
+                  .length;
               final activas = sSuc.data!.where((s) => s.estado).toList();
               final cerradas = activas.where((s) => !s.estadoApertura().abierta).toList();
               final bloqueados = sCli.data!.where((c) => c.bloqueado).length;
               final demorados = (widget.enCurso ?? const <PedidoModel>[])
                   .where((p) =>
-                      p.estado == PedidoEstado.pendiente && minutosDesde(p.fechaCreacion) >= 15)
+                      p.estado == PedidoEstado.pendiente &&
+                      !p.esParaMasTarde &&
+                      minutosDesde(p.programadoPara ?? p.fechaCreacion) >= 15)
                   .length;
 
               final filas = <Widget>[
@@ -900,6 +906,21 @@ class _PanelAlertasState extends State<_PanelAlertas> {
                     texto: 'Productos agotados: ${agotados.take(3).map((p) => p.nombre).join(', ')}'
                         '${agotados.length > 3 ? '…' : ''}',
                     valor: '${agotados.length}',
+                  ),
+                if (pocoStock.isNotEmpty)
+                  FilaIndicador(
+                    icono: Icons.inventory_2_outlined,
+                    color: semantic.warning,
+                    texto: 'Poco stock: ${pocoStock.take(3).map((p) => '${p.nombre} (${p.stock})').join(', ')}'
+                        '${pocoStock.length > 3 ? '…' : ''}',
+                    valor: '${pocoStock.length}',
+                  ),
+                if (programados > 0)
+                  FilaIndicador(
+                    icono: Icons.schedule,
+                    color: semantic.info,
+                    texto: 'Pedidos programados para más tarde',
+                    valor: '$programados',
                   ),
                 if (cerradas.isNotEmpty)
                   FilaIndicador(

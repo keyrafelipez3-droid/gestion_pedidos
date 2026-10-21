@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/idioma.dart';
+import '../../models/alergenos.dart';
 import '../../models/carrito_models.dart';
+import '../../models/cupon_model.dart';
 import '../../models/direccion_entrega_model.dart';
 import '../../models/mesa_model.dart';
 import '../../models/negocio_model.dart';
 import '../../models/pedido_models.dart';
 import '../../models/sucursal_model.dart';
+import '../../services/auth_service.dart';
 import '../../services/carrito_service.dart';
+import '../../services/catalogo_service.dart';
+import '../../services/cupon_service.dart';
 import '../../services/direcciones_service.dart';
 import '../../services/mesa_service.dart';
 import '../../services/pedido_service.dart';
@@ -16,6 +22,8 @@ import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/errores.dart';
+import '../../utils/formato.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/selector_imagen.dart';
 import '../mapa/selector_ubicacion_screen.dart';
@@ -50,6 +58,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _confirmando = false;
   SucursalModel? _sucursal;
 
+  /// Alergias del cliente para este pedido (empiezan con las de su cuenta).
+  late List<String> _alergias = [...?SesionActual.instancia.actual?.alergias];
+  bool _recordarAlergias = true;
+
+  /// Alérgenos de cada producto del carrito (idProducto → códigos).
+  Map<String, List<String>> _alergenosProducto = const {};
+
+  /// Productos del carrito que se agotaron (control de stock).
+  List<String> _agotados = const [];
+
+  // Cupón
+  final _cuponCtrl = TextEditingController();
+  CuponModel? _cupon;
+  String? _errorCupon;
+  bool _validandoCupon = false;
+
+  // Propina (solo Delivery)
+  double _propina = 0;
+
+  // Pedido programado (null = lo antes posible)
+  bool _programar = false;
+  DateTime? _programadoPara;
+
+  // Factura
+  bool _quiereFactura = false;
+  final _nitCtrl = TextEditingController();
+  final _razonSocialCtrl = TextEditingController();
+
   String get _uid => SesionActual.instancia.actual!.idUsuario;
 
   @override
@@ -57,6 +93,116 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.initState();
     _comprobanteCtrl.addListener(_onComprobanteCambio);
     _cargarSucursal();
+    _cargarAlergenos();
+    _cargarFactura();
+  }
+
+  String get _claveFactura => 'factura_$_uid';
+
+  /// Los datos de factura se recuerdan en este dispositivo.
+  Future<void> _cargarFactura() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final datos = prefs.getStringList(_claveFactura);
+      if (datos != null && datos.length == 2 && mounted) {
+        setState(() {
+          _nitCtrl.text = datos[0];
+          _razonSocialCtrl.text = datos[1];
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _guardarFactura() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_claveFactura, [_nitCtrl.text.trim(), _razonSocialCtrl.text.trim()]);
+    } catch (_) {}
+  }
+
+  double get _subtotal => CarritoService.instancia.calcularTotal(widget.items);
+  double get _descuento => _cupon?.descuentoPara(_subtotal) ?? 0;
+  double get _propinaAplicada => _modalidad == PedidoModalidad.delivery ? _propina : 0;
+
+  Future<void> _aplicarCupon() async {
+    setState(() {
+      _validandoCupon = true;
+      _errorCupon = null;
+    });
+    try {
+      final c = await CuponService.instancia.validar(widget.negocio.idNegocio, _cuponCtrl.text, _subtotal);
+      if (mounted) setState(() => _cupon = c);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _cupon = null;
+          _errorCupon = e is CuponException ? e.mensaje : tr('No se pudo comprobar el cupón. Intenta de nuevo.');
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _validandoCupon = false);
+    }
+  }
+
+  bool get _esProgramado => _programar && _modalidad != PedidoModalidad.mesa;
+
+  /// Mensaje de error de la hora programada, o null si está bien.
+  String? get _errorProgramado {
+    if (!_esProgramado) return null;
+    final h = _programadoPara;
+    if (h == null) return tr('Elige la hora.');
+    if (h.isBefore(DateTime.now().add(const Duration(minutes: 30)))) {
+      return tr('Elige una hora con al menos 30 minutos de anticipación.');
+    }
+    final s = _sucursal;
+    if (s != null && !s.estadoApertura(h).abierta) {
+      return tr('El local está cerrado a esa hora. Elige otra.');
+    }
+    return null;
+  }
+
+  Future<void> _elegirHora({required bool manana}) async {
+    final ahora = DateTime.now();
+    final base = _programadoPara ?? ahora.add(const Duration(minutes: 60));
+    final hora = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: base.hour, minute: (base.minute ~/ 15) * 15),
+      helpText: tr('¿A qué hora lo quieres?'),
+    );
+    if (hora == null || !mounted) return;
+    final dia = manana ? ahora.add(const Duration(days: 1)) : ahora;
+    setState(() => _programadoPara = DateTime(dia.year, dia.month, dia.day, hora.hour, hora.minute));
+  }
+
+  Future<void> _cargarAlergenos() async {
+    try {
+      final productos = await CatalogoService.instancia.streamProductos(widget.negocio.idNegocio).first;
+      if (!mounted) return;
+      setState(() {
+        _alergenosProducto = {for (final p in productos) p.id: p.alergenos};
+        final porId = {for (final p in productos) p.id: p};
+        _agotados = [
+          for (final item in widget.items)
+            if (porId[item.idProducto] case final p? when p.agotado || !p.disponible || !p.estado)
+              item.nombreProducto,
+        ];
+      });
+    } catch (_) {
+      // Sin datos de alérgenos igual se puede pedir; la cocina ve las alergias.
+    }
+  }
+
+  /// Productos del carrito que contienen algo a lo que el cliente es alérgico.
+  List<({String producto, List<String> conflicto})> get _conflictos => [
+        for (final item in widget.items)
+          if (Alergenos.enComun(_alergenosProducto[item.idProducto] ?? const [], _alergias)
+              case final c when c.isNotEmpty)
+            (producto: item.nombreProducto, conflicto: c),
+      ];
+
+  bool get _alergiasCambiaron {
+    final cuenta = SesionActual.instancia.actual?.alergias ?? const <String>[];
+    return cuenta.join(',') != _alergias.join(',');
   }
 
   Future<void> _cargarSucursal() async {
@@ -79,13 +225,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _comprobanteCtrl.removeListener(_onComprobanteCambio);
     _comprobanteCtrl.dispose();
     _notasCtrl.dispose();
+    _cuponCtrl.dispose();
+    _nitCtrl.dispose();
+    _razonSocialCtrl.dispose();
     super.dispose();
   }
 
-  double get _total => CarritoService.instancia.calcularTotal(widget.items);
+  /// Lo que paga el cliente: productos − descuento + propina.
+  double get _total => _subtotal - _descuento + _propinaAplicada;
 
   bool get _puedeConfirmar {
-    if (_apertura != null && !_apertura!.abierta) return false;
+    if (_agotados.isNotEmpty) return false;
+    if (_esProgramado && _errorProgramado != null) return false;
+    // Si está cerrado ahora, solo se puede programar para cuando abra.
+    if (!_esProgramado && _apertura != null && !_apertura!.abierta) return false;
+    if (_quiereFactura && _nitCtrl.text.trim().length < 5) return false;
     if (_modalidad == PedidoModalidad.mesa && _idMesa == null) return false;
     if (_modalidad == PedidoModalidad.delivery && _direccionElegida == null) return false;
     // HU-26/27: para Transferencia y QR el comprobante ya no es opcional
@@ -114,7 +268,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        tr('No se pueden hacer pedidos ahora. {mensaje}', {'mensaje': _apertura!.mensaje}),
+                        '${tr('No se pueden hacer pedidos ahora. {mensaje}', {'mensaje': _apertura!.mensaje})} '
+                        '${tr('Puedes programarlo para cuando abra.')}',
                         style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
                       ),
                     ),
@@ -162,6 +317,63 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               onChanged: (d) => setState(() => _direccionElegida = d),
             ),
           ],
+          if (_modalidad != PedidoModalidad.mesa) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(tr('¿Para cuándo?'), style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                ChoiceChip(
+                  avatar: const Icon(Icons.bolt_outlined, size: 18),
+                  label: Text(tr('Lo antes posible')),
+                  selected: !_programar,
+                  onSelected: (_) => setState(() => _programar = false),
+                ),
+                ChoiceChip(
+                  avatar: const Icon(Icons.schedule, size: 18),
+                  label: Text(tr('Programar')),
+                  selected: _programar,
+                  onSelected: (_) => setState(() => _programar = true),
+                ),
+              ],
+            ),
+            if (_programar) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _elegirHora(manana: false),
+                    icon: const Icon(Icons.today_outlined),
+                    label: Text(tr('Hoy')),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _elegirHora(manana: true),
+                    icon: const Icon(Icons.event_outlined),
+                    label: Text(tr('Mañana')),
+                  ),
+                  if (_programadoPara != null)
+                    Chip(
+                      avatar: const Icon(Icons.alarm_on_outlined, size: 18),
+                      label: Text(formatoProgramado(_programadoPara!),
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                ],
+              ),
+              if (_errorProgramado != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
+                  child: Text(
+                    _errorProgramado!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                  ),
+                ),
+            ],
+          ],
           const Divider(height: AppSpacing.xl),
           Text(tr('2. ¿Cómo vas a pagar?'), style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.sm),
@@ -200,20 +412,123 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ],
           const Divider(height: AppSpacing.xl),
-          Text(tr('3. ¿Alguna nota para tu pedido?'), style: Theme.of(context).textTheme.titleSmall),
+          Text(tr('3. ¿Tienes alguna alergia?'), style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            tr('Marca lo que no puedes comer. El local lo verá en su idioma, sin errores de traducción.'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SelectorAlergias(
+            seleccionadas: _alergias,
+            onChanged: (v) => setState(() => _alergias = v),
+          ),
+          if (_alergiasCambiaron)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _recordarAlergias,
+              onChanged: (v) => setState(() => _recordarAlergias = v ?? false),
+              title: Text(tr('Recordar mis alergias para los próximos pedidos')),
+            ),
+          if (_conflictos.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _AvisoConflictos(conflictos: _conflictos),
+          ],
+          const Divider(height: AppSpacing.xl),
+          Text(tr('4. ¿Alguna nota para tu pedido?'), style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _notasCtrl,
             maxLines: 2,
+            maxLength: 250,
             decoration: InputDecoration(
-              hintText: tr('Ej. sin cebolla, tocar el timbre, etc. (opcional)'),
+              hintText: tr('Ej. bien cocido, tocar el timbre, etc. (opcional)'),
+              helperText: tr('Puedes escribir en tu idioma: el local verá la nota traducida.'),
+              helperMaxLines: 2,
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          _SeccionCupon(
+            controller: _cuponCtrl,
+            cupon: _cupon,
+            error: _errorCupon,
+            validando: _validandoCupon,
+            onAplicar: _aplicarCupon,
+            onQuitar: () => setState(() {
+              _cupon = null;
+              _cuponCtrl.clear();
+            }),
+          ),
+          if (_modalidad == PedidoModalidad.delivery) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(tr('Propina para el repartidor (opcional)'), style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                for (final p in const [0.0, 2.0, 5.0, 10.0])
+                  ChoiceChip(
+                    label: Text(p == 0 ? tr('Sin propina') : 'Bs ${p.toStringAsFixed(0)}'),
+                    selected: _propina == p,
+                    onSelected: (_) => setState(() => _propina = p),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _quiereFactura,
+            onChanged: (v) => setState(() => _quiereFactura = v ?? false),
+            title: Text(tr('Quiero factura')),
+          ),
+          if (_quiereFactura) ...[
+            TextField(
+              controller: _nitCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 20,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(labelText: tr('NIT o CI *')),
+            ),
+            TextField(
+              controller: _razonSocialCtrl,
+              maxLength: 80,
+              decoration: InputDecoration(labelText: tr('Nombre o razón social')),
+            ),
+          ],
+          if (_agotados.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer,
+                borderRadius: AppRadius.mdAll,
+              ),
+              child: Text(
+                tr('Ya no quedan: {lista}. Quítalos del carrito para continuar.', {'lista': _agotados.join(', ')}),
+                style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+              ),
+            ),
+          ],
           const Divider(height: AppSpacing.xl),
+          _FilaResumen(etiqueta: tr('Productos'), valor: _subtotal),
+          if (_descuento > 0)
+            _FilaResumen(
+              etiqueta: tr('Descuento ({codigo})', {'codigo': _cupon!.codigo}),
+              valor: -_descuento,
+              resaltar: true,
+            ),
+          if (_propinaAplicada > 0) _FilaResumen(etiqueta: tr('Propina'), valor: _propinaAplicada),
+          const SizedBox(height: AppSpacing.xs),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(tr('Total'), style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(tr('Total'), style: const TextStyle(fontWeight: FontWeight.w600)),
               Text(
                 tr('Bs {total}', {'total': _total.toStringAsFixed(2)}),
                 style: Theme.of(context)
@@ -239,14 +554,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  /// Si hay productos con algo a lo que el cliente es alérgico, pide que lo
+  /// confirme antes de enviar el pedido.
+  Future<bool> _aceptaConflictos() async {
+    final conflictos = _conflictos;
+    if (conflictos.isEmpty) return true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, size: 36),
+        title: Text(tr('Revisa tu pedido')),
+        content: SizedBox(
+          width: 420,
+          child: _AvisoConflictos(conflictos: conflictos),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cambiar pedido'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Entiendo, enviar'))),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _guardarAlergiasEnCuenta() async {
+    if (!_recordarAlergias || !_alergiasCambiaron) return;
+    final error = await AuthService.instancia.actualizarAlergias(_alergias);
+    final u = SesionActual.instancia.actual;
+    if (error == null && u != null) {
+      SesionActual.instancia.usuario.value = u.conAlergias(_alergias);
+    }
+  }
+
   Future<void> _confirmar() async {
+    if (!await _aceptaConflictos() || !mounted) return;
     setState(() => _confirmando = true);
     try {
       // Comprobación final con datos frescos: el horario pudo cambiar o la
       // sucursal cerrar mientras el cliente armaba el pedido.
       final fresca = await SucursalService.instancia.obtener(widget.idSucursal);
       if (fresca != null) {
-        final ap = fresca.estadoApertura();
+        final ap = fresca.estadoApertura(_esProgramado ? _programadoPara : null);
         if (!ap.abierta) {
           if (mounted) setState(() => _sucursal = fresca);
           throw Exception(tr('No se pueden hacer pedidos ahora. {mensaje}', {'mensaje': ap.mensaje}));
@@ -270,7 +618,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             : _comprobanteCtrl.text.trim(),
         itemsCarrito: widget.items,
         notas: _notasCtrl.text.trim(),
+        alergias: _alergias,
+        codigoCupon: _cupon?.codigo,
+        propina: _propinaAplicada,
+        programadoPara: _esProgramado ? _programadoPara : null,
+        facturaNit: _quiereFactura ? _nitCtrl.text.trim() : null,
+        facturaRazonSocial: _quiereFactura ? _razonSocialCtrl.text.trim() : null,
       );
+      if (_quiereFactura) await _guardarFactura();
+      // Si falla, el pedido igual ya se envió con las alergias.
+      await _guardarAlergiasEnCuenta().catchError((_) {});
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => PedidoDetalleScreen(idPedido: idPedido)),
@@ -283,6 +640,145 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } finally {
       if (mounted) setState(() => _confirmando = false);
     }
+  }
+}
+
+/// Campo para escribir y aplicar un cupón de descuento.
+class _SeccionCupon extends StatelessWidget {
+  final TextEditingController controller;
+  final CuponModel? cupon;
+  final String? error;
+  final bool validando;
+  final VoidCallback onAplicar;
+  final VoidCallback onQuitar;
+
+  const _SeccionCupon({
+    required this.controller,
+    required this.cupon,
+    required this.error,
+    required this.validando,
+    required this.onAplicar,
+    required this.onQuitar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (cupon != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          borderRadius: AppRadius.mdAll,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.local_offer, color: scheme.onPrimaryContainer),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                tr('Cupón {codigo} aplicado: −{valor}', {'codigo': cupon!.codigo, 'valor': cupon!.etiquetaValor}),
+                style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              tooltip: tr('Quitar cupón'),
+              icon: Icon(Icons.close, color: scheme.onPrimaryContainer),
+              onPressed: onQuitar,
+            ),
+          ],
+        ),
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            textCapitalization: TextCapitalization.characters,
+            onSubmitted: (_) => onAplicar(),
+            decoration: InputDecoration(
+              labelText: tr('¿Tienes un cupón?'),
+              prefixIcon: const Icon(Icons.local_offer_outlined),
+              errorText: error,
+              errorMaxLines: 2,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: OutlinedButton(
+            onPressed: validando ? null : onAplicar,
+            child: validando
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(tr('Aplicar')),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilaResumen extends StatelessWidget {
+  final String etiqueta;
+  final double valor;
+  final bool resaltar;
+  const _FilaResumen({required this.etiqueta, required this.valor, this.resaltar = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = resaltar ? Theme.of(context).colorScheme.primary : null;
+    final texto = valor < 0
+        ? '−Bs ${(-valor).toStringAsFixed(2)}'
+        : 'Bs ${valor.toStringAsFixed(2)}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(etiqueta, style: TextStyle(color: color)),
+          Text(texto, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lista de productos del carrito que contienen algo a lo que el cliente
+/// es alérgico.
+class _AvisoConflictos extends StatelessWidget {
+  final List<({String producto, List<String> conflicto})> conflictos;
+  const _AvisoConflictos({required this.conflictos});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: AppRadius.mdAll),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: scheme.onErrorContainer),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Estos productos contienen algo a lo que eres alérgico:'),
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            for (final c in conflictos)
+              Text('• ${c.producto}: ${Alergenos.nombres(c.conflicto)}'),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              tr('Le avisaremos a la cocina. Si el ingrediente no se puede quitar, el local cancelará el pedido y te dirá el motivo.'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

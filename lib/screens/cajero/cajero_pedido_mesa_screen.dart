@@ -7,6 +7,7 @@ import '../../services/catalogo_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_imagen_red.dart';
@@ -86,9 +87,10 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
     if (items.isEmpty) return;
 
     final notasCtrl = TextEditingController();
+    var alergias = <String>[];
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(builder: (context, setDialog) => AlertDialog(
         title: Text('Enviar pedido · Mesa ${widget.mesa.numero}'),
         content: SingleChildScrollView(
           child: Column(
@@ -113,6 +115,19 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
                   labelText: 'Nota para cocina (opcional)',
                 ),
               ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                '¿Alguien de la mesa tiene alergias?',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              SizedBox(
+                width: 420,
+                child: SelectorAlergias(
+                  seleccionadas: alergias,
+                  onChanged: (v) => setDialog(() => alergias = v),
+                ),
+              ),
             ],
           ),
         ),
@@ -126,7 +141,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
             child: const Text('Enviar a cocina'),
           ),
         ],
-      ),
+      )),
     );
     if (confirmar != true || !mounted) return;
 
@@ -141,6 +156,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
         mesa: widget.mesa,
         items: items,
         notas: notasCtrl.text.trim(),
+        alergias: alergias,
       );
       messenger.showSnackBar(
         SnackBar(content: Text('Pedido de la mesa ${widget.mesa.numero} enviado a cocina.')),

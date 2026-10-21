@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/sesion_actual.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_status_badge.dart';
+import '../widgets/avisos_cliente.dart';
 import '../widgets/logo_caro.dart';
 import 'admin/admin_home_screen.dart';
 import 'cajero/cajero_caja_screen.dart';
@@ -74,8 +75,15 @@ class _HomeScreenState extends State<HomeScreen> {
           // panel del personal se muestra siempre en español.
           ValueListenableBuilder<UsuarioModel?>(
             valueListenable: SesionActual.instancia.usuario,
-            builder: (context, u, _) =>
-                u == null || u.esCliente ? const BotonIdioma() : const SizedBox.shrink(),
+            builder: (context, u, _) => u == null || u.esCliente
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (u != null) const CampanaAvisos(),
+                      const BotonIdioma(),
+                    ],
+                  )
+                : const SizedBox.shrink(),
           ),
           IconButton(
             tooltip: tr('Mi cuenta'),
@@ -199,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ];
 
           // El personal debe tener activa la verificación en dos pasos.
-          return PuertaDosPasos(
+          final contenido = PuertaDosPasos(
             usuario: usuario,
             child: SafeArea(
             child: Center(
@@ -227,6 +235,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ),
           );
+          // El cliente recibe avisos cuando sus pedidos cambian de estado.
+          return usuario.esCliente
+              ? OyenteAvisos(uid: usuario.idUsuario, child: contenido)
+              : contenido;
         },
       ),
     );

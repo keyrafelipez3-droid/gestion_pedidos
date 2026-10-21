@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../l10n/idioma.dart';
+import 'alergenos.dart';
 import 'carrito_models.dart' show OpcionSeleccionada;
 
 class PedidoModalidad {
@@ -125,6 +126,31 @@ class PedidoModel {
   final double? lngRepartidor;
   final DateTime? ubicacionActualizada;
 
+  /// Alergias del cliente para este pedido (códigos de `Alergenos`). La
+  /// cocina las ve en español, sin traducción automática.
+  final List<String> alergias;
+
+  /// Idioma en que el cliente usaba la app al pedir ('es', 'en', 'pt',
+  /// 'fr'). Sirve para traducir sus notas al español para el personal.
+  final String idiomaCliente;
+
+  /// Cupón aplicado (código en mayúsculas) y monto descontado. `total` ya
+  /// tiene el descuento restado.
+  final String? codigoCupon;
+  final double descuento;
+
+  /// Propina para el repartidor (solo Delivery). NO forma parte de `total`
+  /// (no es venta del negocio): el repartidor cobra total + propina.
+  final double propina;
+
+  /// Pedido programado: hora a la que el cliente lo quiere. null = lo
+  /// antes posible.
+  final DateTime? programadoPara;
+
+  /// Datos para la factura (NIT/CI y razón social), si el cliente los pidió.
+  final String? facturaNit;
+  final String? facturaRazonSocial;
+
   const PedidoModel({
     required this.id,
     required this.idCliente,
@@ -153,7 +179,31 @@ class PedidoModel {
     this.latRepartidor,
     this.lngRepartidor,
     this.ubicacionActualizada,
+    this.alergias = const [],
+    this.idiomaCliente = 'es',
+    this.codigoCupon,
+    this.descuento = 0,
+    this.propina = 0,
+    this.programadoPara,
+    this.facturaNit,
+    this.facturaRazonSocial,
   });
+
+  bool get tieneAlergias => alergias.isNotEmpty;
+  bool get esProgramado => programadoPara != null;
+  bool get pideFactura => (facturaNit ?? '').isNotEmpty;
+
+  /// Productos antes del descuento.
+  double get subtotalProductos => total + descuento;
+
+  /// Lo que paga el cliente en total (productos − descuento + propina).
+  double get totalACobrar => total + propina;
+
+  /// Un pedido programado para más de 45 minutos en el futuro todavía no
+  /// se empieza a preparar.
+  bool get esParaMasTarde =>
+      programadoPara != null &&
+      programadoPara!.isAfter(DateTime.now().add(const Duration(minutes: 45)));
 
   bool get esDelivery => modalidad == PedidoModalidad.delivery;
 
@@ -192,6 +242,14 @@ class PedidoModel {
         'idCaja': idCaja,
         'nombreCliente': nombreCliente,
         'telefonoCliente': telefonoCliente,
+        'alergias': alergias,
+        'idiomaCliente': idiomaCliente,
+        'descuento': descuento,
+        'propina': propina,
+        if (codigoCupon != null) 'codigoCupon': codigoCupon,
+        if (programadoPara != null) 'programadoPara': Timestamp.fromDate(programadoPara!),
+        if (facturaNit != null) 'facturaNit': facturaNit,
+        if (facturaRazonSocial != null) 'facturaRazonSocial': facturaRazonSocial,
         // idRepartidor / nombreRepartidor / telefonoRepartidor NO van acá a
         // propósito: los escribe el repartidor al tomar el pedido, no el
         // cliente al crearlo (las reglas de Firestore no los aceptan al crear).
@@ -233,6 +291,14 @@ class PedidoModel {
       latRepartidor: ubicacion is GeoPoint ? ubicacion.latitude : null,
       lngRepartidor: ubicacion is GeoPoint ? ubicacion.longitude : null,
       ubicacionActualizada: tsUbicacion is Timestamp ? tsUbicacion.toDate() : null,
+      alergias: Alergenos.desdeFirestore(data['alergias']),
+      idiomaCliente: data['idiomaCliente'] as String? ?? 'es',
+      codigoCupon: data['codigoCupon'] as String?,
+      descuento: (data['descuento'] as num?)?.toDouble() ?? 0,
+      propina: (data['propina'] as num?)?.toDouble() ?? 0,
+      programadoPara: (data['programadoPara'] as Timestamp?)?.toDate(),
+      facturaNit: data['facturaNit'] as String?,
+      facturaRazonSocial: data['facturaRazonSocial'] as String?,
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'alergenos.dart';
+
 // Las 4 clases de este archivo llevan `idNegocio` (nullable, por
 // compatibilidad con documentos antiguos) desde la corrección pedida por
 // el docente: el sistema es multi-tenant y cada Administrador solo debe
@@ -55,6 +57,18 @@ class ProductoModel {
   final bool disponible;
   final String? idNegocio;
 
+  /// Códigos de alérgenos que contiene (ver `Alergenos`). Los marca el
+  /// Administrador; el cliente ve un aviso si alguno es de sus alergias.
+  final List<String> alergenos;
+
+  /// Control de stock (opcional). null = sin control (siempre hay). Se
+  /// descuenta cuando la cocina empieza a preparar un pedido; al llegar a
+  /// 0 el producto queda "No disponible" solo.
+  final int? stock;
+
+  /// Por debajo de esta cantidad se avisa "Poco stock".
+  final int stockMinimo;
+
   const ProductoModel({
     required this.id,
     required this.nombre,
@@ -65,7 +79,14 @@ class ProductoModel {
     this.estado = true,
     this.disponible = true,
     this.idNegocio,
+    this.alergenos = const [],
+    this.stock,
+    this.stockMinimo = 5,
   });
+
+  bool get controlaStock => stock != null;
+  bool get agotado => stock != null && stock! <= 0;
+  bool get pocoStock => stock != null && stock! > 0 && stock! <= stockMinimo;
 
   Map<String, dynamic> toMap() => {
         'nombre': nombre,
@@ -76,6 +97,9 @@ class ProductoModel {
         'estado': estado,
         'disponible': disponible,
         'idNegocio': idNegocio,
+        'alergenos': alergenos,
+        'stock': stock,
+        'stockMinimo': stockMinimo,
       };
 
   factory ProductoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -91,6 +115,9 @@ class ProductoModel {
       estado: data['estado'] as bool? ?? true,
       disponible: data['disponible'] as bool? ?? true,
       idNegocio: data['idNegocio'] as String?,
+      alergenos: Alergenos.desdeFirestore(data['alergenos']),
+      stock: (data['stock'] as num?)?.toInt(),
+      stockMinimo: (data['stockMinimo'] as num?)?.toInt() ?? 5,
     );
   }
 }
