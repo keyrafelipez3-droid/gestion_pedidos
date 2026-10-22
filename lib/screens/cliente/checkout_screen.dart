@@ -125,6 +125,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double get _propinaAplicada => _modalidad == PedidoModalidad.delivery ? _propina : 0;
 
   Future<void> _aplicarCupon() async {
+    // El cupón es opcional: sin código no se muestra ningún error.
+    if (_cuponCtrl.text.trim().isEmpty) {
+      setState(() => _errorCupon = null);
+      return;
+    }
     setState(() {
       _validandoCupon = true;
       _errorCupon = null;
@@ -234,20 +239,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// Lo que paga el cliente: productos − descuento + propina.
   double get _total => _subtotal - _descuento + _propinaAplicada;
 
-  bool get _puedeConfirmar {
-    if (_agotados.isNotEmpty) return false;
-    if (_esProgramado && _errorProgramado != null) return false;
+  bool get _puedeConfirmar => _motivoNoConfirmar == null;
+
+  /// Qué le falta al pedido para poder confirmarlo (se muestra debajo del
+  /// botón), o null si está todo listo. El cupón es opcional.
+  String? get _motivoNoConfirmar {
+    if (_agotados.isNotEmpty) return tr('Quita del carrito los productos agotados.');
+    if (_esProgramado && _errorProgramado != null) return _errorProgramado;
     // Si está cerrado ahora, solo se puede programar para cuando abra.
-    if (!_esProgramado && _apertura != null && !_apertura!.abierta) return false;
-    if (_quiereFactura && _nitCtrl.text.trim().length < 5) return false;
-    if (_modalidad == PedidoModalidad.mesa && _idMesa == null) return false;
-    if (_modalidad == PedidoModalidad.delivery && _direccionElegida == null) return false;
+    if (!_esProgramado && _apertura != null && !_apertura!.abierta) {
+      return tr('El local está cerrado. Programa tu pedido para cuando abra.');
+    }
+    if (_modalidad == PedidoModalidad.mesa && _idMesa == null) return tr('Elige tu mesa.');
+    if (_modalidad == PedidoModalidad.delivery && _direccionElegida == null) {
+      return tr('Elige la dirección de entrega.');
+    }
     // HU-26/27: para Transferencia y QR el comprobante ya no es opcional
     // — sin eso el negocio no tiene forma de verificar que se pagó.
     if (_metodoPago != MetodoPago.efectivo && _comprobanteCtrl.text.trim().isEmpty) {
-      return false;
+      return tr('Sube el comprobante de pago.');
     }
-    return true;
+    if (_quiereFactura && _nitCtrl.text.trim().length < 5) {
+      return tr('Escribe tu NIT o CI para la factura.');
+    }
+    return null;
   }
 
   @override
@@ -461,6 +476,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               _cupon = null;
               _cuponCtrl.clear();
             }),
+            onEscribir: () {
+              if (_errorCupon != null) setState(() => _errorCupon = null);
+            },
           ),
           if (_modalidad == PedidoModalidad.delivery) ...[
             const SizedBox(height: AppSpacing.md),
@@ -549,6 +567,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   )
                 : Text(tr('Confirmar pedido')),
           ),
+          if (_motivoNoConfirmar != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: AppSpacing.xs),
+                  Flexible(
+                    child: Text(
+                      _motivoNoConfirmar!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       )),
     );
@@ -651,8 +687,10 @@ class _SeccionCupon extends StatelessWidget {
   final bool validando;
   final VoidCallback onAplicar;
   final VoidCallback onQuitar;
+  final VoidCallback onEscribir;
 
   const _SeccionCupon({
+    required this.onEscribir,
     required this.controller,
     required this.cupon,
     required this.error,
@@ -698,8 +736,9 @@ class _SeccionCupon extends StatelessWidget {
             controller: controller,
             textCapitalization: TextCapitalization.characters,
             onSubmitted: (_) => onAplicar(),
+            onChanged: (_) => onEscribir(),
             decoration: InputDecoration(
-              labelText: tr('¿Tienes un cupón?'),
+              labelText: tr('¿Tienes un cupón? (opcional)'),
               prefixIcon: const Icon(Icons.local_offer_outlined),
               errorText: error,
               errorMaxLines: 2,

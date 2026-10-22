@@ -489,4 +489,11 @@ const traduccionesEn = <String, String>{
   '¿A qué hora lo quieres?': 'What time do you want it?',
   '¿Para cuándo?': 'When?',
   '¿Tienes un cupón?': 'Have a coupon?',
+  'Quita del carrito los productos agotados.': 'Remove the sold-out products from your cart.',
+  'El local está cerrado. Programa tu pedido para cuando abra.': 'The restaurant is closed. Schedule your order for when it opens.',
+  'Elige tu mesa.': 'Choose your table.',
+  'Elige la dirección de entrega.': 'Choose the delivery address.',
+  'Sube el comprobante de pago.': 'Upload the payment receipt.',
+  'Escribe tu NIT o CI para la factura.': 'Enter your tax ID or ID number for the invoice.',
+  '¿Tienes un cupón? (opcional)': 'Have a coupon? (optional)',
 };
