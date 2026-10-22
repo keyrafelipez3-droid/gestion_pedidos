@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../../widgets/logo_caro.dart';
+import '../cuenta/dos_pasos_screen.dart';
+import '../legal/legal_screen.dart';
 import 'registro_screen.dart';
 
 /// HU-02 — Pantalla de inicio de sesión.
@@ -45,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final error = await AuthService.instancia.iniciarSesion(
       email: _emailCtrl.text,
       password: _passwordCtrl.text,
+      pedirCodigo: (error) => pedirCodigoDosPasos(context, error: error),
     );
 
     if (!mounted) return;
@@ -52,10 +57,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
       );
     }
     // Si no hay error, AuthGate detecta la sesión y navega solo a Home.
+  }
+
+  Future<void> _olvidePassword() async {
+    final enviado = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DialogoRecuperar(emailInicial: _emailCtrl.text.trim()),
+    );
+    if (enviado == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            tr('Si el correo tiene una cuenta, te enviamos un enlace para restablecer la contraseña. Revisa también la carpeta de spam.'),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -72,11 +93,17 @@ class _LoginScreenState extends State<LoginScreen> {
       cargando: _cargando,
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _iniciarSesion,
+      onOlvide: _olvidePassword,
       mostrarEncabezado: !esAmplio,
     );
 
     if (esAmplio) {
       return Scaffold(
+        floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+        floatingActionButton: const Padding(
+          padding: EdgeInsets.only(top: AppSpacing.sm),
+          child: BotonIdioma(),
+        ),
         body: Row(
           children: [
             Expanded(
@@ -106,6 +133,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Celular: foto de comida a pantalla completa con el formulario encima.
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+      floatingActionButton: const SafeArea(child: BotonIdioma(color: Colors.white)),
       body: AppPantallaFoto(
         asset: 'assets/images/fondo_movil.jpg',
         formulario: formulario,
@@ -158,8 +187,8 @@ class _PanelMarca extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  color.withValues(alpha: 0.30),
-                  color.withValues(alpha: 0.72),
+                  Colors.black.withValues(alpha: 0.45),
+                  Colors.black.withValues(alpha: 0.80),
                 ],
               ),
             ),
@@ -170,10 +199,10 @@ class _PanelMarca extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.max,
               children: [
-                const Icon(Icons.restaurant_menu, size: 96, color: Colors.white),
+                const LogoCaro(size: 168),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Gestión de Pedidos',
+                  AppBrand.nombre,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         color: Colors.white,
@@ -182,7 +211,7 @@ class _PanelMarca extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Pide, gestiona y sirve todo desde un solo lugar.',
+                  tr('Pide, gestiona y sirve todo desde un solo lugar.'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withValues(alpha: 0.85),
@@ -224,6 +253,7 @@ class _Formulario extends StatelessWidget {
   final bool cargando;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
+  final VoidCallback onOlvide;
   final bool mostrarEncabezado;
 
   const _Formulario({
@@ -234,6 +264,7 @@ class _Formulario extends StatelessWidget {
     required this.cargando,
     required this.onTogglePassword,
     required this.onSubmit,
+    required this.onOlvide,
     required this.mostrarEncabezado,
   });
 
@@ -246,36 +277,23 @@ class _Formulario extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (mostrarEncabezado) ...[
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.restaurant_menu,
-                  size: 48,
-                  color: scheme.onPrimaryContainer,
-                ),
-              ),
-            ),
+            const Center(child: LogoCaro(size: 104)),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Gestión de Pedidos',
-              style: Theme.of(context).textTheme.headlineSmall,
+              '${AppBrand.nombre} · ${tr(AppBrand.eslogan)}',
+              style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
           ] else ...[
             Text(
-              'Bienvenido de nuevo',
+              tr('Bienvenido de nuevo'),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: AppSpacing.xs),
           ],
           Text(
-            'Inicia sesión para continuar',
+            tr('Inicia sesión para continuar'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -286,20 +304,21 @@ class _Formulario extends StatelessWidget {
           TextFormField(
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
+            decoration: InputDecoration(
+              labelText: tr('Correo electrónico *'),
               prefixIcon: Icon(Icons.email_outlined),
             ),
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Ingresa tu correo' : null,
+                (v == null || v.trim().isEmpty) ? tr('Ingresa tu correo') : null,
           ),
           const SizedBox(height: AppSpacing.md),
 
           TextFormField(
             controller: passwordCtrl,
             obscureText: !verPassword,
+            obscuringCharacter: '*',
             decoration: InputDecoration(
-              labelText: 'Contraseña',
+              labelText: tr('Contraseña *'),
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -309,10 +328,17 @@ class _Formulario extends StatelessWidget {
               ),
             ),
             validator: (v) =>
-                (v == null || v.isEmpty) ? 'Ingresa tu contraseña' : null,
+                (v == null || v.isEmpty) ? tr('Ingresa tu contraseña') : null,
             onFieldSubmitted: (_) => onSubmit(),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: cargando ? null : onOlvide,
+              child: Text(tr('¿Olvidaste tu contraseña?')),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
 
           FilledButton(
             onPressed: cargando ? null : onSubmit,
@@ -322,7 +348,7 @@ class _Formulario extends StatelessWidget {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Iniciar sesión'),
+                : Text(tr('Iniciar sesión')),
           ),
           const SizedBox(height: AppSpacing.sm),
 
@@ -334,10 +360,135 @@ class _Formulario extends StatelessWidget {
                         builder: (_) => const RegistroScreen(),
                       ),
                     ),
-            child: const Text('¿No tienes cuenta? Regístrate'),
+            child: Text(tr('¿No tienes cuenta? Regístrate')),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const LegalScreen(tipo: TipoTextoLegal.terminos),
+                  ),
+                ),
+                child: Text(tr('Términos y condiciones')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LegalScreen(
+                      tipo: TipoTextoLegal.politicaPrivacidad,
+                    ),
+                  ),
+                ),
+                child: Text(tr('Política de privacidad')),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Diálogo para pedir el correo y enviar el enlace de restablecimiento.
+class _DialogoRecuperar extends StatefulWidget {
+  final String emailInicial;
+  const _DialogoRecuperar({required this.emailInicial});
+
+  @override
+  State<_DialogoRecuperar> createState() => _DialogoRecuperarState();
+}
+
+class _DialogoRecuperarState extends State<_DialogoRecuperar> {
+  late final TextEditingController _emailCtrl;
+  final _formKey = GlobalKey<FormState>();
+  bool _enviando = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl = TextEditingController(text: widget.emailInicial);
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enviar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _enviando = true;
+      _error = null;
+    });
+    final error = await AuthService.instancia.enviarRecuperacionPassword(_emailCtrl.text);
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _enviando = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(tr('Restablecer contraseña')),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.')),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: tr('Correo electrónico *'),
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? tr('Ingresa tu correo') : null,
+              onFieldSubmitted: (_) => _enviar(),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _enviando ? null : () => Navigator.of(context).pop(false),
+          child: Text(tr('Cancelar')),
+        ),
+        FilledButton(
+          onPressed: _enviando ? null : _enviar,
+          child: _enviando
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(tr('Enviar enlace')),
+        ),
+      ],
     );
   }
 }

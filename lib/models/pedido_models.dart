@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/idioma.dart';
+import 'alergenos.dart';
 import 'carrito_models.dart' show OpcionSeleccionada;
 
 class PedidoModalidad {
@@ -36,15 +38,40 @@ class PedidoEstado {
   static const String pendiente = 'Pendiente';
   static const String enPreparacion = 'En preparación';
   static const String listo = 'Listo';
+
+  /// Solo Delivery: un repartidor tomó el pedido y va hacia el cliente.
+  static const String enCamino = 'En camino';
+
+  /// Solo Delivery: el repartidor avisó que ya llegó al lugar de entrega.
+  /// (Texto sin tilde a propósito: se usa tal cual en las reglas de Firestore.)
+  static const String llego = 'En el lugar';
   static const String entregado = 'Entregado';
   static const String cancelado = 'Cancelado';
   static const List<String> todos = [
     pendiente,
     enPreparacion,
     listo,
+    enCamino,
+    llego,
     entregado,
     cancelado,
   ];
+
+  /// Cambios de estado permitidos. El servicio los valida contra el estado
+  /// REAL del pedido en Firestore (no el que ve la pantalla), para que dos
+  /// personas no puedan pisarse ni repetir un cambio.
+  static const Map<String, List<String>> _transiciones = {
+    pendiente: [enPreparacion, cancelado],
+    enPreparacion: [listo, cancelado],
+    listo: [enCamino, entregado, cancelado],
+    // Delivery: si el cliente no aparece o no se puede entregar, el Cajero
+    // o el Administrador también pueden cancelarlo (con motivo).
+    enCamino: [llego, entregado, cancelado],
+    llego: [entregado, cancelado],
+  };
+
+  static bool puedePasar(String actual, String nuevo) =>
+      (_transiciones[actual] ?? const <String>[]).contains(nuevo);
 }
 
 /// Documento de `pedidos/{pedidoId}` (raíz). Se crea a partir del
@@ -81,6 +108,49 @@ class PedidoModel {
   final bool cobrado;
   final String? idCaja; // caja donde se registró el cobro
 
+  /// Solo Delivery: datos del cliente para que el repartidor pueda
+  /// contactarlo durante la entrega. Se borran si el cliente elimina su cuenta.
+  final String? nombreCliente;
+  final String? telefonoCliente;
+
+  /// Solo Delivery: repartidor que tomó el pedido (lo escribe el propio
+  /// repartidor al tomarlo). El cliente ve su nombre y teléfono mientras
+  /// el pedido está en camino.
+  final String? idRepartidor;
+  final String? nombreRepartidor;
+  final String? telefonoRepartidor;
+
+  /// Posición en vivo del repartidor. Solo existe mientras el pedido está
+  /// en camino; se borra al entregarlo.
+  final double? latRepartidor;
+  final double? lngRepartidor;
+  final DateTime? ubicacionActualizada;
+
+  /// Alergias del cliente para este pedido (códigos de `Alergenos`). La
+  /// cocina las ve en español, sin traducción automática.
+  final List<String> alergias;
+
+  /// Idioma en que el cliente usaba la app al pedir ('es', 'en', 'pt',
+  /// 'fr'). Sirve para traducir sus notas al español para el personal.
+  final String idiomaCliente;
+
+  /// Cupón aplicado (código en mayúsculas) y monto descontado. `total` ya
+  /// tiene el descuento restado.
+  final String? codigoCupon;
+  final double descuento;
+
+  /// Propina para el repartidor (solo Delivery). NO forma parte de `total`
+  /// (no es venta del negocio): el repartidor cobra total + propina.
+  final double propina;
+
+  /// Pedido programado: hora a la que el cliente lo quiere. null = lo
+  /// antes posible.
+  final DateTime? programadoPara;
+
+  /// Datos para la factura (NIT/CI y razón social), si el cliente los pidió.
+  final String? facturaNit;
+  final String? facturaRazonSocial;
+
   const PedidoModel({
     required this.id,
     required this.idCliente,
@@ -101,16 +171,54 @@ class PedidoModel {
     this.cuentaAbierta = false,
     this.cobrado = false,
     this.idCaja,
+    this.nombreCliente,
+    this.telefonoCliente,
+    this.idRepartidor,
+    this.nombreRepartidor,
+    this.telefonoRepartidor,
+    this.latRepartidor,
+    this.lngRepartidor,
+    this.ubicacionActualizada,
+    this.alergias = const [],
+    this.idiomaCliente = 'es',
+    this.codigoCupon,
+    this.descuento = 0,
+    this.propina = 0,
+    this.programadoPara,
+    this.facturaNit,
+    this.facturaRazonSocial,
   });
+
+  bool get tieneAlergias => alergias.isNotEmpty;
+  bool get esProgramado => programadoPara != null;
+  bool get pideFactura => (facturaNit ?? '').isNotEmpty;
+
+  /// Productos antes del descuento.
+  double get subtotalProductos => total + descuento;
+
+  /// Lo que paga el cliente en total (productos − descuento + propina).
+  double get totalACobrar => total + propina;
+
+  /// Un pedido programado para más de 45 minutos en el futuro todavía no
+  /// se empieza a preparar.
+  bool get esParaMasTarde =>
+      programadoPara != null &&
+      programadoPara!.isAfter(DateTime.now().add(const Duration(minutes: 45)));
+
+  bool get esDelivery => modalidad == PedidoModalidad.delivery;
+
+  /// El pedido está en la etapa de reparto (ya lo tomó un repartidor).
+  bool get enReparto =>
+      estado == PedidoEstado.enCamino || estado == PedidoEstado.llego;
 
   /// "Mesa 3" si es un pedido de mesa con número conocido; si no, la
   /// modalidad tal cual (Recoger, Delivery o Mesa).
   String get etiquetaModalidad {
     final n = numeroMesa;
     if (modalidad == PedidoModalidad.mesa && n != null && n.isNotEmpty) {
-      return 'Mesa $n';
+      return tr('Mesa {numero}', {'numero': n});
     }
-    return modalidad;
+    return tr(modalidad);
   }
 
   Map<String, dynamic> toMap() => {
@@ -132,6 +240,19 @@ class PedidoModel {
         'cuentaAbierta': cuentaAbierta,
         'cobrado': cobrado,
         'idCaja': idCaja,
+        'nombreCliente': nombreCliente,
+        'telefonoCliente': telefonoCliente,
+        'alergias': alergias,
+        'idiomaCliente': idiomaCliente,
+        'descuento': descuento,
+        'propina': propina,
+        if (codigoCupon != null) 'codigoCupon': codigoCupon,
+        if (programadoPara != null) 'programadoPara': Timestamp.fromDate(programadoPara!),
+        if (facturaNit != null) 'facturaNit': facturaNit,
+        if (facturaRazonSocial != null) 'facturaRazonSocial': facturaRazonSocial,
+        // idRepartidor / nombreRepartidor / telefonoRepartidor NO van acá a
+        // propósito: los escribe el repartidor al tomar el pedido, no el
+        // cliente al crearlo (las reglas de Firestore no los aceptan al crear).
       };
 
   factory PedidoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -139,6 +260,8 @@ class PedidoModel {
     final rawTotal = data['total'];
     final ts = data['fechaCreacion'] as Timestamp?;
     final rawDireccion = data['direccionEntrega'];
+    final ubicacion = data['ubicacionRepartidor'];
+    final tsUbicacion = data['ubicacionActualizada'];
     return PedidoModel(
       id: doc.id,
       idCliente: data['idCliente'] as String? ?? '',
@@ -160,6 +283,22 @@ class PedidoModel {
       cuentaAbierta: data['cuentaAbierta'] as bool? ?? false,
       cobrado: data['cobrado'] as bool? ?? false,
       idCaja: data['idCaja'] as String?,
+      nombreCliente: data['nombreCliente'] as String?,
+      telefonoCliente: data['telefonoCliente'] as String?,
+      idRepartidor: data['idRepartidor'] as String?,
+      nombreRepartidor: data['nombreRepartidor'] as String?,
+      telefonoRepartidor: data['telefonoRepartidor'] as String?,
+      latRepartidor: ubicacion is GeoPoint ? ubicacion.latitude : null,
+      lngRepartidor: ubicacion is GeoPoint ? ubicacion.longitude : null,
+      ubicacionActualizada: tsUbicacion is Timestamp ? tsUbicacion.toDate() : null,
+      alergias: Alergenos.desdeFirestore(data['alergias']),
+      idiomaCliente: data['idiomaCliente'] as String? ?? 'es',
+      codigoCupon: data['codigoCupon'] as String?,
+      descuento: (data['descuento'] as num?)?.toDouble() ?? 0,
+      propina: (data['propina'] as num?)?.toDouble() ?? 0,
+      programadoPara: (data['programadoPara'] as Timestamp?)?.toDate(),
+      facturaNit: data['facturaNit'] as String?,
+      facturaRazonSocial: data['facturaRazonSocial'] as String?,
     );
   }
 }

@@ -2,10 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Usamos la camara para que tomes tu foto de perfil, fotos de productos o del comprobante de pago.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Usamos tus fotos para que elijas una imagen de perfil, de productos o del comprobante de pago.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>La app no graba audio; este permiso solo lo exige el componente de camara.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Usamos tu ubicacion para marcar tu direccion de entrega en el mapa y, si eres repartidor, para mostrar al cliente por donde vas.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Gestion Pedidos</string>
+	<string>Caro</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +21,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>gestion_pedidos</string>
+	<string>Caro</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

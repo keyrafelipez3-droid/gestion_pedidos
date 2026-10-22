@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
+import '../../models/alergenos.dart';
 import '../../models/carrito_models.dart';
 import '../../models/catalogo_models.dart';
 import '../../models/negocio_model.dart';
@@ -10,12 +12,17 @@ import '../../services/favoritos_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
-import '../../widgets/app_empty_state.dart';
+import '../../utils/colores.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_search_field.dart';
+import '../../widgets/app_status_badge.dart';
+import '../legal/info_negocio_screen.dart';
 import 'carrito_screen.dart';
+import 'resenas_negocio_screen.dart';
 
 /// HU-16/17/18/19/20/21: menú digital de un negocio — ver, buscar,
 /// filtrar por categoría, marcar favoritos y agregar al carrito.
@@ -41,6 +48,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
 
   String get _uid => SesionActual.instancia.actual!.idUsuario;
   String get _idNegocio => widget.negocio.idNegocio;
+  List<String> get _misAlergias => SesionActual.instancia.actual?.alergias ?? const [];
 
   @override
   void dispose() {
@@ -48,10 +56,67 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
     super.dispose();
   }
 
+  /// Agrega al carrito. Si el producto tiene algo a lo que el cliente es
+  /// alérgico, primero le pregunta.
+  Future<void> _agregar(ProductoModel producto) async {
+    final conflicto = Alergenos.enComun(producto.alergenos, _misAlergias);
+    if (conflicto.isNotEmpty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.warning_amber_rounded, size: 36),
+          title: Text(tr('Contiene {lista}', {'lista': Alergenos.nombres(conflicto).toLowerCase()})),
+          content: Text(tr(
+            '"{producto}" contiene algo a lo que eres alérgico. Si lo agregas, la cocina verá tu alergia y tratará de prepararlo sin ese ingrediente.',
+            {'producto': producto.nombre},
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('No agregar'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Agregar igual'))),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    await CarritoService.instancia.agregarAlCarrito(
+      _uid,
+      CarritoItemModel(
+        id: '',
+        idProducto: producto.id,
+        nombreProducto: producto.nombre,
+        imagenUrl: producto.imagenUrl,
+        precioUnitario: producto.precio,
+        idNegocio: _idNegocio,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.negocio.nombre)),
+      appBar: AppBar(
+        title: Text(widget.negocio.nombre),
+        actions: [
+          IconButton(
+            tooltip: tr('Reseñas'),
+            icon: const Icon(Icons.star_outline_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ResenasNegocioScreen(negocio: widget.negocio),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: tr('Información del negocio'),
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => InfoNegocioScreen(negocio: widget.negocio),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: AppContenidoCentrado(
         maxWidth: 860,
         child: Column(
@@ -70,7 +135,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
             ),
             child: AppSearchField(
               controller: _buscadorCtrl,
-              hint: 'Buscar en el menú...',
+              hint: tr('Buscar en el menú...'),
               onChanged: (v) => setState(() => _busqueda = v.trim().toLowerCase()),
             ),
           ),
@@ -105,10 +170,10 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                       .toList();
                 }
                 if (productos.isEmpty) {
-                  return const AppEmptyState(
+                  return AppEmptyState(
                     icon: Icons.restaurant_menu_outlined,
-                    title: 'No encontramos productos',
-                    message: 'Prueba con otra búsqueda o categoría.',
+                    title: tr('No encontramos productos'),
+                    message: tr('Prueba con otra búsqueda o categoría.'),
                   );
                 }
                 return StreamBuilder<Set<String>>(
@@ -133,17 +198,8 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                           idNegocio: _idNegocio,
                           esFavoritoActual: favoritos.contains(productos[i].id),
                         ),
-                        onAgregar: () => CarritoService.instancia.agregarAlCarrito(
-                          _uid,
-                          CarritoItemModel(
-                            id: '',
-                            idProducto: productos[i].id,
-                            nombreProducto: productos[i].nombre,
-                            imagenUrl: productos[i].imagenUrl,
-                            precioUnitario: productos[i].precio,
-                            idNegocio: _idNegocio,
-                          ),
-                        ),
+                        alergiasCliente: _misAlergias,
+                        onAgregar: () => _agregar(productos[i]),
                       ),
                     );
                   },
@@ -194,6 +250,8 @@ class _SelectorSucursalCompacto extends StatelessWidget {
                 Icon(Icons.storefront_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(sucursales.first.nombre, style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(width: AppSpacing.sm),
+                _EstadoApertura(sucursal: sucursales.first),
               ],
             ),
           );
@@ -203,14 +261,40 @@ class _SelectorSucursalCompacto extends StatelessWidget {
           child: DropdownButton<String>(
             isExpanded: true,
             value: seleccionado,
-            hint: const Text('Elige una sucursal'),
+            hint: Text(tr('Elige una sucursal')),
             items: sucursales
-                .map((s) => DropdownMenuItem(value: s.id, child: Text(s.nombre)))
+                .map((s) => DropdownMenuItem(
+                      value: s.id,
+                      child: Row(
+                        children: [
+                          Flexible(child: Text(s.nombre, overflow: TextOverflow.ellipsis)),
+                          const SizedBox(width: AppSpacing.sm),
+                          _EstadoApertura(sucursal: s),
+                        ],
+                      ),
+                    ))
                 .toList(),
             onChanged: onChanged,
           ),
         );
       },
+    );
+  }
+}
+
+/// Etiqueta "Abierto" / "Cerrado" de una sucursal según sus horarios.
+class _EstadoApertura extends StatelessWidget {
+  final SucursalModel sucursal;
+  const _EstadoApertura({required this.sucursal});
+
+  @override
+  Widget build(BuildContext context) {
+    final ap = sucursal.estadoApertura();
+    // Sin horarios configurados no se muestra nada (no hay dato que afirmar).
+    if (ap.abierta && ap.mensaje.isEmpty) return const SizedBox.shrink();
+    return AppStatusBadge(
+      label: ap.abierta ? tr('Abierto') : tr('Cerrado'),
+      tone: ap.abierta ? AppStatusTone.success : AppStatusTone.danger,
     );
   }
 }
@@ -242,7 +326,7 @@ class _FiltroCategorias extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.xs),
                 child: ChoiceChip(
-                  label: const Text('Todas'),
+                  label: Text(tr('Todas')),
                   selected: seleccionada == null,
                   onSelected: (_) => onChanged(null),
                 ),
@@ -297,6 +381,13 @@ class _CabeceraNegocio extends StatelessWidget {
                   ),
                 ),
               ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  height: 5,
+                  color: colorDesdeHex(negocio.colorPrimario, theme.colorScheme.primary),
+                ),
+              ),
               Positioned(
                 left: AppSpacing.md,
                 right: AppSpacing.md,
@@ -309,6 +400,7 @@ class _CabeceraNegocio extends StatelessWidget {
                       negocio.nombre,
                       style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
                     ),
+                    const SizedBox(height: 2),
                     if (negocio.descripcion.isNotEmpty)
                       Text(
                         negocio.descripcion,
@@ -334,12 +426,14 @@ class _TarjetaProducto extends StatelessWidget {
   final bool esFavorito;
   final VoidCallback onFavorito;
   final VoidCallback onAgregar;
+  final List<String> alergiasCliente;
 
   const _TarjetaProducto({
     required this.producto,
     required this.esFavorito,
     required this.onFavorito,
     required this.onAgregar,
+    this.alergiasCliente = const [],
   });
 
   @override
@@ -358,13 +452,21 @@ class _TarjetaProducto extends StatelessWidget {
                 children: [
                   Text(
                     producto.nombre,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Bs ${producto.precio.toStringAsFixed(2)}',
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    tr('Bs {precio}', {'precio': producto.precio.toStringAsFixed(2)}),
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
+                  if (producto.pocoStock)
+                    Text(
+                      tr('¡Quedan solo {n}!', {'n': producto.stock}),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   if (producto.descripcion.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -376,6 +478,10 @@ class _TarjetaProducto extends StatelessWidget {
                       ),
                     ),
                   ],
+                  ContieneAlergenos(
+                    alergenos: producto.alergenos,
+                    alergiasCliente: alergiasCliente,
+                  ),
                 ],
               ),
             ),
@@ -406,7 +512,7 @@ class _TarjetaProducto extends StatelessWidget {
                         child: Icon(
                           esFavorito ? Icons.favorite : Icons.favorite_border,
                           size: 18,
-                          color: esFavorito ? theme.colorScheme.primary : Colors.black87,
+                          color: esFavorito ? AppBrand.rojo : Colors.black87,
                         ),
                       ),
                     ),
@@ -416,15 +522,15 @@ class _TarjetaProducto extends StatelessWidget {
                   right: 6,
                   bottom: 6,
                   child: Material(
-                    color: Colors.white,
+                    color: theme.colorScheme.primary,
                     shape: const CircleBorder(),
                     elevation: 2,
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: onAgregar,
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.add, size: 22, color: Colors.black87),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(Icons.add, size: 22, color: theme.colorScheme.onPrimary),
                       ),
                     ),
                   ),
@@ -489,11 +595,11 @@ class _BarraCarrito extends StatelessWidget {
                     children: [
                       const Icon(Icons.shopping_cart_outlined),
                       const SizedBox(width: AppSpacing.sm),
-                      Text('Ver carrito ($cantidad)'),
+                      Text(tr('Ver carrito ({cantidad})', {'cantidad': cantidad})),
                     ],
                   ),
                   Text(
-                    'Bs ${total.toStringAsFixed(2)}',
+                    tr('Bs {total}', {'total': total.toStringAsFixed(2)}),
                     style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onPrimary),
                   ),
                 ],

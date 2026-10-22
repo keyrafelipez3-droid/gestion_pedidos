@@ -71,8 +71,9 @@ class RolesPermisosScreen extends StatelessWidget {
       color: Colors.blueGrey,
       descripcion: 'Entrega de pedidos a domicilio.',
       permisos: [
-        'Consulta los pedidos de delivery que le fueron asignados',
-        'Actualiza el estado básico de la entrega',
+        'Ve los pedidos de delivery Listos de su negocio y toma el que va a entregar',
+        'Comparte su ubicación en vivo con el cliente mientras va en camino',
+        'Llama al cliente, avisa "Ya llegué" y marca el pedido como entregado',
       ],
     ),
     _RolInfo(

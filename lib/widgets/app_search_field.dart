@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/idioma.dart';
+
 /// Campo de búsqueda reutilizable para encabezados de listas
 /// (Sucursales, Productos, Clientes, etc.). Filtra en el cliente sobre
 /// los datos que ya trae el stream — no agrega ninguna consulta nueva a
@@ -16,10 +18,10 @@ class AppSearchField extends StatelessWidget {
     this.hint = 'Buscar...',
   });
 
-  static final _borde = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(32),
-    borderSide: BorderSide.none,
-  );
+  static OutlineInputBorder _borde(BuildContext context) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(32),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -28,11 +30,11 @@ class AppSearchField extends StatelessWidget {
       onChanged: onChanged,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: tr(hint),
         prefixIcon: const Icon(Icons.search),
         isDense: true,
-        border: _borde,
-        enabledBorder: _borde,
+        border: _borde(context),
+        enabledBorder: _borde(context),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(32),
           borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),

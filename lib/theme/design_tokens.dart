@@ -14,6 +14,32 @@ class AppSpacing {
   static const double xxl = 48;
 }
 
+/// Identidad de la marca "Caro" (tomada del logo: negro, dorado y rojo).
+/// Es la paleta por defecto de la app; cada negocio la reemplaza con su
+/// propio color de marca (ver AppThemeController).
+class AppBrand {
+  AppBrand._();
+  static const String nombre = 'Caro';
+  static const String eslogan = 'Pedidos de comida';
+  static const String logoAsset = 'assets/images/logo_caro.png';
+  static const String fuente = 'Poppins';
+
+  static const Color negro = Color(0xFF0B0B0B);
+  static const Color dorado = Color(0xFFF2BC45);
+  static const Color doradoOscuro = Color(0xFFDB9622);
+  static const Color rojo = Color(0xFFF42925);
+  static const Color crema = Color(0xFFFBF7F0);
+  static const Color tinta = Color(0xFF1A1200); // texto sobre dorado
+}
+
+/// Duraciones de animación: cortas y suaves (150-250 ms), nada llamativo.
+class AppMotion {
+  AppMotion._();
+  static const Duration rapida = Duration(milliseconds: 150);
+  static const Duration normal = Duration(milliseconds: 220);
+  static const Curve curva = Curves.easeOutCubic;
+}
+
 class AppRadius {
   AppRadius._();
   static const double sm = 8;

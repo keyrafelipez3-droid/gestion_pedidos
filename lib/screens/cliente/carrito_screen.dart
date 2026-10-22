@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/carrito_models.dart';
 import '../../models/negocio_model.dart';
 import '../../services/carrito_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
-import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_imagen_red.dart';
 import 'checkout_screen.dart';
 
@@ -23,16 +24,16 @@ class CarritoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tu carrito')),
+      appBar: AppBar(title: Text(tr('Tu carrito'))),
       body: AppContenidoCentrado(child: StreamBuilder<List<CarritoItemModel>>(
         stream: CarritoService.instancia.streamCarrito(_uid, negocio.idNegocio),
         builder: (context, snapshot) {
           final items = snapshot.data ?? [];
           if (items.isEmpty) {
-            return const AppEmptyState(
+            return AppEmptyState(
               icon: Icons.shopping_cart_outlined,
-              title: 'Tu carrito está vacío',
-              message: 'Vuelve al menú y agrega algún producto.',
+              title: tr('Tu carrito está vacío'),
+              message: tr('Vuelve al menú y agrega algún producto.'),
             );
           }
           final total = CarritoService.instancia.calcularTotal(items);
@@ -59,9 +60,9 @@ class CarritoScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total', style: TextStyle(fontWeight: FontWeight.w600)),
+                          Text(tr('Total'), style: TextStyle(fontWeight: FontWeight.w600)),
                           Text(
-                            'Bs ${total.toStringAsFixed(2)}',
+                            tr('Bs {total}', {'total': total.toStringAsFixed(2)}),
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -81,7 +82,7 @@ class CarritoScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-                          child: const Text('Continuar'),
+                          child: Text(tr('Continuar')),
                         ),
                       ),
                     ],
@@ -131,10 +132,10 @@ class _TarjetaItemCarrito extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   if (item.notas.isNotEmpty)
-                    Text('Nota: ${item.notas}', style: Theme.of(context).textTheme.bodySmall),
+                    Text(tr('Nota: {notas}', {'notas': item.notas}), style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 4),
                   Text(
-                    'Bs ${item.subtotal.toStringAsFixed(2)}',
+                    tr('Bs {subtotal}', {'subtotal': item.subtotal.toStringAsFixed(2)}),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w700,

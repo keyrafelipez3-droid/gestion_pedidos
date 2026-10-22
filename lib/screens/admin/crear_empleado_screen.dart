@@ -5,6 +5,8 @@ import '../../models/usuario_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/sucursal_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../theme/design_tokens.dart';
+import '../../widgets/campo_telefono.dart';
 
 /// HU-05 — Formulario para que un Administrador cree la cuenta de un
 /// empleado y le asigne su rol (y opcionalmente su sucursal).
@@ -76,7 +78,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
       );
       return;
     }
@@ -84,7 +86,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Empleado "${_nombreCtrl.text.trim()}" creado.'),
-        backgroundColor: Colors.green,
+        backgroundColor: context.semanticColors.success,
       ),
     );
     Navigator.of(context).pop();
@@ -113,7 +115,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                       controller: _nombreCtrl,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
-                        labelText: 'Nombre completo',
+                        labelText: 'Nombre completo *',
                         prefixIcon: Icon(Icons.person_outline),
                         border: OutlineInputBorder(),
                       ),
@@ -127,7 +129,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                        labelText: 'Correo electrónico',
+                        labelText: 'Correo electrónico *',
                         prefixIcon: Icon(Icons.email_outlined),
                         border: OutlineInputBorder(),
                       ),
@@ -144,25 +146,19 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    TextFormField(
+                    CampoTelefono(
                       controller: _telefonoCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Teléfono',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Ingresa el teléfono'
-                          : null,
+                      obligatorio: true,
+                      contorno: true,
                     ),
                     const SizedBox(height: 16),
 
                     TextFormField(
                       controller: _passwordCtrl,
                       obscureText: !_verPassword,
+                      obscuringCharacter: '*',
                       decoration: InputDecoration(
-                        labelText: 'Contraseña temporal',
+                        labelText: 'Contraseña temporal *',
                         helperText:
                             'Compártela con el empleado para su primer inicio de sesión',
                         prefixIcon: const Icon(Icons.lock_outline),

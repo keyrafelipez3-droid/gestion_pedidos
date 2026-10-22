@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../../widgets/campo_telefono.dart';
+import '../../widgets/logo_caro.dart';
+import '../legal/legal_screen.dart';
 
 /// HU-01 — Pantalla de registro para Clientes.
 /// ("Registrarme con mis datos básicos")
@@ -29,6 +33,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
   bool _cargando = false;
   bool _verPassword = false;
+  bool _aceptaTerminos = false;
+  bool _errorTerminos = false;
 
   @override
   void dispose() {
@@ -43,7 +49,12 @@ class _RegistroScreenState extends State<RegistroScreen> {
   Future<void> _registrar() async {
     // Oculta el teclado y valida el formulario.
     FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) return;
+    final formularioValido = _formKey.currentState!.validate();
+    if (!_aceptaTerminos) {
+      setState(() => _errorTerminos = true);
+      return;
+    }
+    if (!formularioValido) return;
 
     setState(() => _cargando = true);
 
@@ -59,7 +70,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
       );
       return;
     }
@@ -89,10 +100,21 @@ class _RegistroScreenState extends State<RegistroScreen> {
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _registrar,
       mostrarEncabezado: !esAmplio,
+      aceptaTerminos: _aceptaTerminos,
+      errorTerminos: _errorTerminos,
+      onCambiarTerminos: (v) => setState(() {
+        _aceptaTerminos = v;
+        if (v) _errorTerminos = false;
+      }),
     );
 
     if (esAmplio) {
       return Scaffold(
+        floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+        floatingActionButton: const Padding(
+          padding: EdgeInsets.only(top: AppSpacing.sm),
+          child: BotonIdioma(),
+        ),
         body: Row(
           children: [
             Expanded(child: _PanelMarca(color: scheme.primary)),
@@ -119,7 +141,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
-        title: const Text('Crear cuenta'),
+        title: Text(tr('Crear cuenta')),
+        actions: const [BotonIdioma(color: Colors.white)],
       ),
       body: AppPantallaFoto(
         asset: 'assets/images/comida_terraza.jpg',
@@ -153,8 +176,8 @@ class _PanelMarca extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                color.withValues(alpha: 0.30),
-                color.withValues(alpha: 0.72),
+                Colors.black.withValues(alpha: 0.45),
+                Colors.black.withValues(alpha: 0.80),
               ],
             ),
           ),
@@ -164,10 +187,10 @@ class _PanelMarca extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.person_add_alt_1, size: 96, color: Colors.white),
+              const LogoCaro(size: 140),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'Únete a Gestión de Pedidos',
+                tr('Únete a {nombre}', {'nombre': AppBrand.nombre}),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: Colors.white,
@@ -176,7 +199,7 @@ class _PanelMarca extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Crea tu cuenta y empieza a pedir en segundos.',
+                tr('Crea tu cuenta y empieza a pedir en segundos.'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.85),
@@ -202,6 +225,9 @@ class _Formulario extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
   final bool mostrarEncabezado;
+  final bool aceptaTerminos;
+  final bool errorTerminos;
+  final ValueChanged<bool> onCambiarTerminos;
 
   const _Formulario({
     required this.formKey,
@@ -215,6 +241,9 @@ class _Formulario extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     required this.mostrarEncabezado,
+    required this.aceptaTerminos,
+    required this.errorTerminos,
+    required this.onCambiarTerminos,
   });
 
   @override
@@ -229,20 +258,20 @@ class _Formulario extends StatelessWidget {
             Icon(Icons.person_add_alt_1, size: 64, color: scheme.primary),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Regístrate',
+              tr('Regístrate'),
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
           ] else ...[
             Text(
-              'Regístrate',
+              tr('Regístrate'),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: AppSpacing.xs),
           ],
           Text(
-            'Crea tu cuenta de cliente para hacer pedidos.',
+            tr('Crea tu cuenta de cliente para hacer pedidos.'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -253,53 +282,47 @@ class _Formulario extends StatelessWidget {
           TextFormField(
             controller: nombreCtrl,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Nombre completo',
+            decoration: InputDecoration(
+              labelText: tr('Nombre completo *'),
               prefixIcon: Icon(Icons.person_outline),
             ),
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Ingresa tu nombre' : null,
+                (v == null || v.trim().isEmpty) ? tr('Ingresa tu nombre') : null,
           ),
           const SizedBox(height: AppSpacing.md),
 
           TextFormField(
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
+            decoration: InputDecoration(
+              labelText: tr('Correo electrónico *'),
               prefixIcon: Icon(Icons.email_outlined),
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) {
-                return 'Ingresa tu correo';
+                return tr('Ingresa tu correo');
               }
               final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
               if (!regex.hasMatch(v.trim())) {
-                return 'Correo no válido';
+                return tr('Correo no válido');
               }
               return null;
             },
           ),
           const SizedBox(height: AppSpacing.md),
 
-          TextFormField(
+          CampoTelefono(
             controller: telefonoCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Teléfono',
-              prefixIcon: Icon(Icons.phone_outlined),
-            ),
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Ingresa tu teléfono'
-                : null,
+            obligatorio: true,
           ),
           const SizedBox(height: AppSpacing.md),
 
           TextFormField(
             controller: passwordCtrl,
             obscureText: !verPassword,
+            obscuringCharacter: '*',
             decoration: InputDecoration(
-              labelText: 'Contraseña',
+              labelText: tr('Contraseña *'),
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -309,23 +332,68 @@ class _Formulario extends StatelessWidget {
               ),
             ),
             validator: (v) =>
-                (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                (v == null || v.length < 6) ? tr('Mínimo 6 caracteres') : null,
           ),
           const SizedBox(height: AppSpacing.md),
 
           TextFormField(
             controller: confirmarCtrl,
             obscureText: !verPassword,
-            decoration: const InputDecoration(
-              labelText: 'Confirmar contraseña',
+            obscuringCharacter: '*',
+            decoration: InputDecoration(
+              labelText: tr('Confirmar contraseña *'),
               prefixIcon: Icon(Icons.lock_outline),
             ),
             validator: (v) => (v != passwordCtrl.text)
-                ? 'Las contraseñas no coinciden'
+                ? tr('Las contraseñas no coinciden')
                 : null,
             onFieldSubmitted: (_) => onSubmit(),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
+
+          // Consentimiento expreso: sin aceptar no se crea la cuenta.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: aceptaTerminos,
+                onChanged: cargando ? null : (v) => onCambiarTerminos(v ?? false),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(tr('Acepto los ')),
+                      _EnlaceLegal(
+                        texto: tr('Términos y condiciones'),
+                        tipo: TipoTextoLegal.terminos,
+                      ),
+                      Text(tr(' y la ')),
+                      _EnlaceLegal(
+                        texto: tr('Política de privacidad'),
+                        tipo: TipoTextoLegal.politicaPrivacidad,
+                      ),
+                      const Text(' *'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (errorTerminos)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, bottom: AppSpacing.xs),
+              child: Text(
+                tr('Debes aceptar para crear tu cuenta'),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: scheme.error),
+              ),
+            ),
+          const SizedBox(height: AppSpacing.md),
 
           FilledButton(
             onPressed: cargando ? null : onSubmit,
@@ -335,15 +403,38 @@ class _Formulario extends StatelessWidget {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Crear cuenta'),
+                : Text(tr('Crear cuenta')),
           ),
           const SizedBox(height: AppSpacing.sm),
 
           TextButton(
             onPressed: cargando ? null : () => Navigator.of(context).pop(),
-            child: const Text('Ya tengo una cuenta'),
+            child: Text(tr('Ya tengo una cuenta')),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Texto que abre la política de privacidad o los términos.
+class _EnlaceLegal extends StatelessWidget {
+  final String texto;
+  final TipoTextoLegal tipo;
+  const _EnlaceLegal({required this.texto, required this.tipo});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => LegalScreen(tipo: tipo)),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.primary,
+          decoration: TextDecoration.underline,
+        ),
       ),
     );
   }

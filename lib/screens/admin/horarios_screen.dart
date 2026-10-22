@@ -50,6 +50,21 @@ class _HorariosScreenState extends State<HorariosScreen> {
   }
 
   Future<void> _guardar() async {
+    // Un día activo no puede abrir y cerrar a la misma hora.
+    for (final dia in SucursalModel.dias) {
+      final h = _horarios[dia];
+      if (h != null && h.activo && h.apertura == h.cierre) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'El ${dia[0].toUpperCase()}${dia.substring(1)} abre y cierra a la misma hora (${h.apertura}). '
+              'Corrígelo o desactiva ese día.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
     setState(() => _guardando = true);
     try {
       await SucursalService.instancia.guardarHorarios(widget.sucursal.id, _horarios);

@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import '../../models/pedido_models.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../utils/errores.dart';
+import '../../utils/formato.dart';
+import '../../widgets/boton_accion.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/alergias.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/aviso_pedidos_nuevos.dart';
 import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
 import '../cliente/pedido_detalle_screen.dart';
@@ -24,7 +29,7 @@ class CocinaPedidosScreen extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo actualizar: $e')),
+        SnackBar(content: Text(textoError(e))),
       );
     }
   }
@@ -36,7 +41,9 @@ class CocinaPedidosScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Pedidos pendientes (Cocina)')),
       body: idNegocio == null
           ? const Center(child: Text('No se pudo identificar tu negocio.'))
-          : StreamBuilder<List<PedidoModel>>(
+          : AvisoPedidosNuevos(
+              idNegocio: idNegocio,
+              child: StreamBuilder<List<PedidoModel>>(
               stream: PedidoService.instancia.streamPedidosCocina(idNegocio),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
@@ -50,14 +57,45 @@ class CocinaPedidosScreen extends StatelessWidget {
                     message: 'Los nuevos pedidos van a aparecer acá apenas lleguen.',
                   );
                 }
+                // Primero lo que hay que preparar ya (los programados, por
+                // su hora); al final los programados para más tarde.
+                DateTime hora(PedidoModel p) => p.programadoPara ?? p.fechaCreacion ?? DateTime(0);
+                final ahora = pedidos.where((p) => !p.esParaMasTarde).toList()
+                  ..sort((a, b) => hora(a).compareTo(hora(b)));
+                final despues = pedidos.where((p) => p.esParaMasTarde).toList()
+                  ..sort((a, b) => hora(a).compareTo(hora(b)));
+                final filas = <Object>[
+                  ...ahora,
+                  if (despues.isNotEmpty) 'Programados para más tarde (${despues.length})',
+                  ...despues,
+                ];
                 return ListView.separated(
                   padding: const EdgeInsets.all(AppSpacing.md),
-                  itemCount: pedidos.length,
+                  itemCount: filas.length,
                   separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                   itemBuilder: (context, i) {
-                    final p = pedidos[i];
+                    final fila = filas[i];
+                    if (fila is String) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.md),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.schedule, size: 20),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(fila, style: const TextStyle(fontWeight: FontWeight.w800)),
+                          ],
+                        ),
+                      );
+                    }
+                    final p = fila as PedidoModel;
                     final enPreparacion = p.estado == PedidoEstado.enPreparacion;
                     return Card(
+                      shape: p.tieneAlergias
+                          ? RoundedRectangleBorder(
+                              borderRadius: AppRadius.mdAll,
+                              side: const BorderSide(color: Color(0xFFB3261E), width: 2),
+                            )
+                          : null,
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.md,
@@ -70,21 +108,39 @@ class CocinaPedidosScreen extends StatelessWidget {
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: AppSpacing.xs),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: AppStatusBadge(
-                              label: p.estado,
-                              tone: enPreparacion ? AppStatusTone.warning : AppStatusTone.neutral,
-                            ),
+                          child: Wrap(
+                            spacing: AppSpacing.xs,
+                            runSpacing: AppSpacing.xs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              AppStatusBadge(
+                                label: p.estado,
+                                tone: enPreparacion ? AppStatusTone.warning : AppStatusTone.neutral,
+                              ),
+                              if (p.programadoPara != null)
+                                Chip(
+                                  avatar: const Icon(Icons.alarm, size: 16),
+                                  label: Text('Para ${formatoProgramado(p.programadoPara!)}'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              if (p.tieneAlergias) BandaAlergias(alergias: p.alergias, compacta: true),
+                              if (p.notas.isNotEmpty)
+                                const Chip(
+                                  avatar: Icon(Icons.sticky_note_2_outlined, size: 16),
+                                  label: Text('Tiene nota'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ChipIdiomaCliente(codigo: p.idiomaCliente),
+                            ],
                           ),
                         ),
-                        trailing: FilledButton(
+                        trailing: BotonAccion(
+                          texto: enPreparacion ? 'Marcar listo' : 'Empezar',
                           onPressed: () => _avanzar(
                             context,
                             p,
                             enPreparacion ? PedidoEstado.listo : PedidoEstado.enPreparacion,
                           ),
-                          child: Text(enPreparacion ? 'Marcar listo' : 'Empezar'),
                         ),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -96,6 +152,7 @@ class CocinaPedidosScreen extends StatelessWidget {
                   },
                 );
               },
+            ),
             ),
     );
   }

@@ -29,6 +29,7 @@ class AppStatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow,
         borderRadius: AppRadius.lgAll,
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: StreamBuilder<int>(
         stream: stream,

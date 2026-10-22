@@ -6,7 +6,6 @@ import '../../services/admin_service.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalogo_service.dart';
-import '../../services/negocio_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
@@ -15,7 +14,11 @@ import '../../widgets/app_stat_card.dart';
 import '../cuenta/mi_cuenta_screen.dart';
 import '../superadmin/superadmin_negocios_screen.dart';
 import 'catalogo_screen.dart';
+import 'dashboard/dashboard_negocio.dart';
+import 'dashboard/dashboard_plataforma.dart';
 import 'clientes_screen.dart';
+import 'cupones_screen.dart';
+import 'resenas_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
 import 'sucursales_screen.dart';
@@ -42,9 +45,11 @@ enum _SeccionAdmin {
   datosNegocio,
   catalogo,
   ventas,
+  cupones,
   negocios,
   empleados,
   clientes,
+  resenas,
   miCuenta,
 }
 
@@ -213,6 +218,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           selected: _seccion == _SeccionAdmin.ventas,
           onTap: () => ir(_SeccionAdmin.ventas, () => const VentasScreen()),
         ),
+        AppSidebarItem(
+          icon: Icons.local_offer_outlined,
+          label: 'Cupones',
+          selected: _seccion == _SeccionAdmin.cupones,
+          onTap: () => ir(_SeccionAdmin.cupones, () => const CuponesScreen()),
+        ),
       ]),
       AppSidebarSection(title: 'Configuración', items: [
         AppSidebarItem(
@@ -228,6 +239,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           label: 'Clientes',
           selected: _seccion == _SeccionAdmin.clientes,
           onTap: () => ir(_SeccionAdmin.clientes, () => const ClientesScreen()),
+        ),
+        AppSidebarItem(
+          icon: Icons.star_outline_rounded,
+          label: 'Reseñas',
+          selected: _seccion == _SeccionAdmin.resenas,
+          onTap: () => ir(_SeccionAdmin.resenas, () => const ResenasScreen()),
         ),
         AppSidebarItem(
           icon: Icons.manage_accounts_outlined,
@@ -255,12 +272,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const CatalogoScreen(indiceInicial: 0, incrustada: true);
       case _SeccionAdmin.ventas:
         return const VentasScreen(incrustada: true);
+      case _SeccionAdmin.cupones:
+        return const CuponesScreen(incrustada: true);
       case _SeccionAdmin.negocios:
         return const SuperAdminNegociosScreen(incrustada: true);
       case _SeccionAdmin.empleados:
         return const EmpleadosScreen(incrustada: true);
       case _SeccionAdmin.clientes:
         return const ClientesScreen(incrustada: true);
+      case _SeccionAdmin.resenas:
+        return const ResenasScreen(incrustada: true);
       case _SeccionAdmin.miCuenta:
         return const MiCuentaScreen(incrustada: true);
     }
@@ -398,27 +419,41 @@ class _ContenidoDashboard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           usuario.esSuperAdmin
-              ? _BannerBienvenida(nombre: usuario.nombre, bannerUrl: '')
+              ? _BannerBienvenida(
+                  nombre: usuario.nombre,
+                  bannerUrl: '',
+                  subtitulo: 'Supervisa todos los negocios de la plataforma.',
+                )
               : ValueListenableBuilder<NegocioModel?>(
                   valueListenable: AppThemeController.instancia.negocio,
                   builder: (context, negocio, _) => _BannerBienvenida(
                     nombre: usuario.nombre,
                     bannerUrl: negocio?.bannerUrl ?? '',
+                    subtitulo: 'Gestiona todo tu negocio desde un solo lugar.',
                   ),
                 ),
           const SizedBox(height: AppSpacing.lg),
-          Text(
-            usuario.esSuperAdmin ? 'Resumen general' : 'Resumen del negocio',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          usuario.esSuperAdmin
-              ? const _FilaEstadisticasSuperAdmin()
-              : _FilaEstadisticas(idNegocio: usuario.idNegocio!),
+          if (usuario.esSuperAdmin)
+            const DashboardPlataforma()
+          else ...[
+            DashboardNegocio(idNegocio: usuario.idNegocio!),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Tu negocio', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.md),
+            _FilaEstadisticas(idNegocio: usuario.idNegocio!),
+          ],
         ],
       ),
     );
   }
+}
+
+/// Saludo según la hora del día.
+String _saludo() {
+  final h = DateTime.now().hour;
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
 }
 
 /// Banner de bienvenida del dashboard. Si el negocio subió una imagen de
@@ -428,7 +463,12 @@ class _ContenidoDashboard extends StatelessWidget {
 class _BannerBienvenida extends StatelessWidget {
   final String nombre;
   final String bannerUrl;
-  const _BannerBienvenida({required this.nombre, required this.bannerUrl});
+  final String subtitulo;
+  const _BannerBienvenida({
+    required this.nombre,
+    required this.bannerUrl,
+    required this.subtitulo,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -452,10 +492,10 @@ class _BannerBienvenida extends StatelessWidget {
         // de raíz.
         height: 156,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [scheme.primary, scheme.primary.withValues(alpha: 0.78)],
+            colors: [Color(0xFF0B0B0B), Color(0xFF2A2418)],
           ),
         ),
         child: Stack(
@@ -492,7 +532,7 @@ class _BannerBienvenida extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          nombre.isEmpty ? 'Buenos días 👋' : 'Buenos días, $nombre 👋',
+                          nombre.isEmpty ? _saludo() : '${_saludo()}, $nombre',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
@@ -500,7 +540,7 @@ class _BannerBienvenida extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Gestiona todo tu negocio desde un solo lugar.',
+                          subtitulo,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.9),
                               ),
@@ -512,7 +552,7 @@ class _BannerBienvenida extends StatelessWidget {
                     Icon(
                       Icons.storefront,
                       size: 48,
-                      color: scheme.onPrimary.withValues(alpha: 0.85),
+                      color: scheme.primary,
                     ),
                 ],
               ),
@@ -560,7 +600,9 @@ class _FilaEstadisticas extends StatelessWidget {
           icon: Icons.people_outline,
           color: semantic.info,
           etiqueta: 'Clientes',
-          stream: AdminService.instancia.streamClientes().map((l) => l.length),
+          stream: AdminService.instancia
+              .streamClientesDeNegocio(idNegocio)
+              .map((l) => l.length),
         ),
         AppStatCard(
           icon: Icons.badge_outlined,
@@ -573,43 +615,6 @@ class _FilaEstadisticas extends StatelessWidget {
           color: semantic.success,
           etiqueta: 'Sucursales',
           stream: SucursalService.instancia.streamSucursales(idNegocio).map((l) => l.length),
-        ),
-      ],
-    );
-  }
-}
-
-/// Tarjetas de estadísticas del dashboard del SuperAdmin: como no
-/// pertenece a un negocio en particular (gestiona todos), ve números
-/// globales en vez de los de un negocio — igual de reales, nada inventado.
-class _FilaEstadisticasSuperAdmin extends StatelessWidget {
-  const _FilaEstadisticasSuperAdmin();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final semantic = context.semanticColors;
-    return Wrap(
-      spacing: AppSpacing.md,
-      runSpacing: AppSpacing.md,
-      children: [
-        AppStatCard(
-          icon: Icons.storefront_outlined,
-          color: scheme.primary,
-          etiqueta: 'Negocios',
-          stream: NegocioService.instancia.streamNegocios().map((l) => l.length),
-        ),
-        AppStatCard(
-          icon: Icons.admin_panel_settings_outlined,
-          color: semantic.warning,
-          etiqueta: 'Administradores',
-          stream: AdminService.instancia.streamAdministradores().map((l) => l.length),
-        ),
-        AppStatCard(
-          icon: Icons.people_outline,
-          color: semantic.info,
-          etiqueta: 'Clientes',
-          stream: AdminService.instancia.streamClientes().map((l) => l.length),
         ),
       ],
     );

@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internet: Firebase, imagenes y mapas (en release no viene por defecto). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Ubicacion: elegir la direccion de entrega en el mapa y seguimiento del repartidor. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
-        android:label="gestion_pedidos"
+        android:label="Caro"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
