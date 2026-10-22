@@ -489,4 +489,11 @@ const traduccionesPt = <String, String>{
   '¿A qué hora lo quieres?': 'Que horas você quer?',
   '¿Para cuándo?': 'Para quando?',
   '¿Tienes un cupón?': 'Tem um cupom?',
+  'Quita del carrito los productos agotados.': 'Remova do carrinho os produtos esgotados.',
+  'El local está cerrado. Programa tu pedido para cuando abra.': 'O restaurante está fechado. Agende seu pedido para quando abrir.',
+  'Elige tu mesa.': 'Escolha sua mesa.',
+  'Elige la dirección de entrega.': 'Escolha o endereço de entrega.',
+  'Sube el comprobante de pago.': 'Envie o comprovante de pagamento.',
+  'Escribe tu NIT o CI para la factura.': 'Digite seu NIT ou documento para a nota fiscal.',
+  '¿Tienes un cupón? (opcional)': 'Tem um cupom? (opcional)',
 };
