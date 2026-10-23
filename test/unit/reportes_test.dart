@@ -31,7 +31,7 @@ void main() {
   group('Excel (.xlsx)', () {
     final bytes = excelVentas(pedidos, nombresSucursal: const {'s1': 'Centro & Norte'}, periodo: 'Hoy');
     final zip = ZipDecoder().decodeBytes(bytes);
-    String archivo(String nombre) => utf8.decode(zip.findFile(nombre)!.content as List<int>);
+    String archivo(String nombre) => utf8.decode(zip.findFile(nombre)!.content);
 
     test('tiene la estructura de un libro de Excel con 2 hojas', () {
       for (final f in [

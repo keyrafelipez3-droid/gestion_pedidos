@@ -12,5 +12,5 @@ npm install
 npm test
 ```
 
-Necesita **Node 20+** y **Java 21+** (el emulador de Firestore corre en Java).
+Necesita **Node 24+** y **Java 21+** (el emulador de Firestore corre en Java).
 En GitHub se ejecutan solas en cada Pull Request (`.github/workflows/ci.yml`).
