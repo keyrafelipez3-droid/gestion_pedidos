@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/actividad_model.dart';
 import '../../models/cupon_model.dart';
+import '../../services/actividad_service.dart';
 import '../../services/cupon_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
@@ -156,6 +158,10 @@ class CuponesScreen extends StatelessWidget {
                 );
                 try {
                   await CuponService.instancia.guardar(idNegocio, nuevo);
+                  ActividadService.instancia.registrar(
+                    ActividadTipo.catalogo,
+                    '${cupon == null ? 'Creó' : 'Editó'} el cupón ${nuevo.codigo} (−${nuevo.etiquetaValor})',
+                  );
                   if (ctx.mounted) Navigator.pop(ctx);
                 } catch (e) {
                   if (ctx.mounted) {
@@ -189,7 +195,10 @@ class CuponesScreen extends StatelessWidget {
         ],
       ),
     );
-    if (ok == true) await CuponService.instancia.eliminar(idNegocio, c.codigo);
+    if (ok == true) {
+      await CuponService.instancia.eliminar(idNegocio, c.codigo);
+      ActividadService.instancia.registrar(ActividadTipo.catalogo, 'Eliminó el cupón ${c.codigo}');
+    }
   }
 
   @override

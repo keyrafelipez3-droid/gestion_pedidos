@@ -60,22 +60,7 @@ class _DetalleViaCliente extends StatelessWidget {
   const _DetalleViaCliente({required this.idPedido, required this.esPersonal});
 
   @override
-  Widget build(BuildContext context) {
-    final uid = SesionActual.instancia.actual?.idUsuario ?? '';
-    return StreamBuilder<List<PedidoModel>>(
-      stream: PedidoService.instancia.streamPedidosCliente(uid),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final pedido = snapshot.data!.where((p) => p.id == idPedido).toList();
-        if (pedido.isEmpty) {
-          return Center(child: Text(tr('No se encontró el pedido.')));
-        }
-        return _Detalle(pedido: pedido.first, esPersonal: esPersonal);
-      },
-    );
-  }
+  Widget build(BuildContext context) => _PedidoEnVivo(idPedido: idPedido, esPersonal: esPersonal);
 }
 
 /// Camino de Cajero/Cocina: busca el pedido dentro de los pedidos de SU
@@ -88,21 +73,43 @@ class _DetalleViaNegocio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final idNegocio = SesionActual.instancia.idNegocio;
-    if (idNegocio == null) {
+    if (SesionActual.instancia.idNegocio == null) {
       return Center(child: Text(tr('No se pudo identificar el negocio.')));
     }
-    return StreamBuilder<List<PedidoModel>>(
-      stream: PedidoService.instancia.streamPedidosNegocio(idNegocio),
+    return _PedidoEnVivo(idPedido: idPedido, esPersonal: esPersonal);
+  }
+}
+
+/// Escucha SOLO el documento del pedido (antes se leían todos los pedidos
+/// del cliente o del negocio para encontrar uno).
+class _PedidoEnVivo extends StatefulWidget {
+  final String idPedido;
+  final bool esPersonal;
+  const _PedidoEnVivo({required this.idPedido, required this.esPersonal});
+
+  @override
+  State<_PedidoEnVivo> createState() => _PedidoEnVivoState();
+}
+
+class _PedidoEnVivoState extends State<_PedidoEnVivo> {
+  late final Stream<PedidoModel?> _pedido = PedidoService.instancia.streamPedido(widget.idPedido);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<PedidoModel?>(
+      stream: _pedido,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final pedido = snapshot.data!.where((p) => p.id == idPedido).toList();
-        if (pedido.isEmpty) {
+        if (snapshot.hasError) {
           return Center(child: Text(tr('No se encontró el pedido.')));
         }
-        return _Detalle(pedido: pedido.first, esPersonal: esPersonal);
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final pedido = snapshot.data;
+        if (pedido == null) {
+          return Center(child: Text(tr('No se encontró el pedido.')));
+        }
+        return _Detalle(pedido: pedido, esPersonal: widget.esPersonal);
       },
     );
   }

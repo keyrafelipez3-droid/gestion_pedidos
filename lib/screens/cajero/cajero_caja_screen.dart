@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../models/actividad_model.dart';
 import '../../models/caja_models.dart';
 import '../../models/usuario_model.dart';
+import '../../services/actividad_service.dart';
 import '../../services/caja_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/confirmar_identidad.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 
@@ -141,6 +144,7 @@ class _SinCaja extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await CajaService.instancia.abrirCaja(cajero: usuario, montoInicial: monto);
+      ActividadService.instancia.registrar(ActividadTipo.caja, 'Abrió su caja con ${_bs(monto)}');
       messenger.showSnackBar(SnackBar(content: Text('Caja abierta con ${_bs(monto)}.')));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(_mensaje(e))));
@@ -262,6 +266,7 @@ class _CajaAbierta extends StatelessWidget {
       );
       if (monto == null) return;
       await CajaService.instancia.registrarConteo(caja, monto);
+      ActividadService.instancia.registrar(ActividadTipo.caja, 'Registró el conteo de su caja: ${_bs(monto)}');
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(_mensaje(e))));
     }
@@ -442,12 +447,18 @@ class _CierrePanelState extends State<_CierrePanel> {
   }
 
   Future<void> _cerrar() async {
+    // Acción sensible: se vuelve a pedir la contraseña (y el código).
+    if (!await confirmarIdentidad(context, accion: 'cerrar tu caja') || !mounted) return;
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _cerrando = true);
     try {
       final cerrada = await CajaService.instancia
           .cerrarCaja(widget.caja, observacion: _obsCtrl.text);
+      ActividadService.instancia.registrar(
+        ActividadTipo.caja,
+        'Cerró su caja. Diferencia: ${_bs(cerrada.diferencia ?? 0)}',
+      );
       // Al cerrar, esta pantalla vuelve a "sin caja" y este panel se
       // destruye, así que el resultado se muestra desde el Navigator.
       // El Navigator sigue vivo aunque este panel ya no lo esté.

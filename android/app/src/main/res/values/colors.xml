@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Negro de la marca Caro (fondo del ícono y de la pantalla de inicio). -->
+    <color name="caro_negro">#FF070605</color>
+</resources>

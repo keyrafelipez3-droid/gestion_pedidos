@@ -425,12 +425,41 @@ class PedidoService {
       .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
 
   /// HU-30: Cocina consulta solo los pedidos pendientes/en preparación
-  /// (no necesita ver los ya entregados o cancelados).
+  /// (no necesita ver los ya entregados o cancelados). Antes leía TODOS los
+  /// pedidos del negocio (cientos de lecturas cada vez); ahora solo los que
+  /// están en curso.
   Stream<List<PedidoModel>> streamPedidosCocina(String idNegocio) =>
-      streamPedidosNegocio(idNegocio).map((lista) => lista
+      streamPedidosEnCurso(idNegocio).map((lista) => lista
           .where((p) =>
               p.estado == PedidoEstado.pendiente || p.estado == PedidoEstado.enPreparacion)
           .toList());
+
+  /// Un solo pedido, en vivo (detalle). Lee 1 documento, no la lista
+  /// completa del negocio.
+  Stream<PedidoModel?> streamPedido(String idPedido) => _pedidos
+      .doc(idPedido)
+      .snapshots()
+      .map((d) => d.exists ? PedidoModel.fromSnapshot(d) : null);
+
+  /// Pedidos de un estado (Entregado / Cancelado) de los últimos [dias]
+  /// días, del más reciente al más antiguo. Usa el índice
+  /// idNegocio + estado + fechaCreacion que ya existe.
+  Stream<List<PedidoModel>> streamRecientesPorEstado(
+    String idNegocio,
+    String estado, {
+    int dias = 7,
+  }) {
+    final hoy = DateTime.now();
+    final desde = DateTime(hoy.year, hoy.month, hoy.day).subtract(Duration(days: dias - 1));
+    return _pedidos
+        .where('idNegocio', isEqualTo: idNegocio)
+        .where('estado', isEqualTo: estado)
+        .where('fechaCreacion', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+        .orderBy('fechaCreacion', descending: true)
+        .limit(200)
+        .snapshots()
+        .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+  }
 
   Stream<List<DetallePedidoModel>> streamDetalle(String idPedido) => _pedidos
       .doc(idPedido)
@@ -636,16 +665,23 @@ class PedidoService {
     }
     for (final e in cantidades.entries) {
       final ref = _db.collection('productos').doc(e.key);
-      await _db.runTransaction((tx) async {
-        final snap = await tx.get(ref);
-        final stock = (snap.data()?['stock'] as num?)?.toInt();
-        if (!snap.exists || stock == null) return; // sin control de stock
-        final nuevo = stock - e.value < 0 ? 0 : stock - e.value;
-        tx.update(ref, {
-          'stock': nuevo,
-          if (nuevo == 0) 'disponible': false,
+      // Cada producto por separado: si uno falla, los demás igual se
+      // descuentan.
+      try {
+        await _db.runTransaction((tx) async {
+          final snap = await tx.get(ref);
+          final stock = (snap.data()?['stock'] as num?)?.toInt();
+          // Sin control de stock, o ya en 0 (se pidió antes de agotarse).
+          if (!snap.exists || stock == null || stock <= 0) return;
+          final nuevo = stock - e.value < 0 ? 0 : stock - e.value;
+          tx.update(ref, {
+            'stock': nuevo,
+            if (nuevo == 0) 'disponible': false,
+          });
         });
-      });
+      } catch (_) {
+        // Se sigue con el siguiente producto.
+      }
     }
   }
 

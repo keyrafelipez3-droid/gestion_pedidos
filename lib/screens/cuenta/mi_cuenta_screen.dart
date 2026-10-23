@@ -4,6 +4,8 @@ import '../../l10n/idioma.dart';
 import '../../models/usuario_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../utils/contrasena.dart';
+import '../../utils/formato.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/alergias.dart';
 import '../../widgets/app_cargando.dart';
@@ -223,12 +225,10 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           if (v == null || v.isEmpty) {
                             return tr('Ingresa la nueva contraseña');
                           }
-                          if (v.length < 6) {
-                            return tr('Mínimo 6 caracteres');
-                          }
-                          return null;
+                          return validarContrasena(v, correo: _usuario?.email ?? '');
                         },
                       ),
+                      MedidorContrasena(controller: nuevaCtrl),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: confirmarCtrl,
@@ -577,6 +577,17 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                     titulo: tr('Privacidad y datos'),
                     child: Column(
                       children: [
+                        if (!usuario.esCliente && usuario.acuerdo != null)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.draw_outlined),
+                            title: const Text('Acuerdo del personal'),
+                            subtitle: Text(
+                              'Firmado por ${usuario.acuerdo!.nombre} (CI ${usuario.acuerdo!.ci})'
+                              '${usuario.acuerdo!.fecha == null ? '' : ' el ${formatoFechaHora(usuario.acuerdo!.fecha!)}'}'
+                              ' · versión ${usuario.acuerdo!.version}',
+                            ),
+                          ),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.policy_outlined),

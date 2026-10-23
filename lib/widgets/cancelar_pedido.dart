@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
+import '../models/actividad_model.dart';
 import '../models/pedido_models.dart';
+import '../services/actividad_service.dart';
 import '../services/pedido_service.dart';
 import '../services/sesion_actual.dart';
 import '../theme/design_tokens.dart';
 import '../utils/errores.dart';
+import 'confirmar_identidad.dart';
 
 /// Motivos frecuentes (la persona puede elegir uno y completarlo).
 const motivosCancelacion = [
@@ -27,12 +30,18 @@ Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) a
     builder: (_) => _DialogoMotivo(pedido: pedido),
   );
   if (motivo == null || !context.mounted) return;
+  // Acción sensible: se vuelve a pedir la contraseña (y el código).
+  if (!await confirmarIdentidad(context, accion: 'cancelar el pedido') || !context.mounted) return;
   final messenger = ScaffoldMessenger.of(context);
   try {
     await PedidoService.instancia.cancelarPedido(
       idPedido: pedido.id,
       motivo: motivo,
       idUsuario: SesionActual.instancia.actual?.idUsuario ?? '',
+    );
+    ActividadService.instancia.registrar(
+      ActividadTipo.pedido,
+      'Canceló el pedido #${pedido.id.substring(0, 6)} (Bs ${pedido.total.toStringAsFixed(2)}). Motivo: $motivo',
     );
     messenger.showSnackBar(const SnackBar(content: Text('Pedido cancelado. El cliente verá el motivo.')));
   } catch (e) {

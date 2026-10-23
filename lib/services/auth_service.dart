@@ -76,6 +76,14 @@ class AuthService {
       // Nombre visible en Firebase Auth (opcional, útil para depurar en la consola).
       await credencial.user!.updateDisplayName(nombre.trim());
 
+      // Correo de verificación: el cliente debe confirmarlo antes de su
+      // primer pedido.
+      try {
+        await credencial.user!.sendEmailVerification();
+      } catch (_) {
+        // Se puede reenviar después desde la pantalla de confirmar pedido.
+      }
+
       return null;
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);
@@ -137,7 +145,11 @@ class AuthService {
       throw FirebaseAuthException(code: 'no-current-user');
     }
     try {
-      await reautenticar(password, pedirCodigo: pedirCodigo);
+      // (Antes esta línea se llamaba a sí misma y la app se colgaba al
+      // cambiar la contraseña o eliminar la cuenta.)
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: user.email!, password: password),
+      );
     } on FirebaseAuthMultiFactorException catch (e) {
       final resuelto = await DosPasosService.instancia.resolver(e.resolver, pedirCodigo);
       if (resuelto == null) throw FirebaseAuthException(code: 'cancelado');
@@ -381,7 +393,8 @@ class AuthService {
       case 'email-already-in-use':
         return tr('Ya existe una cuenta registrada con ese correo.');
       case 'weak-password':
-        return tr('La contraseña es muy débil (mínimo 6 caracteres).');
+      case 'password-does-not-meet-requirements':
+        return tr('La contraseña es muy débil: usa mínimo 8 caracteres con letras y números.');
       case 'user-not-found':
       case 'invalid-credential':
       case 'wrong-password':

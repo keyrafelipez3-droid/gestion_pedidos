@@ -7,6 +7,7 @@ import '../../services/mesa_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/errores.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
@@ -413,7 +414,7 @@ class _CuentaMesaSheet extends StatelessWidget {
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('No se pudo cerrar la mesa: $e')),
+        SnackBar(content: Text('No se pudo cerrar la mesa. ${textoError(e)}')),
       );
     }
   }

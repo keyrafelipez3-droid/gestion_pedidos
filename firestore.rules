@@ -121,6 +121,17 @@ service cloud.firestore {
              'mariscos', 'pescado', 'soya', 'sesamo', 'cebolla', 'tomate', 'ajo', 'picante']);
     }
 
+    // Firma electronica del acuerdo del personal: nombre, CI, version y la
+    // hora del servidor (no se puede poner otra fecha).
+    function acuerdoValido(a) {
+      return a is map
+        && a.keys().hasOnly(['version', 'fecha', 'nombre', 'ci', 'idNegocio', 'rol'])
+        && a.version is string
+        && a.fecha == request.time
+        && a.nombre is string && a.nombre.size() >= 3 && a.nombre.size() <= 80
+        && a.ci is string && a.ci.size() >= 4 && a.ci.size() <= 20;
+    }
+
     // El cliente fue bloqueado por el Administrador de ese negocio.
     function clienteBloqueado(idNegocio, uid) {
       let ref = /databases/$(database)/documents/negocios/$(idNegocio)/clientes/$(uid);
@@ -166,11 +177,19 @@ service cloud.firestore {
             && resource.data.rol in ['Cajero', 'Cocina', 'Repartidor']
             && request.resource.data.rol in ['Cajero', 'Cocina', 'Repartidor']
             && request.resource.data.get('idNegocio', null) == resource.data.get('idNegocio', null)
-            && request.resource.data.email == resource.data.email)
+            && request.resource.data.email == resource.data.email
+            // La firma del acuerdo y la aceptacion de terminos solo las
+            // hace la propia persona.
+            && !cambios().hasAny(['acuerdoPersonal', 'terminosVersion', 'terminosAceptadosEn']))
         || (signedIn()
             && request.auth.uid == userId
-            && cambios().hasOnly(['nombre', 'telefono', 'fotoPerfil', 'notificacionesActivas', 'alergias'])
-            && alergiasValidas(request.resource.data.get('alergias', [])));
+            && cambios().hasOnly(['nombre', 'telefono', 'fotoPerfil', 'notificacionesActivas', 'alergias',
+                                  'acuerdoPersonal', 'terminosVersion', 'terminosAceptadosEn'])
+            && alergiasValidas(request.resource.data.get('alergias', []))
+            && (!cambios().hasAny(['acuerdoPersonal']) || acuerdoValido(request.resource.data.acuerdoPersonal))
+            && (!cambios().hasAny(['terminosVersion', 'terminosAceptadosEn'])
+                || (request.resource.data.terminosVersion is string
+                    && request.resource.data.terminosAceptadosEn == request.time)));
 
       // Un Cliente puede eliminar su propia cuenta (requisito de Google
       // Play y Apple). Las cuentas del personal las elimina su Administrador.
@@ -294,6 +313,23 @@ service cloud.firestore {
         allow write: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
       }
 
+      // Registro de actividad: cada persona escribe SUS acciones (con su uid
+      // y la hora del servidor), solo en su negocio. Lo leen el
+      // Administrador del negocio y el SuperAdmin. Nadie edita ni borra.
+      match /actividad/{idActividad} {
+        allow read: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
+        allow create: if signedIn()
+          && (isSuperAdmin() || idNegocioActual() == documentId)
+          && request.resource.data.idUsuario == request.auth.uid
+          && request.resource.data.fecha == request.time
+          && request.resource.data.tipo in ['sesion', 'empleado', 'caja', 'pedido', 'catalogo', 'seguridad']
+          && request.resource.data.descripcion is string
+          && request.resource.data.descripcion.size() <= 300
+          && request.resource.data.keys().hasOnly(
+               ['tipo', 'descripcion', 'idUsuario', 'nombreUsuario', 'rol', 'fecha']);
+        allow update, delete: if false;
+      }
+
       // Clientes de este negocio (se crea al hacer su primer pedido).
       // Guarda solo lo necesario para atenderlo: nombre y telefono. El
       // Administrador lo consulta y puede bloquearlo; el cliente NO puede
@@ -384,6 +420,8 @@ service cloud.firestore {
 
       allow create: if (signedIn()
           && request.resource.data.idCliente == request.auth.uid
+          // El cliente debe haber verificado su correo.
+          && request.auth.token.email_verified == true
           && request.resource.data.estado == 'Pendiente'
           && request.resource.data.get('origen', 'cliente') == 'cliente'
           && request.resource.data.get('cobrado', false) == false
@@ -471,7 +509,8 @@ service cloud.firestore {
             && (
               // Cambio de estado (Cocina, Cajero o Administrador).
               (cambios().hasOnly(['estado'])
-                && request.resource.data.estado is string)
+                && request.resource.data.estado in ['Pendiente', 'En preparación', 'Listo',
+                     'En camino', 'En el lugar', 'Entregado', 'Cancelado'])
               // Cierre de un pedido en camino: tambien se borra la posicion.
               || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
                 && request.resource.data.estado is string

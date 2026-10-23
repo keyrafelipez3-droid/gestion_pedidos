@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/idioma.dart';
 import '../../models/usuario_model.dart';
+import '../../models/actividad_model.dart';
+import '../../services/actividad_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/dos_pasos_service.dart';
 import '../../services/sesion_actual.dart';
@@ -253,6 +255,7 @@ class _AsistenteDosPasosState extends State<AsistenteDosPasos> {
     });
     try {
       await _svc.activar(_secreto!, codigo);
+      ActividadService.instancia.registrar(ActividadTipo.seguridad, 'Activó la verificación en dos pasos');
       if (mounted) setState(() => _paso = _Paso.listo);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -523,7 +526,9 @@ class PuertaDosPasos extends StatefulWidget {
 
   /// Si el servidor todavía no permite activarla, el personal puede seguir
   /// (solo por esta sesión) para no quedarse sin acceso.
-  static bool omitidaEnEstaSesion = false;
+  /// Se guarda el uid: si en el mismo navegador entra otra persona del
+  /// personal, a ella sí se le vuelve a pedir.
+  static String? omitidaPara;
 
   @override
   State<PuertaDosPasos> createState() => _PuertaDosPasosState();
@@ -534,7 +539,9 @@ class _PuertaDosPasosState extends State<PuertaDosPasos> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.usuario.esCliente || PuertaDosPasos.omitidaEnEstaSesion) return widget.child;
+    if (widget.usuario.esCliente || PuertaDosPasos.omitidaPara == widget.usuario.idUsuario) {
+      return widget.child;
+    }
     return FutureBuilder<bool>(
       future: _activa,
       builder: (context, snapshot) {
@@ -545,7 +552,7 @@ class _PuertaDosPasosState extends State<PuertaDosPasos> {
         return AsistenteDosPasos(
           obligatoria: true,
           onListo: (activada) => setState(() {
-            if (!activada) PuertaDosPasos.omitidaEnEstaSesion = true;
+            if (!activada) PuertaDosPasos.omitidaPara = widget.usuario.idUsuario;
             _activa = DosPasosService.instancia.estaActiva();
           }),
         );

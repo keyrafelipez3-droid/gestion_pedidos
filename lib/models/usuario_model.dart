@@ -76,6 +76,12 @@ class UsuarioModel {
   /// cada pedido nuevo para que la cocina las vea.
   final List<String> alergias;
 
+  /// Versión de los términos y la política que aceptó (clientes).
+  final String? terminosVersion;
+
+  /// Acuerdo de uso y confidencialidad firmado (personal del negocio).
+  final AcuerdoFirmado? acuerdo;
+
   const UsuarioModel({
     required this.idUsuario,
     required this.nombre,
@@ -89,6 +95,8 @@ class UsuarioModel {
     this.fechaRegistro,
     this.notificacionesActivas = true,
     this.alergias = const [],
+    this.terminosVersion,
+    this.acuerdo,
   });
 
   /// Copia con otras alergias (para actualizar la sesión sin recargar).
@@ -105,6 +113,26 @@ class UsuarioModel {
         fechaRegistro: fechaRegistro,
         notificacionesActivas: notificacionesActivas,
         alergias: nuevas,
+        terminosVersion: terminosVersion,
+        acuerdo: acuerdo,
+      );
+
+  /// Copia con la aceptación de términos o la firma del acuerdo.
+  UsuarioModel conAceptacion({String? terminosVersion, AcuerdoFirmado? acuerdo}) => UsuarioModel(
+        idUsuario: idUsuario,
+        nombre: nombre,
+        email: email,
+        telefono: telefono,
+        rol: rol,
+        fotoPerfil: fotoPerfil,
+        idSucursal: idSucursal,
+        idNegocio: idNegocio,
+        estado: estado,
+        fechaRegistro: fechaRegistro,
+        notificacionesActivas: notificacionesActivas,
+        alergias: alergias,
+        terminosVersion: terminosVersion ?? this.terminosVersion,
+        acuerdo: acuerdo ?? this.acuerdo,
       );
 
   bool get esSuperAdmin => rol == Rol.superAdmin;
@@ -149,10 +177,35 @@ class UsuarioModel {
       fechaRegistro: ts?.toDate(),
       notificacionesActivas: (data['notificacionesActivas'] ?? true) as bool,
       alergias: Alergenos.desdeFirestore(data['alergias']),
+      terminosVersion: data['terminosVersion'] as String?,
+      acuerdo: AcuerdoFirmado.desde(data['acuerdoPersonal']),
     );
   }
 
   factory UsuarioModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     return UsuarioModel.fromMap(doc.id, doc.data() ?? {});
+  }
+}
+
+/// Firma electrónica del "Acuerdo de uso y confidencialidad del personal".
+class AcuerdoFirmado {
+  final String version;
+  final DateTime? fecha;
+  final String nombre;
+  final String ci;
+
+  const AcuerdoFirmado({required this.version, this.fecha, required this.nombre, required this.ci});
+
+  static AcuerdoFirmado? desde(Object? valor) {
+    if (valor is! Map) return null;
+    final v = valor['version'];
+    if (v is! String) return null;
+    final f = valor['fecha'];
+    return AcuerdoFirmado(
+      version: v,
+      fecha: f is Timestamp ? f.toDate() : null,
+      nombre: valor['nombre'] as String? ?? '',
+      ci: valor['ci'] as String? ?? '',
+    );
   }
 }
