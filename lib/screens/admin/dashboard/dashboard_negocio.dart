@@ -13,7 +13,7 @@ import '../../../services/pedido_service.dart';
 import '../../../services/resena_service.dart';
 import '../../../services/sucursal_service.dart';
 import '../../../theme/design_tokens.dart';
-import '../../../utils/reporte_csv.dart';
+import '../../../utils/reporte_excel.dart';
 import '../../../widgets/app_status_badge.dart';
 import '../../cliente/pedido_detalle_screen.dart';
 import 'dashboard_comun.dart';
@@ -143,7 +143,7 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
         ventas == null ? null : (esHoy ? porHora(ventas, contar: true) : porDia(ventas, desde, hasta, contar: true));
 
     String nombreArchivo() =>
-        'ventas_${_periodo.name}_${_hoy.year}-${dosDigitos(_hoy.month)}-${dosDigitos(_hoy.day)}.csv';
+        'ventas_${_periodo.name}_${_hoy.year}-${dosDigitos(_hoy.month)}-${dosDigitos(_hoy.day)}.xlsx';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,10 +177,12 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
                 OutlinedButton.icon(
                   onPressed: ventas == null
                       ? null
-                      : () => exportarCsv(
+                      : () => exportarExcel(
                             context,
-                            nombreArchivo(),
-                            csvVentas(ventas, nombresSucursal: nombresSucursal),
+                            nombreArchivo: nombreArchivo(),
+                            pedidos: ventas,
+                            nombresSucursal: nombresSucursal,
+                            periodo: 'Período: ${_periodo.etiqueta}',
                           ),
                   icon: const Icon(Icons.download_rounded, size: 18),
                   label: const Text('Exportar'),

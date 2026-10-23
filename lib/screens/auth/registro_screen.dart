@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/idioma.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/contrasena.dart';
 import '../../widgets/app_pantalla_foto.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/logo_caro.dart';
@@ -331,9 +332,9 @@ class _Formulario extends StatelessWidget {
                 onPressed: onTogglePassword,
               ),
             ),
-            validator: (v) =>
-                (v == null || v.length < 6) ? tr('Mínimo 6 caracteres') : null,
+            validator: (v) => validarContrasena(v),
           ),
+          MedidorContrasena(controller: passwordCtrl),
           const SizedBox(height: AppSpacing.md),
 
           TextFormField(

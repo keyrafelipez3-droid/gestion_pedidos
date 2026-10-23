@@ -6,5 +6,8 @@ Future<bool> descargarTexto(
 }) async =>
     false;
 
+/// Versión para Android/iOS/escritorio: no hay descarga directa.
+Future<bool> descargarBytes(String nombreArchivo, List<int> bytes, {required String tipo}) async => false;
+
 /// Versión para Android/iOS/escritorio: no hay ventana de impresión.
 Future<bool> imprimirHtml(String html) async => false;

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -87,6 +88,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _razonSocialCtrl = TextEditingController();
 
   String get _uid => SesionActual.instancia.actual!.idUsuario;
+
+  /// El cliente debe confirmar su correo antes de pedir (evita cuentas
+  /// falsas). Las reglas de Firestore también lo exigen.
+  bool _correoVerificado = FirebaseAuth.instance.currentUser?.emailVerified ?? true;
+  bool _revisandoCorreo = false;
+
+  Future<void> _reenviarVerificacion() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
+      messenger.showSnackBar(SnackBar(
+        content: Text(tr('Te enviamos el enlace a {correo}. Revisa también la carpeta de spam.',
+            {'correo': FirebaseAuth.instance.currentUser?.email ?? ''})),
+      ));
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(tr('Espera un momento antes de pedir otro correo.'))));
+    }
+  }
+
+  Future<void> _comprobarCorreo() async {
+    setState(() => _revisandoCorreo = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      await user?.reload();
+      final ok = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+      // Token nuevo: las reglas leen "email_verified" del token.
+      if (ok) await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      if (!mounted) return;
+      setState(() => _correoVerificado = ok);
+      if (!ok) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(tr('Todavía no vemos tu correo verificado. Abre el enlace del correo e intenta de nuevo.')),
+        ));
+      }
+    } catch (_) {
+      // Sin conexión: se deja como estaba.
+    } finally {
+      if (mounted) setState(() => _revisandoCorreo = false);
+    }
+  }
 
   @override
   void initState() {
@@ -244,6 +286,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// Qué le falta al pedido para poder confirmarlo (se muestra debajo del
   /// botón), o null si está todo listo. El cupón es opcional.
   String? get _motivoNoConfirmar {
+    if (!_correoVerificado) return tr('Verifica tu correo para hacer pedidos.');
     if (_agotados.isNotEmpty) return tr('Quita del carrito los productos agotados.');
     if (_esProgramado && _errorProgramado != null) return _errorProgramado;
     // Si está cerrado ahora, solo se puede programar para cuando abra.
@@ -258,6 +301,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // — sin eso el negocio no tiene forma de verificar que se pagó.
     if (_metodoPago != MetodoPago.efectivo && _comprobanteCtrl.text.trim().isEmpty) {
       return tr('Sube el comprobante de pago.');
+    }
+    if (_subtotal - _descuento <= 0) {
+      return tr('El cupón no puede cubrir todo el pedido. Agrega más productos o quita el cupón.');
     }
     if (_quiereFactura && _nitCtrl.text.trim().length < 5) {
       return tr('Escribe tu NIT o CI para la factura.');
@@ -287,6 +333,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         '${tr('Puedes programarlo para cuando abra.')}',
                         style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          if (!_correoVerificado) ...[
+            Card(
+              color: Theme.of(context).colorScheme.tertiaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.mark_email_unread_outlined),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(tr('Verifica tu correo'),
+                              style: const TextStyle(fontWeight: FontWeight.w800)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(tr('Para tu primer pedido necesitamos confirmar que {correo} es tuyo. Abre el enlace que te enviamos y vuelve aquí.',
+                        {'correo': FirebaseAuth.instance.currentUser?.email ?? ''})),
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _revisandoCorreo ? null : _comprobarCorreo,
+                          icon: const Icon(Icons.check),
+                          label: Text(tr('Ya lo verifiqué')),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _reenviarVerificacion,
+                          icon: const Icon(Icons.send_outlined),
+                          label: Text(tr('Reenviar correo')),
+                        ),
+                      ],
                     ),
                   ],
                 ),

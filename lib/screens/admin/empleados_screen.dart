@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../config/app_config.dart';
+import '../../models/actividad_model.dart';
 import '../../models/usuario_model.dart';
+import '../../utils/formato.dart';
+import '../../services/actividad_service.dart';
 import '../../services/admin_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/confirmar_identidad.dart';
 import '../../widgets/app_status_badge.dart';
 import 'crear_empleado_screen.dart';
 import 'roles_permisos_screen.dart';
@@ -42,13 +47,30 @@ class EmpleadosScreen extends StatelessWidget {
     );
 
     if (nuevoRol != null && nuevoRol != empleado.rol) {
+      if (!context.mounted) return;
+      if (!await confirmarIdentidad(context, accion: 'cambiar el rol de ${empleado.nombre}')) return;
       await AdminService.instancia.cambiarRol(empleado.idUsuario, nuevoRol);
+      ActividadService.instancia.registrar(
+        ActividadTipo.empleado,
+        'Cambió el rol de ${empleado.nombre} de ${empleado.rol} a $nuevoRol',
+      );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Rol actualizado a $nuevoRol')),
         );
       }
     }
+  }
+
+  /// Activar o desactivar a un empleado (pide confirmar identidad).
+  Future<void> _cambiarEstado(BuildContext context, UsuarioModel e, bool activo) async {
+    final accion = activo ? 'activar a ${e.nombre}' : 'desactivar a ${e.nombre}';
+    if (!await confirmarIdentidad(context, accion: accion)) return;
+    await AdminService.instancia.cambiarEstado(e.idUsuario, activo);
+    ActividadService.instancia.registrar(
+      ActividadTipo.empleado,
+      '${activo ? 'Activó' : 'Desactivó'} la cuenta de ${e.nombre} (${e.rol})',
+    );
   }
 
   @override
@@ -126,6 +148,24 @@ class EmpleadosScreen extends StatelessWidget {
                       children: [
                         Text(e.email),
                         AppStatusBadge(label: e.rol, tone: AppStatusTone.neutral),
+                        if (e.rol != Rol.superAdmin)
+                          Tooltip(
+                            message: e.acuerdo == null
+                                ? 'Todavía no firmó el acuerdo del personal. Se le pedirá al entrar.'
+                                : 'Firmado por ${e.acuerdo!.nombre} (CI ${e.acuerdo!.ci})'
+                                    '${e.acuerdo!.fecha == null ? '' : ' el ${formatoFechaHora(e.acuerdo!.fecha!)}'}'
+                                    ' · versión ${e.acuerdo!.version}',
+                            child: AppStatusBadge(
+                              label: e.acuerdo == null
+                                  ? 'Acuerdo pendiente'
+                                  : e.acuerdo!.version == AppConfig.versionAcuerdoPersonal
+                                      ? 'Acuerdo firmado'
+                                      : 'Acuerdo desactualizado',
+                              tone: e.acuerdo?.version == AppConfig.versionAcuerdoPersonal
+                                  ? AppStatusTone.success
+                                  : AppStatusTone.warning,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -166,7 +206,7 @@ class EmpleadosScreen extends StatelessWidget {
                             );
                             return;
                           }
-                          AdminService.instancia.cambiarEstado(e.idUsuario, v);
+                          _cambiarEstado(context, e, v);
                         },
                       ),
                     ],

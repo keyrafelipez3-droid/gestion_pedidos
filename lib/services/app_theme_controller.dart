@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/negocio_model.dart';
+import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 import 'negocio_service.dart';
 
@@ -58,147 +60,132 @@ class AppThemeController {
     return value == null ? null : Color(value);
   }
 
-  /// Texto legible (oscuro o blanco) sobre un color de fondo cualquiera.
-  Color _textoSobre(Color fondo) =>
-      fondo.computeLuminance() > 0.40 ? AppBrand.tinta : Colors.white;
+  /// Construye el ThemeData completo de la app: color, tipografía y el
+  /// estilo de cada componente, todo derivado del mismo color semilla
+  /// para que la app se sienta coherente sin repetir estilos pantalla
+  /// por pantalla.
+  ThemeData buildTheme(Brightness brightness) =>
+      buildThemeFor(negocio.value, brightness);
 
-  /// En modo oscuro, un color de marca muy oscuro no se vería: se aclara.
-  Color _ajustarParaOscuro(Color c) {
-    if (c.computeLuminance() >= 0.22) return c;
-    final hsl = HSLColor.fromColor(c);
-    return hsl.withLightness(hsl.lightness < 0.6 ? 0.6 : hsl.lightness).toColor();
-  }
-
-  /// Esquema de color: se parte de fromSeed (para que todos los tonos de
-  /// apoyo combinen) pero el color de marca se usa TAL CUAL como primario,
-  /// con superficies cálidas y tarjetas planas estilo apps de delivery.
-  ColorScheme _buildScheme(Color marca, Color secundario, Brightness brightness) {
-    final isDark = brightness == Brightness.dark;
-    final primary = isDark ? _ajustarParaOscuro(marca) : marca;
-    final base = ColorScheme.fromSeed(
+  /// Igual que [buildTheme] pero para un negocio cualquiera. Lo usa la
+  /// vista previa de la pantalla de personalización, que pinta la maqueta
+  /// con un Theme real aún sin guardar.
+  ThemeData buildThemeFor(NegocioModel? data, Brightness brightness) {
+    final primary = _color(data?.colorPrimario ?? '', AppBrand.dorado);
+    final secondary =
+        _color(data?.colorSecundario ?? '', const Color(0xFFFFF3E0));
+    var scheme = ColorScheme.fromSeed(
       seedColor: primary,
       brightness: brightness,
-      secondary: secundario,
+      secondary: secondary,
     );
-    final onPrimary = _textoSobre(primary);
-    if (isDark) {
-      return base.copyWith(
-        primary: primary,
-        onPrimary: onPrimary,
-        primaryContainer: Color.alphaBlend(primary.withValues(alpha: 0.22), const Color(0xFF1C1C1C)),
-        onPrimaryContainer: primary,
-        surface: const Color(0xFF121212),
-        onSurface: const Color(0xFFF2EDE4),
-        onSurfaceVariant: const Color(0xFFB8B0A2),
-        surfaceContainerLowest: const Color(0xFF0B0B0B),
-        surfaceContainerLow: const Color(0xFF1A1A1A),
-        surfaceContainer: const Color(0xFF202020),
-        surfaceContainerHigh: const Color(0xFF262626),
-        surfaceContainerHighest: const Color(0xFF2E2E2E),
-        outlineVariant: const Color(0xFF3A3630),
-        error: const Color(0xFFFF6B66),
-      );
-    }
-    return base.copyWith(
-      primary: primary,
-      onPrimary: onPrimary,
-      primaryContainer: Color.alphaBlend(primary.withValues(alpha: 0.16), Colors.white),
-      onPrimaryContainer: Color.lerp(primary, Colors.black, 0.55)!,
-      surface: AppBrand.crema,
-      onSurface: const Color(0xFF1F1B16),
-      onSurfaceVariant: const Color(0xFF6B6459),
-      surfaceContainerLowest: Colors.white,
-      surfaceContainerLow: Colors.white,
-      surfaceContainer: const Color(0xFFF6F0E6),
-      surfaceContainerHigh: const Color(0xFFF1EADF),
-      surfaceContainerHighest: const Color(0xFFECE4D6),
-      outlineVariant: const Color(0xFFE6DDCD),
-      error: const Color(0xFFD32F2F),
-    );
-  }
-
-  /// Construye el ThemeData completo de la app: color, tipografía y el
-  /// estilo de cada componente, todo derivado del color de marca del
-  /// negocio (o de la marca Caro si todavía no hay negocio cargado), para
-  /// que la app se sienta coherente sin repetir estilos pantalla por
-  /// pantalla.
-  ThemeData buildTheme(Brightness brightness) {
-    final data = negocio.value;
-    final marca = _color(data?.colorPrimario ?? '', AppBrand.dorado);
-    final secundario = _color(data?.colorSecundario ?? '', const Color(0xFFFFF3E0));
-    final scheme = _buildScheme(marca, secundario, brightness);
-    final isDark = brightness == Brightness.dark;
-    final textTheme = _buildTextTheme(scheme);
-    // HU-10 (Fase 5): "Fondo" es opcional — si el negocio no eligió uno,
-    // se usa la superficie cálida del tema. Solo reemplaza el fondo del
-    // Scaffold (no el de tarjetas/inputs, que siguen leyendo del esquema
-    // de color para no perder contraste).
+    // HU-10 (Fase 5): "Fondo" es opcional. Si el negocio eligió uno, el
+    // esquema entero se adapta a él (texto con buen contraste, superficies
+    // mezcladas) para que un fondo oscuro tipo "Brasa" funcione aunque el
+    // modo claro/oscuro del sistema diga otra cosa.
     final fondoPersonalizado = _colorOpcional(data?.colorFondo);
-    final bordeSuave = BorderSide(color: scheme.outlineVariant);
+    final base = fondoPersonalizado ?? scheme.surface;
+    final onBase = fondoPersonalizado != null ? colorSobre(base) : scheme.onSurface;
+    Color mezcla(double a) => Color.alphaBlend(onBase.withValues(alpha: a), base);
+    // El color de marca se usa TAL CUAL (fromSeed lo transforma y la marca
+    // deja de parecerse a la que eligió el SuperAdmin).
+    scheme = scheme.copyWith(
+      brightness: fondoPersonalizado != null
+          ? ThemeData.estimateBrightnessForColor(base)
+          : null,
+      primary: primary,
+      onPrimary: colorSobre(primary),
+      primaryContainer: Color.alphaBlend(primary.withValues(alpha: 0.18), base),
+      onPrimaryContainer: onBase,
+      surface: base,
+      onSurface: onBase,
+      onSurfaceVariant: onBase.withValues(alpha: 0.68),
+      outlineVariant: onBase.withValues(alpha: 0.16),
+      surfaceContainerLowest: fondoPersonalizado != null ? mezcla(0.04) : null,
+      surfaceContainerLow: mezcla(0.04),
+      surfaceContainer: mezcla(0.06),
+      surfaceContainerHigh: mezcla(0.08),
+      surfaceContainerHighest: mezcla(0.11),
+    );
+    final isDark = scheme.brightness == Brightness.dark;
+    final brand = BrandStyle.desde(
+      forma: data?.formaBotones ?? 'redondeado',
+      estilo: data?.estiloBase ?? 'moderno',
+      primary: primary,
+    );
+    final textTheme = _buildTextTheme(
+      scheme,
+      tipografia: data?.tipografia ?? 'sans',
+      brand: brand,
+    );
+    final formaBoton = RoundedRectangleBorder(borderRadius: brand.boton);
+    final formaPequena = RoundedRectangleBorder(borderRadius: brand.pequeno);
 
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      fontFamily: AppBrand.fuente,
-      scaffoldBackgroundColor: fondoPersonalizado ?? scheme.surface,
+      scaffoldBackgroundColor: base,
       textTheme: textTheme,
-      extensions: [isDark ? AppSemanticColors.dark : AppSemanticColors.light],
-      pageTransitionsTheme: const PageTransitionsTheme(
+      extensions: [
+        isDark ? AppSemanticColors.dark : AppSemanticColors.light,
+        brand,
+      ],
+      pageTransitionsTheme: PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
         },
       ),
 
       appBarTheme: AppBarTheme(
-        backgroundColor: fondoPersonalizado ?? scheme.surface,
+        backgroundColor: base,
         foregroundColor: scheme.onSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: scheme.onSurface,
-        ),
+        titleTextStyle: textTheme.titleLarge?.copyWith(color: scheme.onSurface),
       ),
 
-      // Tarjetas planas con borde fino (en vez de sombras fuertes).
       cardTheme: CardThemeData(
-        color: scheme.surfaceContainerLow,
+        color: brand.tarjeta == 'color'
+            ? scheme.surfaceContainerHigh
+            : scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.black.withValues(alpha: 0.10),
-        elevation: 0,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.lgAll, side: bordeSuave),
+        shadowColor: brand.colorSombra,
+        elevation: brand.tarjeta == 'sombra' ? 2 : 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: brand.card,
+          side: brand.tarjeta == 'borde'
+              ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
+              : BorderSide.none,
+        ),
         margin: EdgeInsets.zero,
       ),
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        fillColor: scheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.7),
         border: OutlineInputBorder(
-          borderRadius: AppRadius.mdAll,
-          borderSide: bordeSuave,
+          borderRadius: BorderRadius.circular(brand.radioCampo),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.mdAll,
-          borderSide: bordeSuave,
+          borderRadius: BorderRadius.circular(brand.radioCampo),
+          borderSide: brand.tarjeta == 'borde'
+              ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
+              : BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.mdAll,
+          borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide(color: scheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: AppRadius.mdAll,
+          borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide(color: scheme.error, width: 1.5),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: AppRadius.mdAll,
-          borderSide: BorderSide(color: scheme.error, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -215,11 +202,10 @@ class AppThemeController {
             vertical: AppSpacing.md,
           ),
           minimumSize: const Size(0, 50),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(
-            fontFamily: AppBrand.fuente,
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
+          shape: formaBoton,
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: brand.espaciadoTitulos,
           ),
         ),
       ),
@@ -232,66 +218,62 @@ class AppThemeController {
             vertical: AppSpacing.md,
           ),
           minimumSize: const Size(0, 50),
-          shape: const StadiumBorder(),
-          side: BorderSide(color: scheme.outlineVariant, width: 1.5),
-          textStyle: const TextStyle(
-            fontFamily: AppBrand.fuente,
-            fontWeight: FontWeight.w600,
+          shape: formaBoton,
+          side: BorderSide(
+            color: brand.tarjeta == 'borde'
+                ? scheme.onSurface.withValues(alpha: 0.5)
+                : scheme.outlineVariant,
+            width: brand.grosorBorde,
           ),
+          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: isDark ? scheme.primary : scheme.onPrimaryContainer,
+          foregroundColor: scheme.primary,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
             vertical: AppSpacing.sm,
           ),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
-          textStyle: const TextStyle(
-            fontFamily: AppBrand.fuente,
-            fontWeight: FontWeight.w600,
-          ),
+          shape: formaPequena,
+          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
 
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(foregroundColor: scheme.onSurface),
+        style: IconButton.styleFrom(shape: formaPequena),
       ),
 
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        elevation: 2,
-        shape: const StadiumBorder(),
+        shape: formaBoton,
       ),
 
       chipTheme: ChipThemeData(
-        backgroundColor: scheme.surfaceContainerLow,
-        selectedColor: scheme.primaryContainer,
-        labelStyle: textTheme.labelLarge,
-        shape: StadiumBorder(side: bordeSuave),
-        side: bordeSuave,
+        backgroundColor: scheme.surfaceContainerHigh,
+        selectedColor: scheme.primary,
+        secondarySelectedColor: scheme.primary,
+        labelStyle: textTheme.labelLarge?.copyWith(color: scheme.onSurface),
+        secondaryLabelStyle: textTheme.labelLarge?.copyWith(color: scheme.onPrimary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            brand.radioPequeno > 14 ? 999 : brand.radioPequeno,
+          ),
+        ),
+        side: brand.tarjeta == 'borde'
+            ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
+            : BorderSide.none,
         showCheckmark: false,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
       ),
 
       tabBarTheme: TabBarThemeData(
-        labelColor: isDark ? scheme.primary : scheme.onPrimaryContainer,
+        labelColor: scheme.primary,
         unselectedLabelColor: scheme.onSurfaceVariant,
         indicatorColor: scheme.primary,
-        indicatorSize: TabBarIndicatorSize.label,
-        dividerColor: scheme.outlineVariant,
-        labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-      ),
-
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: scheme.surfaceContainerLow,
-        surfaceTintColor: Colors.transparent,
-        indicatorColor: scheme.primaryContainer,
-        labelTextStyle: WidgetStatePropertyAll(
-          textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
+        labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
       ),
 
       dividerTheme: DividerThemeData(
@@ -301,7 +283,7 @@ class AppThemeController {
       ),
 
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+        shape: formaPequena,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,
@@ -323,46 +305,60 @@ class AppThemeController {
 
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? scheme.surfaceContainerHighest : const Color(0xFF26211A),
-        contentTextStyle: const TextStyle(
-          fontFamily: AppBrand.fuente,
-          color: Colors.white,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+        shape: formaPequena,
       ),
 
       dialogTheme: DialogThemeData(
-        backgroundColor: scheme.surfaceContainerLow,
+        backgroundColor: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.xlAll),
+        shape: RoundedRectangleBorder(borderRadius: brand.card),
       ),
 
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: scheme.surfaceContainerLow,
+        backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(brand.radioTarjeta)),
         ),
       ),
     );
   }
 
-  TextTheme _buildTextTheme(ColorScheme scheme) {
-    final base = ThemeData(
-      brightness: scheme.brightness,
-      useMaterial3: true,
-      fontFamily: AppBrand.fuente,
-    ).textTheme.apply(
-          bodyColor: scheme.onSurface,
-          displayColor: scheme.onSurface,
-        );
-    return base.copyWith(
-      headlineMedium: base.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
-      headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-      titleLarge: base.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-      titleMedium: base.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-      titleSmall: base.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-      labelLarge: base.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+  /// Tipografía del negocio: una familia para titulares y otra para el
+  /// texto corrido (Google Fonts). Si no hay red la primera vez, Flutter
+  /// usa la fuente del sistema mientras descarga, sin romper nada.
+  TextTheme _buildTextTheme(
+    ColorScheme scheme, {
+    required String tipografia,
+    required BrandStyle brand,
+  }) {
+    final base =
+        ThemeData(brightness: scheme.brightness, useMaterial3: true).textTheme;
+    final (titulares, cuerpo) = BrandOpciones.familias(tipografia);
+    TextTheme cuerpoTheme;
+    TextTheme tituloTheme;
+    try {
+      cuerpoTheme = GoogleFonts.getTextTheme(cuerpo, base);
+      tituloTheme = GoogleFonts.getTextTheme(titulares, base);
+    } catch (_) {
+      cuerpoTheme = base;
+      tituloTheme = base;
+    }
+    final pesado = tipografia == 'gruesa';
+    FontWeight peso(FontWeight w) => pesado ? FontWeight.w400 : w;
+    final espacio = brand.espaciadoTitulos;
+    final t = cuerpoTheme.copyWith(
+      displayLarge: tituloTheme.displayLarge,
+      displayMedium: tituloTheme.displayMedium,
+      displaySmall: tituloTheme.displaySmall,
+      headlineLarge: tituloTheme.headlineLarge?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
+      headlineMedium: tituloTheme.headlineMedium?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
+      headlineSmall: tituloTheme.headlineSmall?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
+      titleLarge: tituloTheme.titleLarge?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
+      titleMedium: tituloTheme.titleMedium?.copyWith(fontWeight: peso(FontWeight.w700), letterSpacing: espacio),
+      titleSmall: cuerpoTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+      labelLarge: cuerpoTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
     );
+    return t.apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
   }
 }

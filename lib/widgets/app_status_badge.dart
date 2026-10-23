@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
+import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 
 enum AppStatusTone { success, neutral, warning, danger }
@@ -44,7 +45,7 @@ class AppStatusBadge extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.smAll),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(context.brand.radioPequeno > 14 ? 999 : context.brand.radioPequeno / 1.5)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
