@@ -133,7 +133,8 @@ class AppThemeController {
       pageTransitionsTheme: PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          // iOS usa su transición nativa por defecto (no se fija aquí para
+          // no depender de dónde la exporta cada versión de Flutter).
           TargetPlatform.windows: ZoomPageTransitionsBuilder(),
           TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
           TargetPlatform.linux: ZoomPageTransitionsBuilder(),
