@@ -1,4 +1,6 @@
 import '../config/app_config.dart';
+import '../models/negocio_model.dart';
+import '../models/usuario_model.dart';
 
 /// Un apartado de un texto legal: título y uno o más párrafos.
 class SeccionLegal {
@@ -17,6 +19,7 @@ class TextosLegales {
 
   static const String tituloPolitica = 'Política de privacidad';
   static const String tituloTerminos = 'Términos y condiciones';
+  static const String tituloAcuerdo = 'Acuerdo de uso y confidencialidad del personal';
 
   static List<SeccionLegal> politicaPrivacidad() => [
         SeccionLegal('1. Quién es responsable', [
@@ -48,6 +51,15 @@ class TextosLegales {
           'Datos de tus pedidos: productos, total, forma de pago, notas y '
               'estado, y el comprobante de pago si lo subes.',
           'Imágenes que subas: foto de perfil y comprobantes de pago.',
+          'Alergias: si las marcas en tu cuenta o en un pedido, se guardan en '
+              'tu cuenta y en el pedido para que la cocina las vea. Es un dato '
+              'de salud: solo lo usamos para preparar tu pedido con seguridad y '
+              'puedes quitarlo cuando quieras en "Mi cuenta".',
+          'Datos para factura: si pides factura, el NIT o CI y la razón social '
+              'se guardan en el pedido para el negocio y, para no volver a '
+              'escribirlos, en tu dispositivo.',
+          'Idioma y avisos: el idioma que eliges y la lista de avisos de tus '
+              'pedidos se guardan solo en tu dispositivo.',
           'No usamos tus datos para publicidad de terceros.',
         ]),
         SeccionLegal('3. Para qué los usamos', [
@@ -70,6 +82,11 @@ class TextosLegales {
           'Con proveedores técnicos que almacenan la información por '
               'nosotros: Google Firebase (cuentas y base de datos) y '
               'Cloudinary (imágenes).',
+          'Traducción: si usas la app en otro idioma, el texto de tus notas y '
+              'de la referencia de tu dirección se envía al servicio de '
+              'traducción automática MyMemory para que el personal lo lea en '
+              'español. No envíes datos sensibles en las notas: para las '
+              'alergias usa la lista de la app, que no pasa por ese servicio.',
           'No vendemos tus datos.',
         ]),
         SeccionLegal('5. Cuánto tiempo los conservamos', [
@@ -128,50 +145,149 @@ class TextosLegales {
               'antes de confirmar tu pedido es el que corresponde pagar, '
               'incluidos los cargos que el negocio haya informado.',
           'El negocio puede rechazar o cancelar un pedido si no puede '
-              'atenderlo; si ocurre, se te avisará en el estado del pedido.',
+              'atenderlo; si ocurre, verás el motivo en el detalle del pedido.',
+          'Puedes programar un pedido para más tarde, dentro del horario de '
+              'atención del local. Los productos con cantidad limitada pueden '
+              'agotarse antes de que confirmes.',
+          'Los cupones de descuento los crea cada negocio, con sus propias '
+              'condiciones (monto mínimo y fecha de vencimiento). El negocio '
+              'puede pausarlos o retirarlos.',
+          'La propina para el repartidor es voluntaria, va completa para el '
+              'repartidor y no forma parte del precio de los productos.',
         ]),
-        SeccionLegal('4. Pagos', [
+        SeccionLegal('4. Alergias', [
+          'Si marcas alergias, el negocio las verá destacadas y hará lo '
+              'posible por preparar tu pedido sin esos ingredientes. La '
+              'información de alérgenos de cada producto la carga el negocio. '
+              'Si tu alergia es grave, confirma con el local antes de comer: '
+              'la plataforma no puede garantizar que no haya contacto cruzado '
+              'en la cocina.',
+        ]),
+        SeccionLegal('5. Pagos', [
           'Puedes pagar en efectivo, por transferencia o con el QR de pago '
               'del negocio, según lo que el negocio ofrezca. El pago se hace '
               'directamente al negocio: la plataforma no cobra ni retiene '
               'dinero.',
         ]),
-        SeccionLegal('5. Facturas', [
+        SeccionLegal('6. Facturas', [
           'La plataforma no emite facturas fiscales. Si necesitas factura, '
-              'pídesela al negocio, que es responsable de sus propias '
-              'obligaciones tributarias.',
+              'marca "Quiero factura" al confirmar y escribe tu NIT o CI: esos '
+              'datos llegan al negocio, que es quien emite la factura y '
+              'responde por sus obligaciones tributarias.',
         ]),
-        SeccionLegal('6. Uso adecuado', [
+        SeccionLegal('7. Uso adecuado', [
           'No está permitido hacer pedidos falsos, ofender o amenazar al '
               'personal de un negocio, ni usar la plataforma para fines '
               'ilegales. El Administrador de un negocio puede bloquear tu '
               'cuenta en ese negocio si lo incumples; el bloqueo no afecta '
               'a los demás negocios.',
         ]),
-        SeccionLegal('7. Responsabilidad', [
+        SeccionLegal('8. Responsabilidad', [
           'Cada negocio es responsable de la calidad, preparación y '
               'entrega de sus productos. La plataforma procura que el '
               'servicio esté disponible, pero no puede garantizar que no '
               'haya interrupciones.',
         ]),
-        SeccionLegal('8. Reclamos', [
+        SeccionLegal('9. Reclamos', [
           'Puedes presentar tu reclamo directamente al negocio, de forma '
               'verbal o escrita y sin formalidades. Los datos de contacto '
               'de cada negocio están en su ficha, en el menú del negocio. '
               'También puedes escribir a ${AppConfig.correoPrivacidad}.',
         ]),
-        SeccionLegal('9. Eliminar tu cuenta', [
+        SeccionLegal('10. Eliminar tu cuenta', [
           'Puedes eliminar tu cuenta en cualquier momento desde "Mi cuenta". '
               'Lo que se borra y lo que se conserva está explicado en la '
               'Política de privacidad.',
         ]),
-        SeccionLegal('10. Ley aplicable', [
+        SeccionLegal('11. Ley aplicable', [
           'Estos términos se rigen por las leyes del Estado Plurinacional '
               'de Bolivia. Ciudad de referencia: ${AppConfig.ciudadPais}.',
         ]),
-        SeccionLegal('11. Cambios', [
+        SeccionLegal('12. Cambios', [
           'Podemos actualizar estos términos. Versión: '
               '${AppConfig.versionTerminos}.',
         ]),
       ];
+
+  /// Acuerdo que firma cada persona del personal (Administrador, Cajero,
+  /// Cocina, Repartidor) al entrar por primera vez. NO reemplaza el
+  /// contrato de trabajo, que el negocio firma aparte según la Ley General
+  /// del Trabajo: regula el uso de la cuenta y la confidencialidad de los
+  /// datos de los clientes.
+  static List<SeccionLegal> acuerdoPersonal({
+    required NegocioModel? negocio,
+    required UsuarioModel usuario,
+  }) {
+    final nombreNegocio = negocio == null
+        ? 'el negocio al que perteneces'
+        : (negocio.razonSocial.trim().isNotEmpty ? negocio.razonSocial.trim() : negocio.nombre);
+    final nit = (negocio?.nit ?? '').trim();
+    final rol = usuario.rol;
+    return [
+      SeccionLegal('1. Partes', [
+        'Este acuerdo se celebra entre $nombreNegocio'
+            '${nit.isEmpty ? '' : ' (NIT $nit)'} —en adelante, "el Negocio"— '
+            'y la persona que lo firma con su nombre y documento de identidad, '
+            'que trabaja para el Negocio con el rol de $rol.',
+        'La plataforma ${AppConfig.nombrePlataforma}, ofrecida por '
+            '${AppConfig.titularPlataforma}, es la herramienta con la que el '
+            'Negocio gestiona sus pedidos.',
+      ]),
+      const SeccionLegal('2. Qué regula este acuerdo', [
+        'Regula el uso de tu cuenta en la plataforma y el cuidado de la '
+            'información a la que accedes por tu trabajo.',
+        'No reemplaza tu contrato de trabajo ni modifica tu sueldo, horario o '
+            'beneficios: esos los acuerdas con el Negocio por separado, '
+            'conforme a la Ley General del Trabajo.',
+      ]),
+      const SeccionLegal('3. Tu cuenta', [
+        'Tu cuenta es personal e intransferible. No compartas tu contraseña '
+            'ni el código de tu app autenticadora (verificación en dos pasos).',
+        'Todo lo que se hace con tu cuenta queda registrado a tu nombre: '
+            'cambios de estado de los pedidos, cobros, movimientos de caja y '
+            'cancelaciones con su motivo.',
+        'Si pierdes tu teléfono o crees que alguien usó tu cuenta, avisa de '
+            'inmediato al Administrador del Negocio.',
+      ]),
+      const SeccionLegal('4. Confidencialidad de los datos de los clientes', [
+        'Por tu trabajo puedes ver nombres, teléfonos, direcciones, alergias, '
+            'notas y datos de factura de los clientes. Solo puedes usarlos para '
+            'atender sus pedidos.',
+        'Está prohibido copiarlos, guardarlos fuera de la plataforma, '
+            'compartirlos con otras personas o usarlos para contactar a los '
+            'clientes por motivos que no sean su pedido.',
+        'Esta obligación sigue vigente aunque dejes de trabajar en el Negocio.',
+      ]),
+      SeccionLegal('5. Responsabilidades de tu rol', [
+        'Registra en la plataforma lo que realmente ocurre con cada pedido y '
+            'no canceles pedidos sin un motivo verdadero.',
+        if (rol == Rol.cocina || rol == Rol.administrador)
+          'Cocina: respeta las alergias marcadas en los pedidos. Si un '
+              'ingrediente no se puede quitar, avisa antes de preparar.',
+        if (rol == Rol.cajero || rol == Rol.administrador)
+          'Caja: abre y cierra tu caja en la plataforma, registra cada cobro, '
+              'ingreso y egreso, y cuenta el efectivo con honestidad. Los '
+              'movimientos no se pueden borrar.',
+        if (rol == Rol.repartidor || rol == Rol.administrador)
+          'Reparto: mientras tienes entregas en curso, tu ubicación se comparte '
+              'con el cliente de ese pedido y se borra al entregarlo. Entrega '
+              'el dinero cobrado según las normas del Negocio.',
+        if (rol == Rol.administrador)
+          'Administración: gestionas al personal y los datos del Negocio. '
+              'Desactiva la cuenta de quien deje de trabajar en el Negocio.',
+      ]),
+      const SeccionLegal('6. Fin del acuerdo', [
+        'Cuando termina tu relación con el Negocio, el Administrador desactiva '
+            'tu cuenta y ya no podrás entrar. La obligación de confidencialidad '
+            'se mantiene.',
+      ]),
+      SeccionLegal('7. Firma electrónica', [
+        'Al escribir tu nombre completo y tu documento de identidad y pulsar '
+            '"Firmar y continuar", aceptas este acuerdo. Queda registrado con la '
+            'fecha y hora del servidor y la versión ${AppConfig.versionAcuerdoPersonal}. '
+            'El Negocio puede pedirte además una firma en papel.',
+        'Si el acuerdo cambia, se te pedirá firmar la nueva versión.',
+      ]),
+    ];
+  }
 }

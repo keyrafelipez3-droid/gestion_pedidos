@@ -112,6 +112,7 @@ class _CampoTelefonoState extends State<CampoTelefono> {
               labelText: widget.obligatorio
                   ? '${tr(widget.etiqueta)} *'
                   : tr(widget.etiqueta),
+              errorMaxLines: 3,
               prefixIcon: const Icon(Icons.phone_outlined),
               border: borde,
             ),

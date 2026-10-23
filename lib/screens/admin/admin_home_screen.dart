@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../models/negocio_model.dart';
 import '../../models/usuario_model.dart';
+import '../../services/actividad_service.dart';
 import '../../services/admin_service.dart';
 import '../../services/app_theme_controller.dart';
-import '../../services/auth_service.dart';
 import '../../services/catalogo_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
+import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
@@ -16,6 +17,7 @@ import '../superadmin/superadmin_negocios_screen.dart';
 import 'catalogo_screen.dart';
 import 'dashboard/dashboard_negocio.dart';
 import 'dashboard/dashboard_plataforma.dart';
+import 'actividad_screen.dart';
 import 'clientes_screen.dart';
 import 'cupones_screen.dart';
 import 'resenas_screen.dart';
@@ -48,6 +50,7 @@ enum _SeccionAdmin {
   cupones,
   negocios,
   empleados,
+  actividad,
   clientes,
   resenas,
   miCuenta,
@@ -232,6 +235,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           selected: _seccion == _SeccionAdmin.empleados,
           onTap: () => ir(_SeccionAdmin.empleados, () => const EmpleadosScreen()),
         ),
+        AppSidebarItem(
+          icon: Icons.history,
+          label: 'Actividad',
+          selected: _seccion == _SeccionAdmin.actividad,
+          onTap: () => ir(_SeccionAdmin.actividad, () => const ActividadScreen()),
+        ),
       ]),
       AppSidebarSection(title: 'Usuarios', items: [
         AppSidebarItem(
@@ -278,6 +287,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const SuperAdminNegociosScreen(incrustada: true);
       case _SeccionAdmin.empleados:
         return const EmpleadosScreen(incrustada: true);
+      case _SeccionAdmin.actividad:
+        return const ActividadScreen(incrustada: true);
       case _SeccionAdmin.clientes:
         return const ClientesScreen(incrustada: true);
       case _SeccionAdmin.resenas:
@@ -311,8 +322,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           // pantalla se queda apilada encima (con sesión limpia),
           // mostrando el spinner del FutureBuilder para siempre.
           Navigator.of(context).popUntil((route) => route.isFirst);
-          SesionActual.instancia.limpiar();
-          AuthService.instancia.cerrarSesion();
+          ActividadService.instancia.cerrarSesion();
         }
 
         // Un Administrador sin negocio asignado no tiene nada que
@@ -476,7 +486,7 @@ class _BannerBienvenida extends StatelessWidget {
     final tieneImagen = bannerUrl.trim().isNotEmpty;
 
     return ClipRRect(
-      borderRadius: AppRadius.lgAll,
+      borderRadius: context.brand.card,
       child: Container(
         width: double.infinity,
         // Antes esto era `constraints: BoxConstraints(minHeight: 156)`

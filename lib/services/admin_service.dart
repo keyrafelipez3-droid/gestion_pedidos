@@ -196,7 +196,8 @@ class AdminService {
       case 'email-already-in-use':
         return 'Ya existe una cuenta registrada con ese correo.';
       case 'weak-password':
-        return 'La contraseña es muy débil (mínimo 6 caracteres).';
+      case 'password-does-not-meet-requirements':
+        return 'La contraseña es muy débil: usa mínimo 8 caracteres con letras y números.';
       case 'network-request-failed':
         return 'Sin conexión a internet. Revisa tu red.';
       default:

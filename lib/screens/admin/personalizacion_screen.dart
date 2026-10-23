@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
+import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
+import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/selector_imagen.dart';
 
 /// HU-10 — "Personalizar la apariencia del negocio" (Fase 5).
@@ -34,18 +37,51 @@ class _PresetEstilo {
   final String nombre;
   final Color primario;
   final Color secundario;
-  const _PresetEstilo(this.nombre, this.primario, this.secundario);
+  final String estilo;
+  final String tipografia;
+  final String forma;
+  final Color? fondo;
+  final bool oscuro;
+  const _PresetEstilo(
+    this.nombre,
+    this.primario,
+    this.secundario, {
+    required this.estilo,
+    required this.tipografia,
+    required this.forma,
+    this.fondo,
+    this.oscuro = false,
+  });
 }
 
 class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
   // Nombres tal como los pidió Susan: nunca nombres de tipo de comida.
+  // Cada preset es un punto de partida COMPLETO (color, tipografía, forma,
+  // estilo de tarjetas y fondo); después el SuperAdmin ajusta lo que quiera.
   static const List<_PresetEstilo> _presets = [
-    _PresetEstilo('Moderno', Color(0xFF1565C0), Color(0xFFE3F2FD)),
-    _PresetEstilo('Minimal', Color(0xFF212121), Color(0xFFF5F5F5)),
-    _PresetEstilo('Premium', Color(0xFF6A1B9A), Color(0xFFF3E5F5)),
-    _PresetEstilo('Natural', Color(0xFF2E7D32), Color(0xFFE8F5E9)),
-    _PresetEstilo('Vibrante', Color(0xFFF4511E), Color(0xFFFFF3E0)),
-    _PresetEstilo('Industrial', Color(0xFF37474F), Color(0xFFECEFF1)),
+    _PresetEstilo('Moderno', Color(0xFF1565C0), Color(0xFFE3F2FD),
+        estilo: 'moderno', tipografia: 'sans', forma: 'redondeado'),
+    _PresetEstilo('Minimal', Color(0xFFC8281A), Color(0xFFF5F5F5),
+        estilo: 'minimal', tipografia: 'sans', forma: 'cuadrado'),
+    _PresetEstilo('Premium', Color(0xFFC9A45C), Color(0xFF173A30),
+        estilo: 'premium',
+        tipografia: 'serif',
+        forma: 'cuadrado',
+        fondo: Color(0xFF0F2A22),
+        oscuro: true),
+    _PresetEstilo('Natural', Color(0xFF0E7C7B), Color(0xFFF28A3C),
+        estilo: 'natural',
+        tipografia: 'redondeada',
+        forma: 'redondeado',
+        fondo: Color(0xFFF2FAF9)),
+    _PresetEstilo('Vibrante', Color(0xFFF4511E), Color(0xFFFFE08A),
+        estilo: 'vibrante', tipografia: 'gruesa', forma: 'pildora'),
+    _PresetEstilo('Industrial', Color(0xFFE8702A), Color(0xFF2A211B),
+        estilo: 'industrial',
+        tipografia: 'condensada',
+        forma: 'cuadrado',
+        fondo: Color(0xFF15110E),
+        oscuro: true),
   ];
 
   static const List<Color> _paletaColores = [
@@ -68,6 +104,9 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
   Color? _colorFondo; // null = usar el fondo automático del tema
   bool _modoOscuro = false;
   String? _presetSeleccionado;
+  String _estiloBase = 'moderno';
+  String _tipografia = 'sans';
+  String _forma = 'redondeado';
 
   bool _cargando = true;
   bool _guardando = false;
@@ -87,6 +126,9 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
         _colorDesdeHex(negocio.colorSecundario) ?? _colorSecundario;
     _colorFondo = _colorDesdeHex(negocio.colorFondo);
     _modoOscuro = negocio.modoOscuro;
+    _estiloBase = negocio.estiloBase;
+    _tipografia = negocio.tipografia;
+    _forma = negocio.formaBotones;
     _presetSeleccionado = _presetQueCoincide();
     if (mounted) {
       setState(() {
@@ -99,7 +141,10 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
   String? _presetQueCoincide() {
     for (final p in _presets) {
       if (p.primario.toARGB32() == _colorPrimario.toARGB32() &&
-          p.secundario.toARGB32() == _colorSecundario.toARGB32()) {
+          p.secundario.toARGB32() == _colorSecundario.toARGB32() &&
+          p.estilo == _estiloBase &&
+          p.tipografia == _tipografia &&
+          p.forma == _forma) {
         return p.nombre;
       }
     }
@@ -121,6 +166,11 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
     setState(() {
       _colorPrimario = preset.primario;
       _colorSecundario = preset.secundario;
+      _colorFondo = preset.fondo;
+      _modoOscuro = preset.oscuro;
+      _estiloBase = preset.estilo;
+      _tipografia = preset.tipografia;
+      _forma = preset.forma;
       _presetSeleccionado = preset.nombre;
     });
   }
@@ -185,6 +235,9 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
       colorSecundario: _hexDesdeColor(_colorSecundario),
       colorFondo: _colorFondo != null ? _hexDesdeColor(_colorFondo!) : '',
       modoOscuro: _modoOscuro,
+      estiloBase: _estiloBase,
+      tipografia: _tipografia,
+      formaBotones: _forma,
     );
 
     try {
@@ -237,14 +290,36 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
       bannerUrlCtrl: _bannerUrlCtrl,
       modoOscuro: _modoOscuro,
       onModoOscuro: (v) => setState(() => _modoOscuro = v),
+      estiloBase: _estiloBase,
+      onEstilo: (v) => setState(() {
+        _estiloBase = v;
+        _presetSeleccionado = _presetQueCoincide();
+      }),
+      tipografia: _tipografia,
+      onTipografia: (v) => setState(() {
+        _tipografia = v;
+        _presetSeleccionado = _presetQueCoincide();
+      }),
+      forma: _forma,
+      onForma: (v) => setState(() {
+        _forma = v;
+        _presetSeleccionado = _presetQueCoincide();
+      }),
     );
 
-    final vistaPrevia = _VistaPrevia(
-      colorPrimario: _colorPrimario,
-      colorSecundario: _colorSecundario,
-      colorFondo: _colorFondo,
+    final borrador = (_negocioActual ?? const NegocioModel(idNegocio: '', nombre: 'Mi negocio'))
+        .copyWith(
+      logoUrl: _logoUrlCtrl.text.trim(),
+      bannerUrl: _bannerUrlCtrl.text.trim(),
+      colorPrimario: _hexDesdeColor(_colorPrimario),
+      colorSecundario: _hexDesdeColor(_colorSecundario),
+      colorFondo: _colorFondo != null ? _hexDesdeColor(_colorFondo!) : '',
       modoOscuro: _modoOscuro,
+      estiloBase: _estiloBase,
+      tipografia: _tipografia,
+      formaBotones: _forma,
     );
+    final vistaPrevia = _VistaPrevia(negocio: borrador);
 
     return Scaffold(
       appBar: AppBar(
@@ -265,7 +340,7 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
                   ),
                   Expanded(
                     flex: 2,
-                    child: Padding(
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       child: vistaPrevia,
                     ),
@@ -316,6 +391,12 @@ class _FormularioPersonalizacion extends StatelessWidget {
   final TextEditingController bannerUrlCtrl;
   final bool modoOscuro;
   final ValueChanged<bool> onModoOscuro;
+  final String estiloBase;
+  final ValueChanged<String> onEstilo;
+  final String tipografia;
+  final ValueChanged<String> onTipografia;
+  final String forma;
+  final ValueChanged<String> onForma;
 
   const _FormularioPersonalizacion({
     required this.presets,
@@ -330,6 +411,12 @@ class _FormularioPersonalizacion extends StatelessWidget {
     required this.bannerUrlCtrl,
     required this.modoOscuro,
     required this.onModoOscuro,
+    required this.estiloBase,
+    required this.onEstilo,
+    required this.tipografia,
+    required this.onTipografia,
+    required this.forma,
+    required this.onForma,
   });
 
   @override
@@ -337,7 +424,12 @@ class _FormularioPersonalizacion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Estilo', style: Theme.of(context).textTheme.titleMedium),
+        Text('Punto de partida', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 2),
+        Text(
+          'Elige un estilo completo y luego ajusta cada detalle.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: AppSpacing.sm,
@@ -350,6 +442,60 @@ class _FormularioPersonalizacion extends StatelessWidget {
               onTap: () => onPreset(p),
             );
           }).toList(),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        Text('Tipografía', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final o in BrandOpciones.tipografias)
+              _OpcionTipografia(
+                opcion: o,
+                seleccionada: o.id == tipografia,
+                onTap: () => onTipografia(o.id),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        Text('Forma de botones y tarjetas',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final o in BrandOpciones.formas)
+              _OpcionForma(
+                opcion: o,
+                seleccionada: o.id == forma,
+                onTap: () => onForma(o.id),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        Text('Estilo de detalles', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 2),
+        Text(
+          'Sombras, bordes y títulos de las tarjetas.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final o in BrandOpciones.estilos)
+              ChoiceChip(
+                label: Text(o.nombre),
+                selected: o.id == estiloBase,
+                onSelected: (_) => onEstilo(o.id),
+              ),
+          ],
         ),
         const SizedBox(height: AppSpacing.xl),
 
@@ -735,132 +881,304 @@ class _SwatchAutomatico extends StatelessWidget {
   }
 }
 
-/// Mini maqueta de la app con los colores todavía sin guardar, para que el
-/// Administrador vea el efecto antes de tocar "Guardar cambios".
-class _VistaPrevia extends StatelessWidget {
-  final Color colorPrimario;
-  final Color colorSecundario;
-  final Color? colorFondo;
-  final bool modoOscuro;
+class _OpcionTipografia extends StatelessWidget {
+  final EstiloOpcion opcion;
+  final bool seleccionada;
+  final VoidCallback onTap;
 
-  const _VistaPrevia({
-    required this.colorPrimario,
-    required this.colorSecundario,
-    required this.colorFondo,
-    required this.modoOscuro,
+  const _OpcionTipografia({
+    required this.opcion,
+    required this.seleccionada,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final fondoBase = modoOscuro ? const Color(0xFF1C1B1F) : Colors.white;
-    final fondo = colorFondo ?? fondoBase;
-    final textoSobreFondo = ThemeData.estimateBrightnessForColor(fondo) ==
-            Brightness.dark
-        ? Colors.white
-        : Colors.black87;
-    final textoSobrePrimario =
-        ThemeData.estimateBrightnessForColor(colorPrimario) == Brightness.dark
-            ? Colors.white
-            : Colors.black87;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
+    final scheme = Theme.of(context).colorScheme;
+    final (titulares, _) = BrandOpciones.familias(opcion.id);
+    TextStyle muestra;
+    try {
+      muestra = GoogleFonts.getFont(titulares, fontSize: 28, color: scheme.onSurface);
+    } catch (_) {
+      muestra = TextStyle(fontSize: 28, color: scheme.onSurface);
+    }
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.mdAll,
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          borderRadius: AppRadius.mdAll,
+          border: Border.all(
+            color: seleccionada ? scheme.primary : scheme.outlineVariant,
+            width: seleccionada ? 2 : 1,
+          ),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Vista previa', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.sm),
+            Text('Aa', style: muestra),
+            const SizedBox(height: 2),
+            Text(opcion.nombre, style: Theme.of(context).textTheme.labelLarge),
+            Text(opcion.descripcion, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpcionForma extends StatelessWidget {
+  final EstiloOpcion opcion;
+  final bool seleccionada;
+  final VoidCallback onTap;
+
+  const _OpcionForma({
+    required this.opcion,
+    required this.seleccionada,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final radio = switch (opcion.id) {
+      'cuadrado' => 6.0,
+      'pildora' => 18.0,
+      _ => 12.0,
+    };
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.mdAll,
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          borderRadius: AppRadius.mdAll,
+          border: Border.all(
+            color: seleccionada ? scheme.primary : scheme.outlineVariant,
+            width: seleccionada ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Container(
+              height: 36,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: fondo,
-                borderRadius: AppRadius.mdAll,
-                border: Border.all(color: Colors.black12),
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(radio),
               ),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Text(
+                'Pedir',
+                style: TextStyle(
+                  color: scheme.onPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(opcion.nombre, style: Theme.of(context).textTheme.labelLarge),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Maqueta del menú del cliente pintada con un Theme REAL construido a
+/// partir de lo que el SuperAdmin está eligiendo (aún sin guardar). Como usa
+/// los mismos widgets y el mismo `buildThemeFor` que la app, lo que se ve
+/// acá es lo que verá el cliente.
+class _VistaPrevia extends StatelessWidget {
+  final NegocioModel negocio;
+
+  const _VistaPrevia({required this.negocio});
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = AppThemeController.instancia.buildThemeFor(
+      negocio,
+      negocio.modoOscuro ? Brightness.dark : Brightness.light,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Vista previa en vivo', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: AppSpacing.sm),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Theme(data: tema, child: _MaquetaMenu(negocio: negocio)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MaquetaMenu extends StatelessWidget {
+  final NegocioModel negocio;
+  const _MaquetaMenu({required this.negocio});
+
+  static const _platos = [
+    ('Costilla BBQ', 'Glaseada con salsa de la casa', 78.0),
+    ('Hamburguesa clásica', 'Queso fundido y papas', 52.0),
+    ('Papas y ensalada', 'Para compartir', 24.0),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final brand = context.brand;
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: scheme.primary,
+                child: Text(
+                  negocio.nombre.isNotEmpty ? negocio.nombre[0].toUpperCase() : '?',
+                  style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  brand.titulo(negocio.nombre),
+                  style: theme.textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(Icons.person_outline, color: scheme.onSurface),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ClipRRect(
+            borderRadius: brand.card,
+            child: SizedBox(
+              height: 130,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
-                    ),
+                  negocio.bannerUrl.isNotEmpty
+                      ? Image.network(
+                          negocio.bannerUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              Image.asset(fotosComida[5], fit: BoxFit.cover),
+                        )
+                      : Image.asset(fotosComida[5], fit: BoxFit.cover),
+                  DecoratedBox(
                     decoration: BoxDecoration(
-                      color: colorPrimario,
-                      borderRadius: AppRadius.smAll,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.storefront, color: textoSobrePrimario, size: 18),
-                        const SizedBox(width: AppSpacing.xs),
-                        Text(
-                          'Mi negocio',
-                          style: TextStyle(
-                            color: textoSobrePrimario,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.65),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: colorSecundario,
-                      borderRadius: AppRadius.smAll,
-                    ),
+                  Positioned(
+                    left: AppSpacing.md,
+                    bottom: AppSpacing.sm,
                     child: Text(
-                      'Producto de ejemplo',
-                      style: TextStyle(
-                        color: ThemeData.estimateBrightnessForColor(
-                                  colorSecundario,
-                                ) ==
-                                Brightness.dark
-                            ? Colors.white
-                            : Colors.black87,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Así se vería un texto normal sobre el fondo elegido.',
-                    style: TextStyle(color: textoSobreFondo),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorPrimario,
-                        borderRadius: AppRadius.smAll,
-                      ),
-                      child: Text(
-                        'Confirmar pedido',
-                        style: TextStyle(
-                          color: textoSobrePrimario,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      brand.titulo('Cena con vista'),
+                      style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              modoOscuro ? 'Modo oscuro' : 'Modo claro',
-              style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              ChoiceChip(label: const Text('Todas'), selected: true, onSelected: (_) {}),
+              const SizedBox(width: AppSpacing.xs),
+              ChoiceChip(label: const Text('Parrilla'), selected: false, onSelected: (_) {}),
+              const SizedBox(width: AppSpacing.xs),
+              ChoiceChip(label: const Text('Postres'), selected: false, onSelected: (_) {}),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          for (var i = 0; i < _platos.length; i++) ...[
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: brand.decoracionTarjeta(scheme),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: brand.pequeno,
+                    child: Image.asset(
+                      fotosComida[(i + 1) % fotosComida.length],
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_platos[i].$1, style: theme.textTheme.titleMedium),
+                        Text(
+                          _platos[i].$2,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Bs ${_platos[i].$3.toStringAsFixed(2)}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Material(
+                    color: scheme.primary,
+                    borderRadius: brand.pequeno,
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Icon(Icons.add, color: scheme.onPrimary),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: AppSpacing.sm),
           ],
-        ),
+          FilledButton(
+            onPressed: () {},
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [Text('Ver carrito (2)'), Text('Bs 130.00')],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton(onPressed: () {}, child: const Text('Seguir viendo el menú')),
+        ],
       ),
     );
   }

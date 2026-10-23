@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../models/actividad_model.dart';
 import '../../models/sucursal_model.dart';
 import '../../models/usuario_model.dart';
+import '../../services/actividad_service.dart';
 import '../../services/admin_service.dart';
 import '../../services/sucursal_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/contrasena.dart';
 import '../../widgets/campo_telefono.dart';
 
 /// HU-05 — Formulario para que un Administrador cree la cuenta de un
@@ -83,6 +86,11 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
       return;
     }
 
+    ActividadService.instancia.registrar(
+      ActividadTipo.empleado,
+      'Creó la cuenta de ${_nombreCtrl.text.trim()} ($_rolSeleccionado)',
+      idNegocio: widget.idNegocioFijo,
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Empleado "${_nombreCtrl.text.trim()}" creado.'),
@@ -171,10 +179,9 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                               setState(() => _verPassword = !_verPassword),
                         ),
                       ),
-                      validator: (v) => (v == null || v.length < 6)
-                          ? 'Mínimo 6 caracteres'
-                          : null,
+                      validator: (v) => validarContrasena(v, correo: _emailCtrl.text),
                     ),
+                    MedidorContrasena(controller: _passwordCtrl),
                     const SizedBox(height: 16),
 
                     // Si el rol viene fijo (el SuperAdmin designando un

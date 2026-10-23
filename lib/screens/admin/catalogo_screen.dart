@@ -2,7 +2,9 @@
 
 import 'package:flutter/material.dart';
 
+import '../../models/actividad_model.dart';
 import '../../models/catalogo_models.dart';
+import '../../services/actividad_service.dart';
 import '../../services/catalogo_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/alergias.dart';
@@ -445,6 +447,11 @@ class _ProductosTabState extends State<_ProductosTab> {
                       stock: cantidad,
                       stockMinimo: int.tryParse(stockMinimo.text.trim()) ?? 5,
                     ),
+                  );
+                  ActividadService.instancia.registrar(
+                    ActividadTipo.catalogo,
+                    '${item == null ? 'Creó' : 'Editó'} el producto ${nombre.text.trim()} '
+                    '(Bs ${valor.toStringAsFixed(2)}${cantidad == null ? '' : ', stock $cantidad'})',
                   );
                   if (ctx.mounted) Navigator.pop(ctx);
                 } catch (e) {

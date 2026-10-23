@@ -16,7 +16,19 @@ class AppConfig {
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.
-  static const String versionTerminos = '2026-10-22';
+  static const String versionTerminos = '2026-10-23';
+
+  /// App Check (protección contra bots). Clave de sitio de reCAPTCHA v3
+  /// para la versión web: vacía = desactivado. Ver Claude outputs/SEGURIDAD.md.
+  static const String appCheckClaveWeb = '';
+
+  /// App Check en Android (Play Integrity). Solo funciona con la app
+  /// publicada en Google Play; con una APK instalada a mano, dejar en false.
+  static const bool appCheckAndroid = false;
+
+  /// Versión del "Acuerdo de uso y confidencialidad del personal". Si se
+  /// sube, todo el personal debe volver a firmarlo al entrar.
+  static const String versionAcuerdoPersonal = '2026-10-23';
 
   /// Quién ofrece la plataforma (persona o empresa titular).
   static const String titularPlataforma =

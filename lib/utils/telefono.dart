@@ -89,13 +89,16 @@ class Telefono {
     if (digitos.isEmpty) {
       return obligatorio ? tr('Ingresa el teléfono') : null;
     }
+    // Bolivia: mensaje con la cantidad de dígitos, que es el error más común.
+    final mensaje = pais.codigo == '591'
+        ? tr('Número no válido para Bolivia: los celulares tienen 8 dígitos y empiezan con 6 o 7 (ej. 71234567). Escribiste {n}.',
+            {'n': digitos.length})
+        : tr('Número no válido para {nombre}', {'nombre': tr(pais.nombre)});
     try {
       final numero = PhoneNumber.parse('+${pais.codigo}$digitos');
-      if (!numero.isValid()) {
-        return tr('Número no válido para {nombre}', {'nombre': tr(pais.nombre)});
-      }
+      if (!numero.isValid()) return mensaje;
     } catch (_) {
-      return tr('Número no válido para {nombre}', {'nombre': tr(pais.nombre)});
+      return mensaje;
     }
     return null;
   }

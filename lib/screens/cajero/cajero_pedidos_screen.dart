@@ -49,6 +49,16 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
     super.dispose();
   }
 
+  /// Una consulta por pestaña: los activos (en curso) y los entregados /
+  /// cancelados de los últimos 7 días. Antes se leían TODOS los pedidos del
+  /// negocio, que con el tiempo son miles de lecturas cada vez.
+  List<Stream<List<PedidoModel>>>? _streams;
+  List<Stream<List<PedidoModel>>> _streamsDe(String idNegocio) => _streams ??= [
+        PedidoService.instancia.streamPedidosEnCurso(idNegocio),
+        PedidoService.instancia.streamRecientesPorEstado(idNegocio, PedidoEstado.entregado),
+        PedidoService.instancia.streamRecientesPorEstado(idNegocio, PedidoEstado.cancelado),
+      ];
+
   AppStatusTone _tono(String estado) {
     switch (estado) {
       case PedidoEstado.entregado:
@@ -77,22 +87,25 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
           ? const Center(child: Text('No se pudo identificar tu negocio.'))
           : AvisoPedidosNuevos(
               idNegocio: idNegocio,
-              child: StreamBuilder<List<PedidoModel>>(
-              stream: PedidoService.instancia.streamPedidosNegocio(idNegocio),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final pedidos = snapshot.data!;
-                return TabBarView(
+              child: TabBarView(
                   controller: _tabs,
-                  children: _grupos.values.map((estados) {
-                    final filtrados =
-                        pedidos.where((p) => estados.contains(p.estado)).toList();
+                  children: [
+                    for (final (i, stream) in _streamsDe(idNegocio).indexed)
+                      StreamBuilder<List<PedidoModel>>(
+                  stream: stream,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(child: Text('No se pudieron cargar los pedidos.'));
+                    }
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final filtrados = snapshot.data!;
                     if (filtrados.isEmpty) {
-                      return const AppEmptyState(
+                      return AppEmptyState(
                         icon: Icons.receipt_long_outlined,
                         title: 'No hay pedidos en esta categoría',
+                        message: i == 0 ? null : 'Se muestran los de los últimos 7 días.',
                       );
                     }
                     return ListView.separated(
@@ -154,10 +167,10 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
                         );
                       },
                     );
-                  }).toList(),
-                );
-              },
-            ),
+                  },
+                      ),
+                  ],
+                ),
             ),
     );
   }

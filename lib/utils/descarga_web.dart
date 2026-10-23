@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:js_interop';
+import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
@@ -18,6 +19,24 @@ Future<bool> descargarTexto(
   enlace.click();
   enlace.remove();
   // Se libera un momento después, cuando el navegador ya tomó el archivo.
+  Future.delayed(const Duration(seconds: 2), () => web.URL.revokeObjectURL(url));
+  return true;
+}
+
+/// Descarga un archivo binario (por ejemplo un Excel .xlsx).
+Future<bool> descargarBytes(String nombreArchivo, List<int> bytes, {required String tipo}) async {
+  final blob = web.Blob(
+    <JSAny>[Uint8List.fromList(bytes).toJS].toJS,
+    web.BlobPropertyBag(type: tipo),
+  );
+  final url = web.URL.createObjectURL(blob);
+  final enlace = web.HTMLAnchorElement()
+    ..href = url
+    ..download = nombreArchivo
+    ..style.display = 'none';
+  web.document.body?.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
   Future.delayed(const Duration(seconds: 2), () => web.URL.revokeObjectURL(url));
   return true;
 }

@@ -42,6 +42,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   firebase_core: ^4.14.0
   firebase_auth: ^6.6.1
+  # Protección contra bots (App Check).
+  firebase_app_check: ^0.4.8
   cloud_firestore: ^6.9.0
   flutter_colorpicker: ^1.1.0
   image_picker: ^1.1.2
@@ -55,6 +57,10 @@ dependencies:
   flutter_map: ^8.2.0
   latlong2: ^0.9.1
   geolocator: ^14.0.0
+  # Reportes de ventas en Excel (.xlsx).
+  archive: ^4.0.0
+  # Tipografías del estilo de cada restaurante (Personalización).
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -129,4 +135,4 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 dependency_overrides:
   web: 1.0.0
-  firebase_core_web: 3.10.0
+  firebase_core_web: 3.10.0

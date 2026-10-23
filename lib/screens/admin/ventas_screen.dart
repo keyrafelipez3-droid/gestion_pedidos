@@ -7,7 +7,7 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
-import '../../utils/reporte_csv.dart';
+import '../../utils/reporte_excel.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
@@ -250,14 +250,19 @@ class _VentasScreenState extends State<VentasScreen> {
                     final l = _limites();
                     String f(DateTime d) =>
                         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-                    exportarCsv(
+                    String d(DateTime x) =>
+                        '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+                    final hasta = l.hasta.subtract(const Duration(days: 1));
+                    exportarExcel(
                       context,
-                      'ventas_${f(l.desde)}_a_${f(l.hasta.subtract(const Duration(days: 1)))}.csv',
-                      csvVentas(filtradas, nombresSucursal: nombres),
+                      nombreArchivo: 'ventas_${f(l.desde)}_a_${f(hasta)}.xlsx',
+                      pedidos: filtradas,
+                      nombresSucursal: nombres,
+                      periodo: 'Del ${d(l.desde)} al ${d(hasta)}',
                     );
                   },
             icon: const Icon(Icons.download_rounded, size: 18),
-            label: const Text('Exportar a Excel (CSV)'),
+            label: const Text('Exportar a Excel'),
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
