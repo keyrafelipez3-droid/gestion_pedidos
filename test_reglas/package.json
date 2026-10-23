@@ -1,0 +1,14 @@
+{
+  "name": "caro-pruebas-reglas",
+  "private": true,
+  "description": "Pruebas automáticas de las reglas de seguridad de Firestore (se corren en el emulador, no tocan la base real).",
+  "type": "module",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-caro \"node --test reglas.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.0.0",
+    "firebase-tools": "^15.0.0"
+  }
+}

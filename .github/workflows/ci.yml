@@ -1,0 +1,72 @@
+# Integración continua de Caro.
+#
+# Se ejecuta en cada push a develop/main y en cada Pull Request. GitHub marca
+# el PR con ✅ o ❌ según el resultado, así nadie integra código que rompe
+# la app o deja un agujero en las reglas de seguridad.
+#
+# Es gratis: los repositorios públicos tienen minutos ilimitados y los
+# privados 2000 minutos al mes (cada ejecución usa ~6).
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App Flutter (análisis, pruebas y compilación web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dependencias
+        run: flutter pub get
+
+      - name: Análisis estático
+        run: flutter analyze --no-fatal-infos
+
+      - name: Pruebas automáticas
+        run: flutter test --reporter expanded
+
+      - name: Compilación web
+        run: flutter build web --release
+
+  reglas:
+    name: Reglas de seguridad de Firestore (emulador)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: test_reglas
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: test_reglas/package-lock.json
+
+      # El emulador de Firestore necesita Java.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Dependencias
+        run: npm ci
+
+      - name: Pruebas de reglas
+        run: npm test
