@@ -351,7 +351,10 @@ class _CajaAbierta extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _registrar(context, MovimientoTipo.egreso),
+                      // El Administrador puede quitarle este permiso al Cajero.
+                      onPressed: SesionActual.instancia.permisos.cajeroRegistraEgresos
+                          ? () => _registrar(context, MovimientoTipo.egreso)
+                          : null,
                       icon: const Icon(Icons.remove),
                       label: const Text('Egreso'),
                     ),

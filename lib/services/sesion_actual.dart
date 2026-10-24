@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 import '../l10n/idioma.dart';
+import '../models/permisos_negocio.dart';
 import '../models/usuario_model.dart';
 import 'app_theme_controller.dart';
 import 'auth_service.dart';
+import 'permisos_service.dart';
 
 /// Guarda en memoria el `UsuarioModel` de quien tiene la sesión abierta,
 /// para que cualquier pantalla del panel (Sucursales, Catálogo,
@@ -23,6 +25,10 @@ class SesionActual {
 
   final ValueNotifier<UsuarioModel?> usuario = ValueNotifier(null);
 
+  /// Permisos ajustables del negocio (para mostrar u ocultar botones; el
+  /// servidor los vuelve a comprobar).
+  PermisosNegocio permisos = PermisosNegocio.porDefecto;
+
   /// Carga (o recarga) el usuario logueado desde Firestore. Se llama una
   /// sola vez al entrar a HomeScreen; `obtener()` reutiliza el valor ya
   /// cargado si existe.
@@ -38,6 +44,11 @@ class SesionActual {
     // El panel del personal se muestra siempre en español.
     IdiomaController.instancia.soloEspanol(u != null && !u.esCliente);
     if (u?.idNegocio != null) {
+      try {
+        permisos = await PermisosService.instancia.leer(u!.idNegocio!);
+      } catch (_) {
+        permisos = PermisosNegocio.porDefecto;
+      }
       await AppThemeController.instancia.cargar(idNegocio: u!.idNegocio);
     } else {
       AppThemeController.instancia.limpiar();
@@ -57,6 +68,7 @@ class SesionActual {
   /// sesión en el mismo dispositivo no vea datos ni tema de la anterior.
   void limpiar() {
     usuario.value = null;
+    permisos = PermisosNegocio.porDefecto;
     IdiomaController.instancia.soloEspanol(false);
     AppThemeController.instancia.limpiar();
   }

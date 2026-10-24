@@ -15,6 +15,7 @@ import '../../widgets/etiqueta_version.dart';
 import '../../widgets/selector_imagen.dart';
 import '../legal/legal_screen.dart';
 import 'dos_pasos_screen.dart';
+import 'registrar_negocio_screen.dart';
 
 /// HU-06 — "Como usuario, quiero modificar mis datos de cuenta, contraseña,
 /// notificaciones y preferencias."
@@ -615,6 +616,17 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                             ),
                           ),
                         ),
+                        if (usuario.esCliente)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.storefront_outlined),
+                            title: Text(tr('¿Tienes un restaurante?')),
+                            subtitle: Text(tr('Registrar mi negocio')),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const RegistrarNegocioScreen()),
+                            ),
+                          ),
                         if (usuario.esCliente)
                           ListTile(
                             contentPadding: EdgeInsets.zero,

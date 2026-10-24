@@ -14,6 +14,7 @@ import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
 import '../cuenta/mi_cuenta_screen.dart';
 import '../superadmin/superadmin_negocios_screen.dart';
+import '../superadmin/superadmin_solicitudes_screen.dart';
 import '../superadmin/superadmin_errores_screen.dart';
 import '../superadmin/superadmin_versiones_screen.dart';
 import 'catalogo_screen.dart';
@@ -51,6 +52,7 @@ enum _SeccionAdmin {
   ventas,
   cupones,
   negocios,
+  solicitudes,
   empleados,
   actividad,
   clientes,
@@ -176,6 +178,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             selected: _seccion == _SeccionAdmin.negocios,
             onTap: () =>
                 ir(_SeccionAdmin.negocios, () => const SuperAdminNegociosScreen()),
+          ),
+          AppSidebarItem(
+            icon: Icons.how_to_reg_outlined,
+            label: 'Solicitudes',
+            selected: _seccion == _SeccionAdmin.solicitudes,
+            onTap: () => ir(_SeccionAdmin.solicitudes, () => const SuperAdminSolicitudesScreen()),
           ),
         ]),
         AppSidebarSection(title: 'Plataforma', items: [
@@ -304,6 +312,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const CuponesScreen(incrustada: true);
       case _SeccionAdmin.negocios:
         return const SuperAdminNegociosScreen(incrustada: true);
+      case _SeccionAdmin.solicitudes:
+        return const SuperAdminSolicitudesScreen(incrustada: true);
       case _SeccionAdmin.empleados:
         return const EmpleadosScreen(incrustada: true);
       case _SeccionAdmin.actividad:
