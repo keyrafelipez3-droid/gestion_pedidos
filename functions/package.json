@@ -1,0 +1,15 @@
+{
+  "name": "caro-functions",
+  "private": true,
+  "description": "Funciones del servidor de Caro. PREPARADAS, NO DESPLEGADAS: necesitan el plan Blaze de Firebase. Ver README.md.",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "verificar": "node -e \"require('./index.js'); console.log('Funciones cargadas sin errores')\"",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^7.0.0"
+  }
+}
