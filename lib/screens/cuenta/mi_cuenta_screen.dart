@@ -11,6 +11,7 @@ import '../../widgets/alergias.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/campo_telefono.dart';
+import '../../widgets/etiqueta_version.dart';
 import '../../widgets/selector_imagen.dart';
 import '../legal/legal_screen.dart';
 import 'dos_pasos_screen.dart';
@@ -641,6 +642,8 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                               tr('La cuenta la administra el Administrador de tu negocio.'),
                             ),
                           ),
+                        const SizedBox(height: AppSpacing.md),
+                        const EtiquetaVersion(),
                       ],
                     ),
                   ),

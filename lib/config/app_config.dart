@@ -80,7 +80,10 @@ class AppConfig {
   /// usuario puede pedir la eliminación de su cuenta sin instalar la app.
   /// Google Play pide este enlace en el formulario "Seguridad de los
   /// datos". Vacío hasta que la web esté publicada.
-  static const String urlEliminacionCuenta = '';
+  static const String urlEliminacionCuenta = urlWeb;
+
+  /// Dirección de la versión web publicada en Firebase Hosting.
+  static const String urlWeb = 'https://gestion-pedidos-univalle.web.app';
 
   /// true mientras falte completar algún dato de arriba.
   static bool get faltanDatos =>
