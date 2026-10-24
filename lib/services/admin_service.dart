@@ -152,6 +152,16 @@ class AdminService {
           ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
   }
 
+  /// Clientes del negocio por partes (orden alfabético), para la lista.
+  Stream<List<ClienteNegocioModel>> streamClientesPaginado(String idNegocio, int limite) => _db
+      .collection('negocios')
+      .doc(idNegocio)
+      .collection('clientes')
+      .orderBy('nombre')
+      .limit(limite)
+      .snapshots()
+      .map((qs) => qs.docs.map(ClienteNegocioModel.fromSnapshot).toList());
+
   /// Bloquea o desbloquea a un cliente SOLO en este negocio. Un cliente
   /// bloqueado ya no puede hacer pedidos aquí; en los demás negocios sigue
   /// igual. Es reversible y no borra nada.

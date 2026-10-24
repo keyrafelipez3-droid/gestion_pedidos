@@ -11,6 +11,7 @@ import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/consulta_paginada.dart';
 import 'carrito_screen.dart';
 import 'pedido_detalle_screen.dart';
 
@@ -67,9 +68,12 @@ class MisPedidosScreen extends StatelessWidget {
     final uid = SesionActual.instancia.actual?.idUsuario ?? '';
     return Scaffold(
       appBar: AppBar(title: Text(tr('Mis pedidos'))),
-      body: AppContenidoCentrado(child: StreamBuilder<List<PedidoModel>>(
-        stream: PedidoService.instancia.streamPedidosCliente(uid),
-        builder: (context, snapshot) {
+      body: AppContenidoCentrado(child: ConsultaPaginada<PedidoModel>(
+        consulta: (n) => PedidoService.instancia.streamPedidosClientePaginado(uid, n),
+        builder: (context, snapshot, verMas) {
+          if (snapshot.hasError && !snapshot.hasData) {
+            return Center(child: Text(tr('No se pudieron cargar tus pedidos. Intenta de nuevo.')));
+          }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -82,9 +86,10 @@ class MisPedidosScreen extends StatelessWidget {
           }
           return ListView.separated(
             padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: pedidos.length,
+            itemCount: pedidos.length + (verMas == null ? 0 : 1),
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, i) {
+              if (i == pedidos.length) return verMas!;
               final p = pedidos[i];
               final puedeRepetir = p.estado == PedidoEstado.entregado || p.estado == PedidoEstado.cancelado;
               return Card(
