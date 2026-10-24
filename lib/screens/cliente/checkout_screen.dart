@@ -58,6 +58,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _notasCtrl = TextEditingController();
   bool _confirmando = false;
   SucursalModel? _sucursal;
+  String? _zona; // zona de delivery elegida
 
   /// Alergias del cliente para este pedido (empiezan con las de su cuenta).
   late List<String> _alergias = [...?SesionActual.instancia.actual?.alergias];
@@ -165,6 +166,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double get _subtotal => CarritoService.instancia.calcularTotal(widget.items);
   double get _descuento => _cupon?.descuentoPara(_subtotal) ?? 0;
   double get _propinaAplicada => _modalidad == PedidoModalidad.delivery ? _propina : 0;
+  bool get _cobraEnvio => _modalidad == PedidoModalidad.delivery && (_sucursal?.cobraEnvio ?? false);
+  double get _costoEnvio => _cobraEnvio ? (_sucursal!.zonasDelivery[_zona] ?? 0) : 0;
 
   Future<void> _aplicarCupon() async {
     // El cupón es opcional: sin código no se muestra ningún error.
@@ -278,8 +281,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  /// Lo que paga el cliente: productos − descuento + propina.
-  double get _total => _subtotal - _descuento + _propinaAplicada;
+  /// Lo que paga el cliente: productos − descuento + envío + propina.
+  double get _total => _subtotal - _descuento + _costoEnvio + _propinaAplicada;
 
   bool get _puedeConfirmar => _motivoNoConfirmar == null;
 
@@ -296,6 +299,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_modalidad == PedidoModalidad.mesa && _idMesa == null) return tr('Elige tu mesa.');
     if (_modalidad == PedidoModalidad.delivery && _direccionElegida == null) {
       return tr('Elige la dirección de entrega.');
+    }
+    if (_cobraEnvio && !_sucursal!.zonasDelivery.containsKey(_zona)) {
+      return tr('Elige la zona de entrega.');
+    }
+    if (_modalidad == PedidoModalidad.delivery &&
+        (_sucursal?.pedidoMinimoDelivery ?? 0) > 0 &&
+        _subtotal - _descuento < _sucursal!.pedidoMinimoDelivery) {
+      return tr('El pedido mínimo para delivery es Bs {monto}.',
+          {'monto': _sucursal!.pedidoMinimoDelivery.toStringAsFixed(2)});
     }
     // HU-26/27: para Transferencia y QR el comprobante ya no es opcional
     // — sin eso el negocio no tiene forma de verificar que se pagó.
@@ -421,6 +433,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               seleccionada: _direccionElegida,
               onChanged: (d) => setState(() => _direccionElegida = d),
             ),
+            if (_sucursal?.cobraEnvio ?? false) ...[
+              const SizedBox(height: AppSpacing.md),
+              DropdownButtonFormField<String>(
+                initialValue: _sucursal!.zonasDelivery.containsKey(_zona) ? _zona : null,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: tr('Zona de entrega *'),
+                  prefixIcon: const Icon(Icons.map_outlined),
+                  helperText: tr('El costo de envío depende de la zona.'),
+                ),
+                items: [
+                  for (final z in _sucursal!.zonasOrdenadas)
+                    DropdownMenuItem(
+                      value: z.key,
+                      child: Text('${z.key} · Bs ${z.value.toStringAsFixed(2)}'),
+                    ),
+                ],
+                onChanged: (z) => setState(() => _zona = z),
+              ),
+            ],
           ],
           if (_modalidad != PedidoModalidad.mesa) ...[
             const SizedBox(height: AppSpacing.md),
@@ -631,6 +663,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               valor: -_descuento,
               resaltar: true,
             ),
+          if (_costoEnvio > 0)
+            _FilaResumen(etiqueta: tr('Envío ({zona})', {'zona': _zona ?? ''}), valor: _costoEnvio),
           if (_propinaAplicada > 0) _FilaResumen(etiqueta: tr('Propina'), valor: _propinaAplicada),
           const SizedBox(height: AppSpacing.xs),
           Row(
@@ -750,6 +784,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         programadoPara: _esProgramado ? _programadoPara : null,
         facturaNit: _quiereFactura ? _nitCtrl.text.trim() : null,
         facturaRazonSocial: _quiereFactura ? _razonSocialCtrl.text.trim() : null,
+        zonaEntrega: _modalidad == PedidoModalidad.delivery ? _zona : null,
       );
       if (_quiereFactura) await _guardarFactura();
       // Si falla, el pedido igual ya se envió con las alergias.

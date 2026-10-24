@@ -536,4 +536,12 @@ const traduccionesPt = <String, String>{
   'Más tarde': 'Mais tarde',
   'Esta versión de {app} ya no se puede usar. Instala la versión {version} para continuar.': 'Esta versão do {app} não pode mais ser usada. Instale a versão {version} para continuar.',
   'Hay una nueva versión de {app} ({version}).': 'Há uma nova versão do {app} ({version}).',
+  // Delivery por zonas y rendición
+  'Elige la zona de entrega.': 'Escolha a zona de entrega.',
+  'El pedido mínimo para delivery es Bs {monto}.': 'O pedido mínimo para entrega é Bs {monto}.',
+  'Zona de entrega *': 'Zona de entrega *',
+  'El costo de envío depende de la zona.': 'A taxa de entrega depende da zona.',
+  'Envío ({zona})': 'Entrega ({zona})',
+  'Envío a {zona}: Bs {monto}': 'Entrega para {zona}: Bs {monto}',
+  'Rendición de repartidores': 'Prestação de contas dos entregadores',
 };

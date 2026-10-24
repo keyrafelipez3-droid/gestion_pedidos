@@ -13,6 +13,7 @@ import '../../widgets/aviso_pedidos_nuevos.dart';
 import '../../widgets/app_iconos_pedido.dart';
 import '../../widgets/app_status_badge.dart';
 import '../cliente/pedido_detalle_screen.dart';
+import 'cocina_tablero_screen.dart';
 
 /// HU-30/31: Cocina consulta los pedidos pendientes/en preparación y
 /// actualiza el estado conforme va cocinando.
@@ -38,7 +39,18 @@ class CocinaPedidosScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final idNegocio = SesionActual.instancia.idNegocio;
     return Scaffold(
-      appBar: AppBar(title: const Text('Pedidos pendientes (Cocina)')),
+      appBar: AppBar(
+        title: const Text('Pedidos pendientes (Cocina)'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CocinaTableroScreen()),
+            ),
+            icon: const Icon(Icons.view_column_outlined),
+            label: const Text('Modo tablero'),
+          ),
+        ],
+      ),
       body: idNegocio == null
           ? const Center(child: Text('No se pudo identificar tu negocio.'))
           : AvisoPedidosNuevos(

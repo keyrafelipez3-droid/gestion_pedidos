@@ -211,7 +211,8 @@ class CajaService {
     batch.set(_movimientos(caja.id).doc('cobro_${pedido.id}'), {
       'tipo': MovimientoTipo.cobro,
       'concepto': 'Pedido #${pedido.id.substring(0, 6)}',
-      'monto': redondearDinero(pedido.total),
+      // Productos + envío (la propina es del repartidor, no de la caja).
+      'monto': redondearDinero(pedido.montoNegocio),
       'metodoPago': pedido.metodoPago,
       'idPedido': pedido.id,
       'idUsuario': idUsuario,
@@ -222,6 +223,39 @@ class CajaService {
       'idCaja': caja.id,
     });
     await batch.commit();
+  }
+
+  /// Rendición del repartidor: registra en la caja los pedidos de delivery
+  /// que entregó (efectivo que trae y pagos por QR/transferencia ya
+  /// recibidos). Un pedido ya cobrado no se repite. Devuelve cuántos
+  /// pedidos se registraron.
+  Future<int> recibirRendicion({
+    required CajaModel caja,
+    required List<PedidoModel> pedidos,
+    required String idUsuario,
+  }) async {
+    final pendientes = pedidos.where((p) => !p.cobrado).toList();
+    // Cada pedido son 2 escrituras; un lote de Firestore admite 500.
+    for (var i = 0; i < pendientes.length; i += 200) {
+      final batch = _db.batch();
+      for (final pedido in pendientes.skip(i).take(200)) {
+        batch.set(_movimientos(caja.id).doc('cobro_${pedido.id}'), {
+          'tipo': MovimientoTipo.cobro,
+          'concepto': 'Delivery #${pedido.id.substring(0, 6)} · ${pedido.nombreRepartidor ?? 'Repartidor'}',
+          'monto': redondearDinero(pedido.montoNegocio),
+          'metodoPago': pedido.metodoPago,
+          'idPedido': pedido.id,
+          'idUsuario': idUsuario,
+          'fecha': FieldValue.serverTimestamp(),
+        });
+        batch.update(_db.collection('pedidos').doc(pedido.id), {
+          'cobrado': true,
+          'idCaja': caja.id,
+        });
+      }
+      await batch.commit();
+    }
+    return pendientes.length;
   }
 
   // ----------------------------------------------------------------- cierre

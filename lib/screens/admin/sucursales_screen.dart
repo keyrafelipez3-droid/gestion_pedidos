@@ -11,6 +11,7 @@ import '../../widgets/app_status_badge.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../services/sesion_actual.dart';
 import 'horarios_screen.dart';
+import 'zonas_delivery_screen.dart';
 import '../../widgets/app_cargando.dart';
 
 class SucursalesScreen extends StatefulWidget {
@@ -249,6 +250,14 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                                             ),
                                           );
                                           break;
+                                        case 'delivery':
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => ZonasDeliveryScreen(sucursal: s),
+                                            ),
+                                          );
+                                          break;
                                         case 'estado':
                                           SucursalService.instancia
                                               .cambiarEstado(s.id, !s.estado);
@@ -263,6 +272,10 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                                       const PopupMenuItem(
                                         value: 'horarios',
                                         child: Text('Horarios'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delivery',
+                                        child: Text('Zonas de delivery'),
                                       ),
                                       PopupMenuItem(
                                         value: 'estado',
