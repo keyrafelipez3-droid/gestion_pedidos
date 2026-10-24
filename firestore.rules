@@ -513,7 +513,7 @@ service cloud.firestore {
                      'En camino', 'En el lugar', 'Entregado', 'Cancelado'])
               // Cierre de un pedido en camino: tambien se borra la posicion.
               || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
-                && request.resource.data.estado is string
+                && request.resource.data.estado in ['En camino', 'En el lugar', 'Entregado', 'Cancelado']
                 && request.resource.data.get('ubicacionRepartidor', null) == null
                 && request.resource.data.get('ubicacionActualizada', null) == null)
               // Cobro (solo Cajero): no se puede "des-cobrar" un pedido.
