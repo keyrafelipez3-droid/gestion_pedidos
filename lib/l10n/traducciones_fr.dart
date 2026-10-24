@@ -544,4 +544,8 @@ const traduccionesFr = <String, String>{
   'Envío ({zona})': 'Livraison ({zona})',
   'Envío a {zona}: Bs {monto}': 'Livraison à {zona} : Bs {monto}',
   'Rendición de repartidores': 'Remise de caisse des livreurs',
+  // Sin conexión y listas por partes
+  'Ver más': 'Voir plus',
+  'Sin conexión a internet. Ves lo último que se cargó; tus cambios se enviarán cuando vuelva la conexión.': 'Pas de connexion internet. Vous voyez les dernières données chargées ; vos modifications seront envoyées au retour de la connexion.',
+  'No se pudieron cargar tus pedidos. Intenta de nuevo.': 'Impossible de charger vos commandes. Réessayez.',
 };

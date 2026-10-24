@@ -347,6 +347,15 @@ class PedidoService {
         return lista;
       });
 
+  /// "Mis pedidos" por partes: los [limite] más recientes del cliente.
+  /// Usa el índice idCliente + fechaCreacion (firestore.indexes.json).
+  Stream<List<PedidoModel>> streamPedidosClientePaginado(String idCliente, int limite) => _pedidos
+      .where('idCliente', isEqualTo: idCliente)
+      .orderBy('fechaCreacion', descending: true)
+      .limit(limite)
+      .snapshots()
+      .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+
   /// HU-29: el Cajero registra y consulta los pedidos recibidos de su
   /// negocio. `filtroEstado` es opcional (ej. para una pestaña "activos").
   Stream<List<PedidoModel>> streamPedidosNegocio(String idNegocio, {String? filtroEstado}) {

@@ -6,6 +6,7 @@ import '../../services/sesion_actual.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/consulta_paginada.dart';
 
 /// HU-04 — "Gestionar clientes".
 /// Muestra a los clientes que ya hicieron pedidos en el negocio del
@@ -167,13 +168,13 @@ class ClientesScreen extends StatelessWidget {
               title: 'Sin negocio asignado',
               message: 'Tu cuenta no está asignada a ningún negocio.',
             )
-          : StreamBuilder<List<ClienteNegocioModel>>(
-              stream: AdminService.instancia.streamClientesDeNegocio(idNegocio),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+          : ConsultaPaginada<ClienteNegocioModel>(
+              consulta: (n) => AdminService.instancia.streamClientesPaginado(idNegocio, n),
+              builder: (context, snapshot, verMas) {
+                if (!snapshot.hasData && !snapshot.hasError) {
                   return const AppCargando();
                 }
-                if (snapshot.hasError) {
+                if (snapshot.hasError && !snapshot.hasData) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
@@ -193,9 +194,10 @@ class ClientesScreen extends StatelessWidget {
 
                 return ListView.separated(
                   padding: const EdgeInsets.all(12),
-                  itemCount: clientes.length,
+                  itemCount: clientes.length + (verMas == null ? 0 : 1),
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, i) {
+                    if (i == clientes.length) return verMas!;
                     final c = clientes[i];
                     return Card(
                       child: ListTile(
