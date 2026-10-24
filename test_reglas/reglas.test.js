@@ -59,6 +59,9 @@ async function sembrar() {
     await setDoc(doc(db, 'negocios', 'n2'), { nombre: 'Otra tienda', estado: true });
     await setDoc(doc(db, 'sucursales', 's1'), { idNegocio: 'n1', nombre: 'Centro' });
     await setDoc(doc(db, 'sucursales', 's2'), { idNegocio: 'n2', nombre: 'Norte' });
+    await setDoc(doc(db, 'sucursales', 's3'), {
+      idNegocio: 'n1', nombre: 'Sur', zonasDelivery: { Centro: 5, Norte: 8 }, pedidoMinimoDelivery: 30,
+    });
     await setDoc(doc(db, 'productos', 'prod1'), {
       idNegocio: 'n1', nombre: 'Pollo', precio: 35, disponible: true, stock: 10,
     });
@@ -410,6 +413,32 @@ describe('Caja', () => {
     );
     await assertFails(deleteDoc(doc(como('cajero1'), 'cajas', 'c3')));
     await assertFails(deleteDoc(doc(como('super1'), 'cajas', 'c3')));
+  });
+});
+
+describe('Delivery por zonas', () => {
+  const crear = (datos) => setDoc(doc(como('cli1'), 'pedidos', 'nuevo'), datos);
+  const delivery = (cambios = {}) =>
+    pedidoCliente('cli1', {
+      idSucursal: 's3', modalidad: 'Delivery', direccionEntrega: { texto: 'Calle 1' }, total: 40, ...cambios,
+    });
+
+  test('con zonas, el pedido lleva la zona y su costo exacto', async () => {
+    await assertSucceeds(crear(delivery({ zonaEntrega: 'Centro', costoEnvio: 5 })));
+  });
+
+  test('no se puede omitir la zona ni bajar el costo de envío', async () => {
+    await assertFails(crear(delivery()));
+    await assertFails(crear(delivery({ zonaEntrega: 'Centro', costoEnvio: 1 })));
+    await assertFails(crear(delivery({ zonaEntrega: 'Inventada', costoEnvio: 0 })));
+  });
+
+  test('se respeta el pedido mínimo para delivery', async () => {
+    await assertFails(crear(delivery({ zonaEntrega: 'Norte', costoEnvio: 8, total: 20 })));
+  });
+
+  test('sin delivery no hay costo de envío', async () => {
+    await assertFails(crear(pedidoCliente('cli1', { costoEnvio: 5 })));
   });
 });
 

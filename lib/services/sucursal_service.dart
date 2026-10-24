@@ -37,6 +37,11 @@ class SucursalService {
     return doc.exists ? SucursalModel.fromSnapshot(doc) : null;
   }
 
+  /// Zonas y costos de envío. Se guardan aparte de los demás datos para
+  /// que editar la sucursal no los borre.
+  Future<void> guardarDelivery(String id, Map<String, double> zonas, double minimo) =>
+      _ref.doc(id).update({'zonasDelivery': zonas, 'pedidoMinimoDelivery': minimo});
+
   Future<void> cambiarEstado(String id, bool estado) =>
       _ref.doc(id).update({'estado': estado});
 

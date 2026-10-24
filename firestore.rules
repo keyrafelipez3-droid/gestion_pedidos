@@ -113,6 +113,21 @@ service cloud.firestore {
               : cupon.valor + 0.01);
     }
 
+    // Costo de envio: si la sucursal tiene zonas de delivery, el pedido
+    // debe traer una zona de la lista con SU costo exacto y cumplir el
+    // pedido minimo. Sin zonas (o sin delivery) no hay costo de envio.
+    function envioValido(p) {
+      let suc = get(/databases/$(database)/documents/sucursales/$(p.idSucursal)).data;
+      let zonas = suc.get('zonasDelivery', {});
+      return p.get('costoEnvio', 0) is number
+        && ((p.modalidad != 'Delivery' || zonas.size() == 0)
+            ? p.get('costoEnvio', 0) == 0 && p.get('zonaEntrega', null) == null
+            : (p.get('zonaEntrega', null) is string
+                && p.zonaEntrega in zonas
+                && p.costoEnvio == zonas[p.zonaEntrega]
+                && p.total >= suc.get('pedidoMinimoDelivery', 0)));
+    }
+
     // Alergias: solo codigos de la lista fija de la app (lib/models/alergenos.dart).
     function alergiasValidas(lista) {
       return lista is list
@@ -440,8 +455,9 @@ service cloud.firestore {
                 'numeroMesa', 'cuentaAbierta', 'cobrado', 'idCaja',
                 'nombreCliente', 'telefonoCliente', 'alergias', 'idiomaCliente',
                 'descuento', 'propina', 'codigoCupon', 'programadoPara',
-                'facturaNit', 'facturaRazonSocial'])
+                'facturaNit', 'facturaRazonSocial', 'costoEnvio', 'zonaEntrega'])
           && extrasPedidoValidos(request.resource.data)
+          && envioValido(request.resource.data)
           && alergiasValidas(request.resource.data.get('alergias', []))
           && request.resource.data.get('idiomaCliente', 'es') in ['es', 'en', 'pt', 'fr']
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))

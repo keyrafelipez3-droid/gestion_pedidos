@@ -51,6 +51,13 @@ class SucursalModel {
   // pedida por el docente; una sucursal nueva siempre lo trae.
   final String? idNegocio;
 
+  /// Zonas de delivery con su costo de envío en Bs (ej. {'Centro': 5}).
+  /// Vacío = esta sucursal no cobra envío.
+  final Map<String, double> zonasDelivery;
+
+  /// Compra mínima (en productos) para pedir delivery. 0 = sin mínimo.
+  final double pedidoMinimoDelivery;
+
   const SucursalModel({
     required this.id,
     required this.nombre,
@@ -60,7 +67,15 @@ class SucursalModel {
     this.estado = true,
     this.horarios = const {},
     this.idNegocio,
+    this.zonasDelivery = const {},
+    this.pedidoMinimoDelivery = 0,
   });
+
+  bool get cobraEnvio => zonasDelivery.isNotEmpty;
+
+  /// Zonas ordenadas por costo y luego por nombre.
+  List<MapEntry<String, double>> get zonasOrdenadas => zonasDelivery.entries.toList()
+    ..sort((a, b) => a.value != b.value ? a.value.compareTo(b.value) : a.key.compareTo(b.key));
 
   static const dias = <String>[
     'lunes',
@@ -146,6 +161,12 @@ class SucursalModel {
   factory SucursalModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
     final rawHorarios = data['horarios'];
+    final rawZonas = data['zonasDelivery'];
+    final zonas = <String, double>{
+      if (rawZonas is Map)
+        for (final e in rawZonas.entries)
+          if (e.value is num) e.key.toString(): (e.value as num).toDouble(),
+    };
     final horarios = <String, HorarioDia>{};
     if (rawHorarios is Map) {
       for (final entry in rawHorarios.entries) {
@@ -165,6 +186,8 @@ class SucursalModel {
       estado: data['estado'] as bool? ?? true,
       idNegocio: data['idNegocio'] as String?,
       horarios: horarios.isEmpty ? horariosPorDefecto() : horarios,
+      zonasDelivery: zonas,
+      pedidoMinimoDelivery: (data['pedidoMinimoDelivery'] as num?)?.toDouble() ?? 0,
     );
   }
 }

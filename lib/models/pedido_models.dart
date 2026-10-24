@@ -143,6 +143,13 @@ class PedidoModel {
   /// (no es venta del negocio): el repartidor cobra total + propina.
   final double propina;
 
+  /// Costo de envío de la zona elegida (solo Delivery). Es ingreso del
+  /// negocio, pero va aparte del total de productos.
+  final double costoEnvio;
+
+  /// Zona de entrega elegida (Delivery con zonas configuradas).
+  final String? zonaEntrega;
+
   /// Pedido programado: hora a la que el cliente lo quiere. null = lo
   /// antes posible.
   final DateTime? programadoPara;
@@ -184,6 +191,8 @@ class PedidoModel {
     this.codigoCupon,
     this.descuento = 0,
     this.propina = 0,
+    this.costoEnvio = 0,
+    this.zonaEntrega,
     this.programadoPara,
     this.facturaNit,
     this.facturaRazonSocial,
@@ -196,8 +205,13 @@ class PedidoModel {
   /// Productos antes del descuento.
   double get subtotalProductos => total + descuento;
 
-  /// Lo que paga el cliente en total (productos − descuento + propina).
-  double get totalACobrar => total + propina;
+  /// Lo que paga el cliente en total (productos − descuento + envío +
+  /// propina).
+  double get totalACobrar => total + costoEnvio + propina;
+
+  /// Lo que entra a la caja del negocio (sin la propina, que es del
+  /// repartidor).
+  double get montoNegocio => total + costoEnvio;
 
   /// Un pedido programado para más de 45 minutos en el futuro todavía no
   /// se empieza a preparar.
@@ -246,6 +260,8 @@ class PedidoModel {
         'idiomaCliente': idiomaCliente,
         'descuento': descuento,
         'propina': propina,
+        'costoEnvio': costoEnvio,
+        if (zonaEntrega != null) 'zonaEntrega': zonaEntrega,
         if (codigoCupon != null) 'codigoCupon': codigoCupon,
         if (programadoPara != null) 'programadoPara': Timestamp.fromDate(programadoPara!),
         if (facturaNit != null) 'facturaNit': facturaNit,
@@ -296,6 +312,8 @@ class PedidoModel {
       codigoCupon: data['codigoCupon'] as String?,
       descuento: (data['descuento'] as num?)?.toDouble() ?? 0,
       propina: (data['propina'] as num?)?.toDouble() ?? 0,
+      costoEnvio: (data['costoEnvio'] as num?)?.toDouble() ?? 0,
+      zonaEntrega: data['zonaEntrega'] as String?,
       programadoPara: (data['programadoPara'] as Timestamp?)?.toDate(),
       facturaNit: data['facturaNit'] as String?,
       facturaRazonSocial: data['facturaRazonSocial'] as String?,

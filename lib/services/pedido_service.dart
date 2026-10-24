@@ -11,6 +11,7 @@ import '../utils/errores.dart';
 import 'carrito_service.dart';
 import 'cupon_service.dart';
 import 'sesion_actual.dart';
+import 'sucursal_service.dart';
 
 /// HU-24 a HU-31: confirmar pedido (a partir del carrito), consultarlo,
 /// y que el personal del negocio (Cajero/Cocina/Administrador) lo
@@ -45,6 +46,7 @@ class PedidoService {
     DateTime? programadoPara,
     String? facturaNit,
     String? facturaRazonSocial,
+    String? zonaEntrega,
   }) async {
     if (itemsCarrito.isEmpty) {
       throw Exception(tr('El carrito está vacío, no se puede confirmar el pedido.'));
@@ -60,6 +62,26 @@ class PedidoService {
     final total = double.parse((subtotal - descuento).toStringAsFixed(2));
     if (total <= 0) {
       throw Exception(tr('El total del pedido debe ser mayor a 0.'));
+    }
+
+    // Costo de envío: se toma de la sucursal (no de la pantalla), por si
+    // el Administrador lo cambió mientras el cliente pedía.
+    double costoEnvio = 0;
+    String? zona;
+    if (modalidad == PedidoModalidad.delivery) {
+      final sucursal = await SucursalService.instancia.obtener(idSucursal);
+      if (sucursal != null && sucursal.cobraEnvio) {
+        final costo = sucursal.zonasDelivery[zonaEntrega];
+        if (zonaEntrega == null || costo == null) {
+          throw Exception(tr('Elige la zona de entrega.'));
+        }
+        if (total < sucursal.pedidoMinimoDelivery) {
+          throw Exception(tr('El pedido mínimo para delivery es Bs {monto}.',
+              {'monto': sucursal.pedidoMinimoDelivery.toStringAsFixed(2)}));
+        }
+        costoEnvio = costo;
+        zona = zonaEntrega;
+      }
     }
 
     await _registrarClienteEnNegocio(idNegocio: idNegocio, idCliente: idCliente);
@@ -97,6 +119,8 @@ class PedidoService {
       codigoCupon: cupon?.codigo,
       descuento: descuento,
       propina: modalidad == PedidoModalidad.delivery && propina > 0 ? propina : 0,
+      costoEnvio: costoEnvio,
+      zonaEntrega: zona,
       programadoPara: programadoPara,
       facturaNit: (facturaNit ?? '').trim().isEmpty ? null : facturaNit!.trim(),
       facturaRazonSocial: (facturaNit ?? '').trim().isEmpty ? null : (facturaRazonSocial ?? '').trim(),

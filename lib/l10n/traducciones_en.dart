@@ -536,4 +536,12 @@ const traduccionesEn = <String, String>{
   'Más tarde': 'Later',
   'Esta versión de {app} ya no se puede usar. Instala la versión {version} para continuar.': 'This version of {app} can no longer be used. Install version {version} to continue.',
   'Hay una nueva versión de {app} ({version}).': 'A new version of {app} is available ({version}).',
+  // Delivery por zonas y rendición
+  'Elige la zona de entrega.': 'Choose the delivery zone.',
+  'El pedido mínimo para delivery es Bs {monto}.': 'The minimum order for delivery is Bs {monto}.',
+  'Zona de entrega *': 'Delivery zone *',
+  'El costo de envío depende de la zona.': 'The delivery fee depends on the zone.',
+  'Envío ({zona})': 'Delivery ({zona})',
+  'Envío a {zona}: Bs {monto}': 'Delivery to {zona}: Bs {monto}',
+  'Rendición de repartidores': 'Driver cash handover',
 };
