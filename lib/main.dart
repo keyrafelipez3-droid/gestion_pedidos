@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -10,9 +11,11 @@ import 'l10n/idioma.dart';
 import 'models/negocio_model.dart';
 import 'screens/auth_gate.dart';
 import 'services/app_theme_controller.dart';
+import 'services/registro_errores.dart';
 import 'theme/design_tokens.dart';
 import 'utils/navegacion.dart';
 import 'widgets/aviso_actualizacion.dart';
+import 'widgets/aviso_sin_conexion.dart';
 import 'widgets/vigilante_inactividad.dart';
 
 Future<void> main() async {
@@ -21,12 +24,30 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await _activarAppCheck();
+  _activarModoSinConexion();
+  RegistroErrores.iniciar();
   // Corrección pedida por el docente (multi-tenant): ya no hay un negocio
   // único que cargar al arrancar — el tema de cada Administrador/empleado
   // se carga recién al iniciar sesión (ver SesionActual.cargar()), según
   // a qué negocio pertenezca. Antes de eso se usa el tema por defecto.
   await IdiomaController.instancia.cargar();
   runApp(const MyApp());
+}
+
+/// Guarda en el dispositivo lo que se va cargando (hasta 100 MB) para que
+/// la app siga mostrando datos si se corta el internet; los cambios hechos
+/// sin conexión se envían solos al volver. En Android/iOS ya viene activo;
+/// en la web hay que pedirlo.
+void _activarModoSinConexion() {
+  try {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: 100 * 1024 * 1024,
+    );
+  } catch (_) {
+    // Si el navegador no lo permite (por ejemplo, modo incógnito), la app
+    // funciona igual, solo que sin guardar datos.
+  }
 }
 
 /// App Check: Firebase solo acepta pedidos de la app real (no de scripts
@@ -70,7 +91,9 @@ class MyApp extends StatelessWidget {
           scaffoldMessengerKey: mensajesKey,
           // Cierra la sesión del personal tras 20 minutos sin uso.
           builder: (context, child) => VigilanteInactividad(
-            child: AvisoActualizacion(child: child ?? const SizedBox.shrink()),
+            child: AvisoActualizacion(
+              child: AvisoSinConexion(child: child ?? const SizedBox.shrink()),
+            ),
           ),
           locale: Locale(idioma),
           supportedLocales: Idioma.locales,

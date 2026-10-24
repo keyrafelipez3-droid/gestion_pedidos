@@ -14,6 +14,7 @@ import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
 import '../cuenta/mi_cuenta_screen.dart';
 import '../superadmin/superadmin_negocios_screen.dart';
+import '../superadmin/superadmin_errores_screen.dart';
 import '../superadmin/superadmin_versiones_screen.dart';
 import 'catalogo_screen.dart';
 import 'dashboard/dashboard_negocio.dart';
@@ -55,6 +56,7 @@ enum _SeccionAdmin {
   clientes,
   resenas,
   versiones,
+  errores,
   miCuenta,
 }
 
@@ -184,6 +186,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             onTap: () =>
                 ir(_SeccionAdmin.versiones, () => const SuperAdminVersionesScreen()),
           ),
+          AppSidebarItem(
+            icon: Icons.bug_report_outlined,
+            label: 'Errores de la app',
+            selected: _seccion == _SeccionAdmin.errores,
+            onTap: () => ir(_SeccionAdmin.errores, () => const SuperAdminErroresScreen()),
+          ),
         ]),
         AppSidebarSection(title: 'Usuarios', items: [
           AppSidebarItem(
@@ -306,6 +314,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const ResenasScreen(incrustada: true);
       case _SeccionAdmin.versiones:
         return const SuperAdminVersionesScreen(incrustada: true);
+      case _SeccionAdmin.errores:
+        return const SuperAdminErroresScreen(incrustada: true);
       case _SeccionAdmin.miCuenta:
         return const MiCuentaScreen(incrustada: true);
     }

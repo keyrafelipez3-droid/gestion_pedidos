@@ -650,6 +650,23 @@ service cloud.firestore {
       }
     }
 
+    // ------------------------------------------------------ erroresApp
+    // Errores inesperados de la app (para corregirlos). Cada persona solo
+    // anota los suyos, con tamaños limitados; solo el SuperAdmin los lee y
+    // los borra (al marcarlos como resueltos). Nadie los edita.
+    match /erroresApp/{idError} {
+      allow create: if signedIn()
+        && request.resource.data.idUsuario == request.auth.uid
+        && request.resource.data.fecha == request.time
+        && request.resource.data.keys().hasOnly(
+             ['mensaje', 'pila', 'contexto', 'plataforma', 'version', 'idUsuario', 'rol', 'idNegocio', 'fecha'])
+        && request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 500
+        && request.resource.data.get('pila', '') is string && request.resource.data.get('pila', '').size() <= 3000
+        && request.resource.data.get('contexto', '') is string && request.resource.data.get('contexto', '').size() <= 300;
+      allow read, delete: if isSuperAdmin();
+      allow update: if false;
+    }
+
     // ------------------------------------------------------- plataforma
     // Versión publicada de la app (aviso de actualización). La lee
     // cualquiera, incluso antes de iniciar sesión; solo el SuperAdmin la

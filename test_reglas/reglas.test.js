@@ -442,6 +442,34 @@ describe('Delivery por zonas', () => {
   });
 });
 
+describe('Registro de errores de la app', () => {
+  const error = (uid, cambios = {}) => ({
+    mensaje: 'Null check operator', pila: '', contexto: '', plataforma: 'web', version: 'v1.0.0 (1)',
+    idUsuario: uid, rol: 'Cajero', idNegocio: 'n1', fecha: serverTimestamp(), ...cambios,
+  });
+
+  test('cada persona anota sus propios errores', async () => {
+    await assertSucceeds(addDoc(collection(como('cajero1'), 'erroresApp'), error('cajero1')));
+  });
+
+  test('no a nombre de otro, ni sin sesión, ni con textos enormes', async () => {
+    await assertFails(addDoc(collection(como('cajero1'), 'erroresApp'), error('admin1')));
+    await assertFails(addDoc(collection(env.unauthenticatedContext().firestore(), 'erroresApp'), error('x')));
+    await assertFails(addDoc(collection(como('cajero1'), 'erroresApp'), error('cajero1', { mensaje: 'x'.repeat(600) })));
+  });
+
+  test('solo el SuperAdmin los lee y los borra', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'erroresApp', 'e1'), { mensaje: 'Fallo', idUsuario: 'cajero1' }),
+    );
+    await assertFails(getDoc(doc(como('admin1'), 'erroresApp', 'e1')));
+    await assertFails(getDoc(doc(como('cajero1'), 'erroresApp', 'e1')));
+    await assertSucceeds(getDoc(doc(como('super1'), 'erroresApp', 'e1')));
+    await assertFails(updateDoc(doc(como('super1'), 'erroresApp', 'e1'), { mensaje: 'otro' }));
+    await assertSucceeds(deleteDoc(doc(como('super1'), 'erroresApp', 'e1')));
+  });
+});
+
 describe('Versión publicada de la app', () => {
   const version = { version: '1.1.0', build: 2, buildMinimo: 0, urlApk: '', notas: '' };
 
