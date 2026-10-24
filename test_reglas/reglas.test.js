@@ -413,6 +413,21 @@ describe('Caja', () => {
   });
 });
 
+describe('Versión publicada de la app', () => {
+  const version = { version: '1.1.0', build: 2, buildMinimo: 0, urlApk: '', notas: '' };
+
+  test('cualquiera la lee, incluso sin sesión', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'plataforma', 'app'), version));
+    await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), 'plataforma', 'app')));
+  });
+
+  test('solo el SuperAdmin la publica', async () => {
+    await assertSucceeds(setDoc(doc(como('super1'), 'plataforma', 'app'), version));
+    await assertFails(setDoc(doc(como('admin1'), 'plataforma', 'app'), { ...version, buildMinimo: 99 }));
+    await assertFails(setDoc(doc(como('cli1'), 'plataforma', 'app'), version));
+  });
+});
+
 test('cualquier colección que no está en las reglas queda cerrada', async () => {
   await assertFails(setDoc(doc(como('super1'), 'secreto', 'x'), { a: 1 }));
 });

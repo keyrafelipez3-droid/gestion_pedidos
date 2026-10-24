@@ -529,4 +529,11 @@ const traduccionesEn = <String, String>{
   'Te enviamos el enlace a {correo}. Revisa también la carpeta de spam.': 'We sent the link to {correo}. Also check your spam folder.',
   'Usa letras y números': 'Use letters and numbers',
   'Verifica tu correo para hacer pedidos.': 'Verify your email to place orders.',
+  // Aviso de actualización
+  'Recargar': 'Reload',
+  'Actualizar': 'Update',
+  'Actualización obligatoria': 'Update required',
+  'Más tarde': 'Later',
+  'Esta versión de {app} ya no se puede usar. Instala la versión {version} para continuar.': 'This version of {app} can no longer be used. Install version {version} to continue.',
+  'Hay una nueva versión de {app} ({version}).': 'A new version of {app} is available ({version}).',
 };

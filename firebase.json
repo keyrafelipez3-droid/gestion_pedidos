@@ -1,1 +1,83 @@
-{"firestore": {"rules": "firestore.rules", "indexes": "firestore.indexes.json"}, "flutter": {"platforms": {"android": {"default": {"projectId": "gestion-pedidos-univalle", "appId": "1:974488376272:android:44c4ca1ad2ce9eb1b79fd5", "fileOutput": "android/app/google-services.json"}}, "dart": {"lib/firebase_options.dart": {"projectId": "gestion-pedidos-univalle", "configurations": {"android": "1:974488376272:android:44c4ca1ad2ce9eb1b79fd5", "ios": "1:974488376272:ios:701bb417a1102797b79fd5", "web": "1:974488376272:web:41e21d9e32f25756b79fd5"}}}}}}
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(self), geolocation=(self), microphone=()"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(html|js|json|wasm)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(png|jpg|jpeg|webp|svg|ico|ttf|otf|woff|woff2)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          }
+        ]
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gestion-pedidos-univalle",
+          "appId": "1:974488376272:android:44c4ca1ad2ce9eb1b79fd5",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "gestion-pedidos-univalle",
+          "configurations": {
+            "android": "1:974488376272:android:44c4ca1ad2ce9eb1b79fd5",
+            "ios": "1:974488376272:ios:701bb417a1102797b79fd5",
+            "web": "1:974488376272:web:41e21d9e32f25756b79fd5"
+          }
+        }
+      }
+    }
+  }
+}
