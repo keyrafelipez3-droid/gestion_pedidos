@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../models/actividad_model.dart';
+import '../../models/permisos_negocio.dart';
 import '../../models/usuario_model.dart';
+import '../../services/actividad_service.dart';
+import '../../services/permisos_service.dart';
+import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 
 /// HU-03 — "Definir roles y permisos".
@@ -101,6 +106,10 @@ class RolesPermisosScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
+          if (SesionActual.instancia.esAdministrador && SesionActual.instancia.idNegocio != null) ...[
+            _PermisosAjustables(idNegocio: SesionActual.instancia.idNegocio!),
+            const SizedBox(height: AppSpacing.md),
+          ],
           Card(
             color: scheme.surfaceContainerHighest,
             child: Padding(
@@ -203,6 +212,70 @@ class _TarjetaRol extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Interruptores para ajustar lo que pueden hacer el Cajero y la Cocina de
+/// este negocio. Las reglas de Firestore los hacen cumplir en el servidor.
+class _PermisosAjustables extends StatelessWidget {
+  final String idNegocio;
+  const _PermisosAjustables({required this.idNegocio});
+
+  Future<void> _cambiar(BuildContext context, PermisosNegocio actual, String clave, bool valor) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final nuevos = actual.con(clave, valor);
+      await PermisosService.instancia.guardar(idNegocio, nuevos);
+      final titulo = PermisosNegocio.descripciones.firstWhere((d) => d.$1 == clave).$2;
+      ActividadService.instancia.registrar(
+        ActividadTipo.empleado,
+        '${valor ? 'Activó' : 'Desactivó'} el permiso "$titulo"',
+      );
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('No se pudo guardar el permiso.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: StreamBuilder<PermisosNegocio>(
+          stream: PermisosService.instancia.stream(idNegocio),
+          builder: (context, snap) {
+            final permisos = snap.data;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Permisos ajustables de tu negocio',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(
+                  'Se aplican en el servidor al instante; en las pantallas del personal, '
+                  'la próxima vez que inicien sesión.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (permisos == null)
+                  const Padding(
+                    padding: EdgeInsets.all(AppSpacing.md),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  for (final d in PermisosNegocio.descripciones)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(d.$2),
+                      subtitle: Text(d.$3),
+                      value: permisos.valor(d.$1),
+                      onChanged: (v) => _cambiar(context, permisos, d.$1, v),
+                    ),
+              ],
+            );
+          },
         ),
       ),
     );
