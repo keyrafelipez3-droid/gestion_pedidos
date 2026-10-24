@@ -93,9 +93,10 @@ class _ResumenHoyState extends State<_ResumenHoy> {
         if (!s.hasData) return const Center(child: CircularProgressIndicator());
         final entregados = s.data!;
         final propinas = entregados.fold<double>(0, (acc, p) => acc + p.propina);
-        final cobrado = entregados
-            .where((p) => p.metodoPago == MetodoPago.efectivo)
-            .fold<double>(0, (acc, p) => acc + p.totalACobrar);
+        // Efectivo que todavía tiene que entregar en caja (sin su propina).
+        final porEntregar = entregados
+            .where((p) => p.metodoPago == MetodoPago.efectivo && !p.cobrado)
+            .fold<double>(0, (acc, p) => acc + p.montoNegocio);
         Widget dato(String titulo, String valor, IconData icono) => Expanded(
               child: Card(
                 color: scheme.primaryContainer,
@@ -122,7 +123,7 @@ class _ResumenHoyState extends State<_ResumenHoy> {
               children: [
                 dato('Entregas', '${entregados.length}', Icons.check_circle_outline),
                 dato('Propinas', 'Bs ${propinas.toStringAsFixed(2)}', Icons.volunteer_activism_outlined),
-                dato('Efectivo cobrado', 'Bs ${cobrado.toStringAsFixed(2)}', Icons.payments_outlined),
+                dato('Entregar en caja', 'Bs ${porEntregar.toStringAsFixed(2)}', Icons.payments_outlined),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
@@ -137,7 +138,8 @@ class _ResumenHoyState extends State<_ResumenHoy> {
                   child: ListTile(
                     leading: const Icon(Icons.receipt_long_outlined),
                     title: Text('Pedido #${p.id.substring(0, 6)}'),
-                    subtitle: Text('${p.metodoPago} · Bs ${p.total.toStringAsFixed(2)}'),
+                    subtitle: Text('${p.metodoPago} · Bs ${p.montoNegocio.toStringAsFixed(2)}'
+                        '${p.cobrado ? ' · Entregado en caja ✓' : ''}'),
                     trailing: p.propina > 0
                         ? Text('+Bs ${p.propina.toStringAsFixed(2)}',
                             style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800))

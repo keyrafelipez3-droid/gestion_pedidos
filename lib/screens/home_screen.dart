@@ -13,6 +13,7 @@ import 'admin/admin_home_screen.dart';
 import 'cajero/cajero_caja_screen.dart';
 import 'cajero/cajero_mesas_screen.dart';
 import 'cajero/cajero_pedidos_screen.dart';
+import 'cajero/cajero_rendicion_screen.dart';
 import 'cliente/cliente_negocios_screen.dart';
 import 'cliente/mis_pedidos_screen.dart';
 import 'cocina/cocina_pedidos_screen.dart';
@@ -172,6 +173,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 titulo: tr('Caja'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const CajeroCajaScreen()),
+                ),
+              ),
+              _AccionHome(
+                icono: Icons.two_wheeler_outlined,
+                titulo: tr('Rendición de repartidores'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CajeroRendicionScreen()),
                 ),
               ),
             ],

@@ -38,7 +38,7 @@ Uint8List excelVentas(
   hoja.fila(const []);
   const encabezados = [
     'Fecha', 'Hora', 'Pedido', 'Sucursal', 'Modalidad', 'Método de pago', 'Estado',
-    'Cupón', 'Descuento (Bs)', 'Total (Bs)', 'Propina (Bs)', 'NIT / CI', 'Razón social',
+    'Cupón', 'Descuento (Bs)', 'Total (Bs)', 'Propina (Bs)', 'Envío (Bs)', 'NIT / CI', 'Razón social',
   ];
   final filaEncabezado = hoja.fila([for (final e in encabezados) _texto(e, _E.encabezado)]);
   final primeraDato = filaEncabezado + 1;
@@ -56,6 +56,7 @@ Uint8List excelVentas(
       p.descuento > 0 ? _numero(p.descuento, _E.dinero) : _vacia(),
       _numero(p.total, _E.dinero),
       p.propina > 0 ? _numero(p.propina, _E.dinero) : _vacia(),
+      p.costoEnvio > 0 ? _numero(p.costoEnvio, _E.dinero) : _vacia(),
       _texto(p.facturaNit ?? ''),
       _texto(p.facturaRazonSocial ?? ''),
     ]);
@@ -69,10 +70,11 @@ Uint8List excelVentas(
     _formula('SUM(${rango('I')})', suma((p) => p.descuento), _E.totalDinero),
     _formula('SUM(${rango('J')})', suma((p) => p.total), _E.totalDinero),
     _formula('SUM(${rango('K')})', suma((p) => p.propina), _E.totalDinero),
+    _formula('SUM(${rango('L')})', suma((p) => p.costoEnvio), _E.totalDinero),
     _texto('', _E.totalTexto),
     _texto('', _E.totalTexto),
   ]);
-  final List<double> anchosVentas = [12, 8, 11, 22, 14, 16, 14, 12, 15, 13, 13, 14, 26];
+  final List<double> anchosVentas = [12, 8, 11, 22, 14, 16, 14, 12, 15, 13, 13, 12, 14, 26];
 
   // --------------------------------------------------------------- Resumen
   final resumen = _Hoja();
@@ -88,6 +90,7 @@ Uint8List excelVentas(
     _numero(ordenados.isEmpty ? 0 : total / ordenados.length, _E.dinero),
   ]);
   resumen.fila([_texto('Descuentos con cupón (Bs)'), _numero(suma((p) => p.descuento), _E.dinero)]);
+  resumen.fila([_texto('Costos de envío cobrados (Bs)'), _numero(suma((p) => p.costoEnvio), _E.dinero)]);
   resumen.fila([_texto('Propinas para repartidores (Bs)'), _numero(suma((p) => p.propina), _E.dinero)]);
   resumen.fila([
     _texto('Pedidos con factura'),

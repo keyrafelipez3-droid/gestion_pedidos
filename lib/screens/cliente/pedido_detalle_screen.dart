@@ -329,6 +329,9 @@ class _Detalle extends StatelessWidget {
                 if (pedido.descuento > 0)
                   Text(tr('Descuento ({codigo}): −Bs {monto}',
                       {'codigo': pedido.codigoCupon ?? '', 'monto': pedido.descuento.toStringAsFixed(2)})),
+                if (pedido.costoEnvio > 0)
+                  Text(tr('Envío a {zona}: Bs {monto}',
+                      {'zona': pedido.zonaEntrega ?? '', 'monto': pedido.costoEnvio.toStringAsFixed(2)})),
                 if (pedido.propina > 0)
                   Text(tr('Propina para el repartidor: Bs {monto}', {'monto': pedido.propina.toStringAsFixed(2)})),
                 Text(

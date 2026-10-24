@@ -156,7 +156,8 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   <hr>
   <table>$filas
     ${p.descuento > 0 ? '<tr><td>${esc(tr('Descuento ({codigo})', {'codigo': p.codigoCupon ?? ''}))}</td><td class="der">-Bs ${p.descuento.toStringAsFixed(2)}</td></tr>' : ''}
-    <tr class="total"><td>${esc(tr('TOTAL'))}</td><td class="der">Bs ${p.total.toStringAsFixed(2)}</td></tr>
+    ${p.costoEnvio > 0 ? '<tr><td>${esc(tr('Envío ({zona})', {'zona': p.zonaEntrega ?? ''}))}</td><td class="der">Bs ${p.costoEnvio.toStringAsFixed(2)}</td></tr>' : ''}
+    <tr class="total"><td>${esc(tr('TOTAL'))}</td><td class="der">Bs ${p.montoNegocio.toStringAsFixed(2)}</td></tr>
     ${p.propina > 0 ? '<tr><td>${esc(tr('Propina'))}</td><td class="der">Bs ${p.propina.toStringAsFixed(2)}</td></tr>' : ''}
   </table>
   <hr>
@@ -280,10 +281,17 @@ class _Recibo extends StatelessWidget {
                   Text('-Bs ${pedido.descuento.toStringAsFixed(2)}', style: gris),
                 ],
               ),
+            if (pedido.costoEnvio > 0)
+              Row(
+                children: [
+                  Expanded(child: Text(tr('Envío ({zona})', {'zona': pedido.zonaEntrega ?? ''}), style: gris)),
+                  Text('Bs ${pedido.costoEnvio.toStringAsFixed(2)}', style: gris),
+                ],
+              ),
             Row(
               children: [
                 Expanded(child: Text(tr('TOTAL'), style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800))),
-                Text(tr('Bs {total}', {'total': pedido.total.toStringAsFixed(2)}),
+                Text(tr('Bs {total}', {'total': pedido.montoNegocio.toStringAsFixed(2)}),
                     style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800)),
               ],
             ),
