@@ -529,4 +529,11 @@ const traduccionesFr = <String, String>{
   'Te enviamos el enlace a {correo}. Revisa también la carpeta de spam.': 'Nous avons envoyé le lien à {correo}. Vérifiez aussi vos spams.',
   'Usa letras y números': 'Utilisez des lettres et des chiffres',
   'Verifica tu correo para hacer pedidos.': 'Vérifiez votre e-mail pour passer commande.',
+  // Aviso de actualización
+  'Recargar': 'Recharger',
+  'Actualizar': 'Mettre à jour',
+  'Actualización obligatoria': 'Mise à jour obligatoire',
+  'Más tarde': 'Plus tard',
+  'Esta versión de {app} ya no se puede usar. Instala la versión {version} para continuar.': 'Cette version de {app} ne peut plus être utilisée. Installez la version {version} pour continuer.',
+  'Hay una nueva versión de {app} ({version}).': 'Une nouvelle version de {app} est disponible ({version}).',
 };

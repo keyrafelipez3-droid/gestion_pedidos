@@ -12,6 +12,7 @@ import 'screens/auth_gate.dart';
 import 'services/app_theme_controller.dart';
 import 'theme/design_tokens.dart';
 import 'utils/navegacion.dart';
+import 'widgets/aviso_actualizacion.dart';
 import 'widgets/vigilante_inactividad.dart';
 
 Future<void> main() async {
@@ -68,7 +69,9 @@ class MyApp extends StatelessWidget {
           navigatorKey: navigatorKey,
           scaffoldMessengerKey: mensajesKey,
           // Cierra la sesión del personal tras 20 minutos sin uso.
-          builder: (context, child) => VigilanteInactividad(child: child ?? const SizedBox.shrink()),
+          builder: (context, child) => VigilanteInactividad(
+            child: AvisoActualizacion(child: child ?? const SizedBox.shrink()),
+          ),
           locale: Locale(idioma),
           supportedLocales: Idioma.locales,
           localizationsDelegates: GlobalMaterialLocalizations.delegates,

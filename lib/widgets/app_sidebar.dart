@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'etiqueta_version.dart';
 import 'logo_caro.dart';
 
 /// Un ítem individual de navegación dentro del sidebar del panel de
@@ -157,6 +158,10 @@ class AppSidebar extends StatelessWidget {
                 ),
               ),
             ],
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: EtiquetaVersion(),
+            ),
           ],
         ),
       ),

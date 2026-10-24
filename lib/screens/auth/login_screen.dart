@@ -6,6 +6,7 @@ import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../../widgets/etiqueta_version.dart';
 import '../../widgets/logo_caro.dart';
 import '../cuenta/dos_pasos_screen.dart';
 import '../legal/legal_screen.dart';
@@ -388,6 +389,7 @@ class _Formulario extends StatelessWidget {
               ),
             ],
           ),
+          const EtiquetaVersion(),
         ],
       ),
     );

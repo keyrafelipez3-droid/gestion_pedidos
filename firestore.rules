@@ -634,6 +634,15 @@ service cloud.firestore {
       }
     }
 
+    // ------------------------------------------------------- plataforma
+    // Versión publicada de la app (aviso de actualización). La lee
+    // cualquiera, incluso antes de iniciar sesión; solo el SuperAdmin la
+    // cambia.
+    match /plataforma/{documento} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
