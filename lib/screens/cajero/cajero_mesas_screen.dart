@@ -108,6 +108,13 @@ class CajeroMesasScreen extends StatelessWidget {
   }
 
   void _tomarPedido(BuildContext context, String idSucursal, MesaModel mesa) {
+    final s = SesionActual.instancia;
+    if (s.esCajero && !s.permisos.cajeroTomaPedidosMesa) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Tu Administrador desactivó la toma de pedidos en mesa para cajeros.'),
+      ));
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CajeroPedidoMesaScreen(mesa: mesa, idSucursal: idSucursal),

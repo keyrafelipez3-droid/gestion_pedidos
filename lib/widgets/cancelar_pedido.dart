@@ -20,8 +20,12 @@ const motivosCancelacion = [
 ];
 
 /// Quién puede cancelar pedidos: Cajero y Administrador.
-bool puedeCancelarPedidos() =>
-    SesionActual.instancia.esCajero || SesionActual.instancia.esAdministrador;
+bool puedeCancelarPedidos() {
+  final s = SesionActual.instancia;
+  return s.esAdministrador ||
+      (s.esCajero && s.permisos.cajeroCancelaPedidos) ||
+      (s.esCocina && s.permisos.cocinaCancelaPedidos);
+}
 
 /// Pide el motivo y cancela el pedido. Muestra el resultado en un SnackBar.
 Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) async {

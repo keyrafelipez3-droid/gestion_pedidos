@@ -147,6 +147,20 @@ service cloud.firestore {
         && a.ci is string && a.ci.size() >= 4 && a.ci.size() <= 20;
     }
 
+    // Permisos ajustables por el Administrador (negocios/{id}.permisos).
+    function permisosDe(idNegocio) {
+      return get(/databases/$(database)/documents/negocios/$(idNegocio)).data.get('permisos', {});
+    }
+
+    // Quien puede cancelar pedidos: el Administrador siempre; el Cajero y
+    // la Cocina segun los permisos de su negocio.
+    function puedeCancelar() {
+      let p = permisosDe(idNegocioActual());
+      return isAdmin()
+        || (isCajero() && p.get('cajeroCancelaPedidos', true) == true)
+        || (isCocina() && p.get('cocinaCancelaPedidos', false) == true);
+    }
+
     // El cliente fue bloqueado por el Administrador de ese negocio.
     function clienteBloqueado(idNegocio, uid) {
       let ref = /databases/$(database)/documents/negocios/$(idNegocio)/clientes/$(uid);
@@ -465,7 +479,8 @@ service cloud.firestore {
           && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid))
         // Mesas: el Cajero (o el Administrador) registra pedidos de mesa
         // de SU negocio, a nombre del local.
-        || ((isCajero() || isAdmin())
+        || ((isAdmin()
+              || (isCajero() && permisosDe(idNegocioActual()).get('cajeroTomaPedidosMesa', true) == true))
             && request.resource.data.get('idNegocio', null) == idNegocioActual()
             && request.resource.data.get('origen', null) == 'cajero'
             && request.resource.data.estado == 'Pendiente'
@@ -526,10 +541,12 @@ service cloud.firestore {
               // Cambio de estado (Cocina, Cajero o Administrador).
               (cambios().hasOnly(['estado'])
                 && request.resource.data.estado in ['Pendiente', 'En preparación', 'Listo',
-                     'En camino', 'En el lugar', 'Entregado', 'Cancelado'])
+                     'En camino', 'En el lugar', 'Entregado', 'Cancelado']
+                && (request.resource.data.estado != 'Cancelado' || puedeCancelar()))
               // Cierre de un pedido en camino: tambien se borra la posicion.
               || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
                 && request.resource.data.estado in ['En camino', 'En el lugar', 'Entregado', 'Cancelado']
+                && (request.resource.data.estado != 'Cancelado' || puedeCancelar())
                 && request.resource.data.get('ubicacionRepartidor', null) == null
                 && request.resource.data.get('ubicacionActualizada', null) == null)
               // Cobro (solo Cajero): no se puede "des-cobrar" un pedido.
@@ -644,10 +661,37 @@ service cloud.firestore {
           && request.resource.data.monto is number
           && request.resource.data.monto > 0
           && (request.resource.data.tipo == 'Cobro'
-              || request.resource.data.metodoPago == 'Efectivo');
+              || request.resource.data.metodoPago == 'Efectivo')
+          && (request.resource.data.tipo != 'Egreso'
+              || permisosDe(idNegocioActual()).get('cajeroRegistraEgresos', true) == true);
 
         allow update, delete: if false;
       }
+    }
+
+    // ------------------------------------------------ solicitudesNegocio
+    // Un cliente pide unirse con su restaurante (una solicitud por persona,
+    // el id es su uid). Solo el SuperAdmin la aprueba o rechaza; al aprobar
+    // crea el negocio y cambia el rol de la persona (el cliente no puede
+    // darse ese rol a si mismo).
+    match /solicitudesNegocio/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && datosUsuarioActual().rol == 'Cliente'
+        && request.resource.data.estado == 'Pendiente'
+        && request.resource.data.fecha == request.time
+        && request.resource.data.keys().hasOnly(
+             ['nombreNegocio', 'ciudad', 'telefono', 'nit', 'mensaje', 'nombreSolicitante', 'correo', 'estado', 'fecha'])
+        && request.resource.data.nombreNegocio is string
+        && request.resource.data.nombreNegocio.size() >= 3 && request.resource.data.nombreNegocio.size() <= 80
+        && request.resource.data.ciudad is string && request.resource.data.ciudad.size() <= 60
+        && request.resource.data.telefono is string && request.resource.data.telefono.size() <= 20
+        && request.resource.data.get('nit', '') is string && request.resource.data.get('nit', '').size() <= 20
+        && request.resource.data.get('mensaje', '') is string && request.resource.data.get('mensaje', '').size() <= 500;
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin()
+        || (signedIn() && request.auth.uid == uid && resource.data.estado != 'Aprobada');
     }
 
     // ------------------------------------------------------ erroresApp

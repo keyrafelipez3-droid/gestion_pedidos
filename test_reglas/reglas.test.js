@@ -470,6 +470,80 @@ describe('Registro de errores de la app', () => {
   });
 });
 
+describe('Permisos ajustables por el Administrador', () => {
+  const quitarPermisos = () =>
+    env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), {
+        permisos: { cajeroCancelaPedidos: false, cajeroRegistraEgresos: false, cajeroTomaPedidosMesa: false },
+      }),
+    );
+  const egreso = { tipo: 'Egreso', metodoPago: 'Efectivo', monto: 10, idUsuario: 'cajero1', concepto: 'Gas' };
+  const pedidoMesa = () => ({
+    idNegocio: 'n1', idSucursal: 's1', modalidad: 'Mesa', metodoPago: 'Por definir', estado: 'Pendiente',
+    origen: 'cajero', creadoPor: 'cajero1', cobrado: false, total: 20, alergias: [], fechaCreacion: serverTimestamp(),
+  });
+  const abrirCaja = () =>
+    env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'cajas', 'c9'), { idCajero: 'cajero1', idNegocio: 'n1', estado: 'Abierta' }),
+    );
+
+  test('por defecto el cajero cancela, saca dinero y toma pedidos en mesa', async () => {
+    await abrirCaja();
+    await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+    await assertSucceeds(addDoc(collection(como('cajero1'), 'cajas/c9/movimientos'), egreso));
+    await assertSucceeds(setDoc(doc(como('cajero1'), 'pedidos', 'mesa1'), pedidoMesa()));
+  });
+
+  test('si el Administrador quita los permisos, el servidor los bloquea', async () => {
+    await abrirCaja();
+    await quitarPermisos();
+    await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+    await assertFails(addDoc(collection(como('cajero1'), 'cajas/c9/movimientos'), egreso));
+    await assertFails(setDoc(doc(como('cajero1'), 'pedidos', 'mesa1'), pedidoMesa()));
+    // Lo demás sigue funcionando.
+    await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'En preparación' }));
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+  });
+
+  test('la cocina no cancela salvo que se lo permitan', async () => {
+    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), { permisos: { cocinaCancelaPedidos: true } }),
+    );
+    await assertSucceeds(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+  });
+
+  test('solo el Administrador cambia los permisos', async () => {
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios', 'n1'), { permisos: { cajeroCancelaPedidos: false } }));
+    await assertFails(updateDoc(doc(como('cajero1'), 'negocios', 'n1'), { permisos: { cajeroCancelaPedidos: true } }));
+  });
+});
+
+describe('Solicitudes de negocios nuevos', () => {
+  const solicitud = (cambios = {}) => ({
+    nombreNegocio: 'Salteñas Doña Rosa', ciudad: 'Cochabamba', telefono: '71234567', nit: '', mensaje: '',
+    nombreSolicitante: 'Ana', correo: 'ana@gmail.com', estado: 'Pendiente', fecha: serverTimestamp(), ...cambios,
+  });
+
+  test('un cliente envía su solicitud', async () => {
+    await assertSucceeds(setDoc(doc(como('cli1'), 'solicitudesNegocio', 'cli1'), solicitud()));
+  });
+
+  test('no puede enviarla aprobada, ni a nombre de otro, ni siendo personal', async () => {
+    await assertFails(setDoc(doc(como('cli1'), 'solicitudesNegocio', 'cli1'), solicitud({ estado: 'Aprobada' })));
+    await assertFails(setDoc(doc(como('cli1'), 'solicitudesNegocio', 'cli2'), solicitud()));
+    await assertFails(setDoc(doc(como('cajero1'), 'solicitudesNegocio', 'cajero1'), solicitud()));
+  });
+
+  test('solo el SuperAdmin la aprueba y la ve junto a quien la envió', async () => {
+    await setDoc(doc(como('cli1'), 'solicitudesNegocio', 'cli1'), solicitud());
+    await assertFails(updateDoc(doc(como('cli1'), 'solicitudesNegocio', 'cli1'), { estado: 'Aprobada' }));
+    await assertFails(getDoc(doc(como('cli2'), 'solicitudesNegocio', 'cli1')));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'solicitudesNegocio', 'cli1')));
+    await assertSucceeds(updateDoc(doc(como('super1'), 'solicitudesNegocio', 'cli1'), { estado: 'Aprobada' }));
+  });
+});
+
 describe('Versión publicada de la app', () => {
   const version = { version: '1.1.0', build: 2, buildMinimo: 0, urlApk: '', notas: '' };
 
