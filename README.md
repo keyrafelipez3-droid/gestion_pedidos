@@ -1,60 +1,87 @@
 # Caro · Pedidos de comida
 
-Aplicación multi-negocio para tomar y gestionar pedidos de comida: menú digital para el cliente, pedidos en mesa, para recoger o a domicilio, cocina, caja y reparto con seguimiento en mapa. Proyecto académico de UNIVALLE (Cochabamba, Bolivia), desarrollado con Flutter y Firebase.
+[![CI](https://github.com/keyrafelipez3-droid/gestion_pedidos/actions/workflows/ci.yml/badge.svg)](https://github.com/keyrafelipez3-droid/gestion_pedidos/actions/workflows/ci.yml)
+
+Plataforma **multi-negocio** para tomar y gestionar pedidos de comida: menú digital, pedidos en mesa, para recoger o a domicilio, cocina, caja, reparto con seguimiento en mapa y panel de administración. Desarrollada con **Flutter** y **Firebase** en Cochabamba, Bolivia.
+
+**Pruébala:** <https://gestion-pedidos-univalle.web.app> (web) · APK para Android.
+
+Autoras: Alaitz Keyra Felipez Ledezma y Susan Dilana Romero Valdez.
 
 ## Qué hace
 
-- **Cliente:** elige un negocio, mira el menú con fotos, marca favoritos, arma su carrito y confirma el pedido (en mesa, para recoger o delivery). Paga en efectivo, por transferencia o con el QR del negocio, y sigue el estado del pedido; en delivery ve al repartidor en el mapa. Puede dejar una reseña de pedidos entregados.
-- **Cajero:** recibe los pedidos, atiende mesas y maneja su caja (apertura, cobros, ingresos, egresos y cierre).
-- **Cocina:** ve los pedidos pendientes y los marca como en preparación o listos.
-- **Repartidor:** toma pedidos de delivery listos, comparte su ubicación mientras va en camino, llama al cliente y marca la entrega.
-- **Administrador (de un negocio):** gestiona sucursales y horarios, catálogo, empleados, clientes (con bloqueo por negocio), reseñas (con moderación) y consulta ventas del día y del historial.
-- **SuperAdmin:** crea negocios, los personaliza (logo, banner, colores) y designa a su administrador.
+| Rol | Funciones principales |
+|---|---|
+| **Cliente** | Menú con fotos y alérgenos, carrito, pedido en mesa, para recoger o delivery (por zonas con costo de envío), pedidos programados, cupones, propina, datos de factura (NIT), pago en efectivo, transferencia o QR, seguimiento en vivo con mapa, avisos de estado, "volver a pedir", reseñas. App en español, inglés, portugués y francés. |
+| **Cocina** | Lista y **tablero para tablet** con tiempo de espera por colores, alergias resaltadas, notas traducidas automáticamente y **comanda para impresora térmica** (sin precios). |
+| **Cajero** | Pedidos recibidos, mesas, caja con cierre ciego, cobros y **rendición del efectivo de los repartidores**. |
+| **Repartidor** | Toma pedidos listos, comparte su ubicación, ve lo que debe cobrar y entregar en caja, y sus propinas del día. |
+| **Administrador** | Sucursales, horarios, zonas de delivery, catálogo con stock, empleados, **permisos ajustables por rol**, clientes, reseñas, cupones, ventas con exportación a **Excel**, registro de actividad. |
+| **SuperAdmin** | Negocios, personalización de marca, **solicitudes de restaurantes nuevos**, versiones de la app (aviso de actualización) y errores de la app. |
 
-Cada negocio usa su propio color de marca en la app. Los horarios de la sucursal se respetan: fuera de horario no se pueden hacer pedidos.
+## Seguridad
+
+- Reglas de Firestore por rol y por negocio (multi-tenant): cada escritura valida **quién** y **qué campos**; el servidor rechaza precios de envío alterados, descuentos mayores al cupón, estados inventados, etc.
+- Verificación en dos pasos (TOTP) obligatoria para el personal, contraseñas fuertes, cierre por inactividad, confirmación de identidad para acciones sensibles, verificación de correo para clientes.
+- Acuerdo de confidencialidad firmado por el personal y aceptación de términos por los clientes, con versión y fecha del servidor.
+- Registro de actividad que no se puede editar ni borrar.
+
+## Calidad
+
+- **Pruebas automáticas:** unas 50 pruebas en Dart (`test/`) y 60 pruebas de las reglas de seguridad (más de 120 comprobaciones) en el emulador de Firestore (`test_reglas/`).
+- **Integración continua:** GitHub Actions ejecuta en cada Pull Request el análisis, las pruebas, la compilación web y las pruebas de reglas (`.github/workflows/ci.yml`).
+- Modo sin conexión, registro automático de errores y listas que se cargan por partes.
 
 ## Tecnología
 
-- Flutter (Material 3) con Dart 3.9
-- Firebase Authentication y Cloud Firestore (reglas de seguridad por rol y por negocio)
-- flutter_map y OpenStreetMap para direcciones y seguimiento, geolocator, url_launcher y phone_numbers_parser
-- Tipografía Poppins incluida como archivos (licencia SIL OFL, ver `assets/fonts/OFL.txt`)
-
-No usa Cloud Functions: toda la lógica corre en la app y la seguridad depende de las reglas de Firestore.
+- Flutter (Material 3) · Dart 3.9
+- Firebase: Authentication (con MFA), Cloud Firestore, Hosting, App Check (preparado)
+- flutter_map + OpenStreetMap, geolocator, url_launcher, phone_numbers_parser, archive (Excel)
+- Funciona con el **plan gratuito** de Firebase. Las funciones de servidor que necesitan el plan Blaze ya están escritas en `functions/` y se activan cuando haga falta (ver `functions/README.md`).
 
 ## Cómo ejecutarla
 
-1. Instala Flutter (versión estable reciente) y verifica con `flutter doctor`.
-2. Clona el repositorio y ejecuta `flutter pub get`.
-3. El proyecto ya incluye la configuración de Firebase (`lib/firebase_options.dart`) del proyecto `gestion-pedidos-univalle`. Si usas otro proyecto de Firebase, genera tu configuración con `flutterfire configure`.
-4. Publica las reglas e índices de Firestore (desde la consola de Firebase, o con `firebase deploy --only firestore:rules,firestore:indexes`): archivos `firestore.rules` y `firestore.indexes.json`.
-5. Ejecuta `flutter run -d chrome` (o el dispositivo que prefieras).
+1. Instala Flutter estable y verifica con `flutter doctor`.
+2. `flutter pub get`
+3. La configuración de Firebase del proyecto `gestion-pedidos-univalle` ya está incluida (`lib/firebase_options.dart`). Para otro proyecto: `flutterfire configure`.
+4. Publica reglas e índices: `firebase deploy --only firestore`
+5. `flutter run -d chrome` (o el dispositivo que prefieras).
 
-## Estructura del proyecto
+**Pruebas:** `flutter test` · reglas: `cd test_reglas && npm install && npm test` (necesita Node 24 y Java 21).
+
+**Publicar la web:** `flutter build web --release` y `firebase deploy --only hosting`.
+
+**APK firmada:** crea `android/key.properties` con los datos de tu llave (nunca se sube a GitHub) y ejecuta `flutter build apk --release`.
+
+**Copia de seguridad:** `cd scripts/respaldo && npm install && node respaldo.js ruta/a/serviceAccountKey.json`.
+
+## Estructura
 
 ```
 lib/
   config/      datos de la plataforma (AppConfig)
-  legal/       términos y política de privacidad
+  l10n/        traducciones (es, en, pt, fr)
+  legal/       términos, privacidad y acuerdo del personal
   models/      modelos de datos
-  screens/     pantallas, agrupadas por rol (cliente, cajero, cocina, repartidor, admin, superadmin)
+  screens/     pantallas por rol (cliente, cajero, cocina, repartidor, admin, superadmin, cuenta)
   services/    acceso a Firebase y lógica de negocio
   theme/       tokens de diseño y marca
-  utils/       utilidades (teléfonos, colores, errores, formato)
+  utils/       utilidades (teléfonos, reportes, formato, comanda)
   widgets/     componentes reutilizables
-assets/        imágenes y fuentes
-firestore.rules / firestore.indexes.json   seguridad e índices de Firestore
+test/              pruebas unitarias (Dart)
+test_reglas/       pruebas de las reglas de seguridad (emulador)
+functions/         funciones del servidor (preparadas para el plan Blaze)
+scripts/respaldo/  copia de seguridad de Firestore
+firestore.rules / firestore.indexes.json
 ```
 
 ## Flujo de trabajo con Git
 
-Se trabaja en ramas `feature/...` o `fix/...` que salen de `develop` y vuelven por Pull Request. No se hace commit directo a `main` ni a `develop`.
+Ramas `feature/...` o `fix/...` desde `develop`, Pull Request a `develop` con las revisiones de CI en verde, y luego `develop` → `main`. No se hace commit directo a `main` ni a `develop`.
 
-## Pendiente antes de publicar
+## Antes de vender a un negocio
 
-- Reemplazar OpenStreetMap/Nominatim por un proveedor de mapas y búsqueda con licencia comercial (las constantes están en `lib/config/app_config.dart`); el servicio público de OpenStreetMap es solo para desarrollo.
-- Completar los datos legales de la plataforma en `lib/config/app_config.dart` (titular, correo de privacidad, enlace de eliminación de cuenta) y que un abogado revise los textos legales.
-- Consultar a un contador sobre facturación y obligaciones tributarias.
-- Restringir la clave de API de Firebase y el preset de subida de imágenes.
-- Las notificaciones push y el rastreo con la app cerrada requieren Cloud Functions (plan Blaze de Firebase) y servicios en segundo plano; hoy el seguimiento solo funciona con la app abierta.
-- Configurar la firma de la app para publicar en tiendas.
+- Cambiar OpenStreetMap/Nominatim por un proveedor de mapas con licencia comercial (constantes en `lib/config/app_config.dart`).
+- Revisión de los textos legales por un abogado y de la facturación por un contador.
+- Restringir la clave de API de Firebase y activar App Check.
+- Pasar al plan Blaze para notificaciones push y validación de totales en el servidor (`functions/`).
