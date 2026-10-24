@@ -1,0 +1,12 @@
+{
+  "name": "caro-respaldo",
+  "private": true,
+  "description": "Copia de seguridad de Firestore a archivos JSON (funciona con el plan gratuito).",
+  "type": "module",
+  "scripts": {
+    "respaldar": "node respaldo.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}
