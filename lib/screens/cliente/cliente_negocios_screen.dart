@@ -80,7 +80,7 @@ class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
                       children: [
                         Text(
                           tr('¿Dónde quieres pedir hoy?'),
-                          style: Theme.of(context).textTheme.headlineSmall,
+                          style: Theme.of(context).textTheme.headlineMedium,
                         ),
                         const SizedBox(height: AppSpacing.md),
                         AppSearchField(
@@ -147,36 +147,45 @@ class _TarjetaNegocioState extends State<_TarjetaNegocio> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final brand = context.brand;
     final negocio = widget.negocio;
-    final colorMarca = colorDesdeHex(negocio.colorPrimario, theme.colorScheme.primary);
+    final colorMarca = colorDesdeHex(negocio.colorPrimario, scheme.primary);
+    final base = brand.decoracionTarjeta(scheme);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _encima = true),
       onExit: (_) => setState(() => _encima = false),
-      child: AnimatedScale(
-        scale: _encima ? 1.02 : 1,
+      child: AnimatedSlide(
+        offset: _encima ? const Offset(0, -0.015) : Offset.zero,
         duration: AppMotion.normal,
         curve: AppMotion.curva,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: context.brand.card,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ClienteMenuScreen(
-                  negocio: negocio,
-                  fotoRespaldo: fotoComidaPorIndice(widget.indice),
+        child: AnimatedContainer(
+          duration: AppMotion.normal,
+          curve: AppMotion.curva,
+          clipBehavior: Clip.antiAlias,
+          // Al pasar el mouse, el borde toma el color de marca del negocio.
+          decoration: base.copyWith(
+            border: Border.all(
+              color: _encima ? colorMarca : scheme.outlineVariant,
+              width: _encima ? 1.5 : brand.grosorBorde,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ClienteMenuScreen(
+                    negocio: negocio,
+                    fotoRespaldo: fotoComidaPorIndice(widget.indice),
+                  ),
                 ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: context.brand.card,
-                  child: SizedBox(
-                    height: 150,
-                    width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
@@ -185,77 +194,107 @@ class _TarjetaNegocioState extends State<_TarjetaNegocio> {
                           icono: Icons.storefront_outlined,
                           respaldoAsset: fotoComidaPorIndice(widget.indice),
                         ),
+                        // Oscurece un poco la parte de abajo de la foto.
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.center,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0x00000000), Color(0x8C000000)],
+                            ),
+                          ),
+                        ),
                         // Franja con el color de marca del negocio.
                         Align(
                           alignment: Alignment.bottomCenter,
-                          child: Container(height: 5, color: colorMarca),
+                          child: Container(height: 3, color: colorMarca),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: colorMarca, width: 2),
-                      ),
-                      child: ClipOval(
-                        child: SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: negocio.logoUrl.isNotEmpty
-                              ? AppImagenRed(
-                                  url: negocio.logoUrl,
-                                  icono: Icons.storefront_outlined,
-                                )
-                              : Container(
-                                  color: colorMarca,
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    negocio.nombre.isNotEmpty
-                                        ? negocio.nombre[0].toUpperCase()
-                                        : '?',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      color: textoSobreColor(colorMarca),
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.sm + 2,
+                      AppSpacing.sm,
+                      AppSpacing.sm + 4,
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            negocio.nombre,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: colorMarca, width: 2),
+                          ),
+                          child: ClipOval(
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: negocio.logoUrl.isNotEmpty
+                                  ? AppImagenRed(
+                                      url: negocio.logoUrl,
+                                      icono: Icons.storefront_outlined,
+                                    )
+                                  : Container(
+                                      color: colorMarca,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        negocio.nombre.isNotEmpty
+                                            ? negocio.nombre[0].toUpperCase()
+                                            : '?',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          color: textoSobreColor(colorMarca),
+                                        ),
+                                      ),
+                                    ),
                             ),
                           ),
-                          if (negocio.descripcion.isNotEmpty)
-                            Text(
-                              negocio.descripcion,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: AppSpacing.sm + 2),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                negocio.nombre,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
+                              if (negocio.descripcion.isNotEmpty)
+                                Text(
+                                  negocio.descripcion,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        AnimatedContainer(
+                          duration: AppMotion.normal,
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _encima ? colorMarca : scheme.surfaceContainerHighest,
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward,
+                            size: 18,
+                            color: _encima ? textoSobreColor(colorMarca) : scheme.onSurface,
+                          ),
+                        ),
+                      ],
                     ),
-                    Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

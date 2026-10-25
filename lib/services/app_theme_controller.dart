@@ -21,6 +21,10 @@ class AppThemeController {
 
   final ValueNotifier<NegocioModel?> negocio = ValueNotifier(null);
 
+  /// Las pruebas automáticas lo ponen en false: no hay internet para
+  /// descargar las fuentes de Google y se usa la fuente del sistema.
+  static bool usarFuentesDeGoogle = true;
+
   /// Corrección pedida por el docente (multi-tenant): ya no existe UN
   /// negocio global, así que hay que indicar de cuál cargar el tema (el
   /// del Administrador/empleado logueado). Sin `idNegocio` (antes de
@@ -71,19 +75,26 @@ class AppThemeController {
   /// vista previa de la pantalla de personalización, que pinta la maqueta
   /// con un Theme real aún sin guardar.
   ThemeData buildThemeFor(NegocioModel? data, Brightness brightness) {
+    // Sin negocio (inicio de sesión, cliente, SuperAdmin) se usa la marca
+    // Caro: fondo casi negro, dorado y tarjetas finas con borde.
     final primary = _color(data?.colorPrimario ?? '', AppBrand.dorado);
-    final secondary =
-        _color(data?.colorSecundario ?? '', const Color(0xFFFFF3E0));
+    final secondary = data == null
+        ? AppBrand.doradoOscuro
+        : _color(data.colorSecundario, const Color(0xFFFFF3E0));
+    // HU-10 (Fase 5): "Fondo" es opcional. Si el negocio eligió uno, el
+    // esquema entero se adapta a él (texto con buen contraste, superficies
+    // mezcladas) para que un fondo oscuro tipo "Brasa" funcione aunque el
+    // modo claro/oscuro del sistema diga otra cosa.
+    final fondoPersonalizado =
+        data == null ? AppBrand.fondoOscuro : _colorOpcional(data.colorFondo);
+    if (fondoPersonalizado != null) {
+      brightness = ThemeData.estimateBrightnessForColor(fondoPersonalizado);
+    }
     var scheme = ColorScheme.fromSeed(
       seedColor: primary,
       brightness: brightness,
       secondary: secondary,
     );
-    // HU-10 (Fase 5): "Fondo" es opcional. Si el negocio eligió uno, el
-    // esquema entero se adapta a él (texto con buen contraste, superficies
-    // mezcladas) para que un fondo oscuro tipo "Brasa" funcione aunque el
-    // modo claro/oscuro del sistema diga otra cosa.
-    final fondoPersonalizado = _colorOpcional(data?.colorFondo);
     final base = fondoPersonalizado ?? scheme.surface;
     final onBase = fondoPersonalizado != null ? colorSobre(base) : scheme.onSurface;
     Color mezcla(double a) => Color.alphaBlend(onBase.withValues(alpha: a), base);
@@ -95,12 +106,15 @@ class AppThemeController {
           : null,
       primary: primary,
       onPrimary: colorSobre(primary),
+      secondary: secondary,
+      onSecondary: colorSobre(secondary),
       primaryContainer: Color.alphaBlend(primary.withValues(alpha: 0.18), base),
       onPrimaryContainer: onBase,
       surface: base,
       onSurface: onBase,
       onSurfaceVariant: onBase.withValues(alpha: 0.68),
-      outlineVariant: onBase.withValues(alpha: 0.16),
+      outline: onBase.withValues(alpha: 0.32),
+      outlineVariant: onBase.withValues(alpha: 0.12),
       surfaceContainerLowest: fondoPersonalizado != null ? mezcla(0.04) : null,
       surfaceContainerLow: mezcla(0.04),
       surfaceContainer: mezcla(0.06),
@@ -110,14 +124,18 @@ class AppThemeController {
     final isDark = scheme.brightness == Brightness.dark;
     final brand = BrandStyle.desde(
       forma: data?.formaBotones ?? 'redondeado',
-      estilo: data?.estiloBase ?? 'moderno',
+      estilo: data?.estiloBase ?? 'caro',
       primary: primary,
     );
     final textTheme = _buildTextTheme(
       scheme,
-      tipografia: data?.tipografia ?? 'sans',
+      tipografia: data?.tipografia ?? 'redondeada',
       brand: brand,
     );
+    // Las sombras no se ven sobre fondo oscuro: ahí las tarjetas llevan un
+    // borde fino para separarse del fondo.
+    final conBorde = brand.tarjeta == 'borde' || isDark;
+    final bordeFino = BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde);
     final formaBoton = RoundedRectangleBorder(borderRadius: brand.boton);
     final formaPequena = RoundedRectangleBorder(borderRadius: brand.pequeno);
 
@@ -154,15 +172,13 @@ class AppThemeController {
       cardTheme: CardThemeData(
         color: brand.tarjeta == 'color'
             ? scheme.surfaceContainerHigh
-            : scheme.surfaceContainerLowest,
+            : (isDark ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest),
         surfaceTintColor: Colors.transparent,
         shadowColor: brand.colorSombra,
-        elevation: brand.tarjeta == 'sombra' ? 2 : 0,
+        elevation: brand.tarjeta == 'sombra' && !isDark ? 2 : 0,
         shape: RoundedRectangleBorder(
           borderRadius: brand.card,
-          side: brand.tarjeta == 'borde'
-              ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
-              : BorderSide.none,
+          side: conBorde ? bordeFino : BorderSide.none,
         ),
         margin: EdgeInsets.zero,
       ),
@@ -176,9 +192,7 @@ class AppThemeController {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
-          borderSide: brand.tarjeta == 'borde'
-              ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
-              : BorderSide.none,
+          borderSide: conBorde ? bordeFino : BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
@@ -221,9 +235,7 @@ class AppThemeController {
           minimumSize: const Size(0, 50),
           shape: formaBoton,
           side: BorderSide(
-            color: brand.tarjeta == 'borde'
-                ? scheme.onSurface.withValues(alpha: 0.5)
-                : scheme.outlineVariant,
+            color: conBorde ? scheme.outline : scheme.outlineVariant,
             width: brand.grosorBorde,
           ),
           textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -263,9 +275,7 @@ class AppThemeController {
             brand.radioPequeno > 14 ? 999 : brand.radioPequeno,
           ),
         ),
-        side: brand.tarjeta == 'borde'
-            ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
-            : BorderSide.none,
+        side: conBorde ? bordeFino : BorderSide.none,
         showCheckmark: false,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
       ),
@@ -310,9 +320,88 @@ class AppThemeController {
       ),
 
       dialogTheme: DialogThemeData(
-        backgroundColor: scheme.surfaceContainerLowest,
+        backgroundColor: isDark ? scheme.surfaceContainer : scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: brand.card),
+        shape: RoundedRectangleBorder(
+          borderRadius: brand.card,
+          side: isDark ? bordeFino : BorderSide.none,
+        ),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: scheme.surfaceContainerHigh,
+          foregroundColor: scheme.onSurface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          minimumSize: const Size(0, 50),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          shape: formaBoton,
+          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ),
+
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? scheme.primary : Colors.transparent),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? scheme.onPrimary : scheme.onSurface),
+          side: WidgetStatePropertyAll(BorderSide(color: scheme.outline)),
+          shape: WidgetStatePropertyAll(formaBoton),
+        ),
+      ),
+
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: scheme.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: scheme.primary.withValues(alpha: 0.18),
+        iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+              color: states.contains(WidgetState.selected)
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant,
+            )),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) =>
+            textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: states.contains(WidgetState.selected)
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant,
+            )),
+      ),
+
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: scheme.surfaceContainerLow,
+        indicatorColor: scheme.primary.withValues(alpha: 0.18),
+        selectedIconTheme: IconThemeData(color: scheme.primary),
+        unselectedIconTheme: IconThemeData(color: scheme.onSurfaceVariant),
+      ),
+
+      drawerTheme: DrawerThemeData(
+        backgroundColor: scheme.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+      ),
+
+      popupMenuTheme: PopupMenuThemeData(
+        color: scheme.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: brand.pequeno,
+          side: isDark ? bordeFino : BorderSide.none,
+        ),
+      ),
+
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: isDark ? scheme.surfaceContainerHighest : const Color(0xE6111111),
+          borderRadius: brand.pequeno,
+        ),
+        textStyle: textTheme.bodySmall?.copyWith(
+          color: isDark ? scheme.onSurface : Colors.white,
+        ),
       ),
 
       bottomSheetTheme: BottomSheetThemeData(
@@ -339,6 +428,7 @@ class AppThemeController {
     TextTheme cuerpoTheme;
     TextTheme tituloTheme;
     try {
+      if (!usarFuentesDeGoogle) throw UnsupportedError('sin fuentes');
       cuerpoTheme = GoogleFonts.getTextTheme(cuerpo, base);
       tituloTheme = GoogleFonts.getTextTheme(titulares, base);
     } catch (_) {
@@ -348,13 +438,16 @@ class AppThemeController {
     final pesado = tipografia == 'gruesa';
     FontWeight peso(FontWeight w) => pesado ? FontWeight.w400 : w;
     final espacio = brand.espaciadoTitulos;
+    // Títulos grandes un poco más juntos (se ven más firmes), salvo que el
+    // estilo pida espaciado.
+    final espacioGrande = espacio == 0 ? -0.5 : espacio;
     final t = cuerpoTheme.copyWith(
-      displayLarge: tituloTheme.displayLarge,
-      displayMedium: tituloTheme.displayMedium,
-      displaySmall: tituloTheme.displaySmall,
-      headlineLarge: tituloTheme.headlineLarge?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
-      headlineMedium: tituloTheme.headlineMedium?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
-      headlineSmall: tituloTheme.headlineSmall?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
+      displayLarge: tituloTheme.displayLarge?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacioGrande),
+      displayMedium: tituloTheme.displayMedium?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacioGrande),
+      displaySmall: tituloTheme.displaySmall?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacioGrande),
+      headlineLarge: tituloTheme.headlineLarge?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacioGrande),
+      headlineMedium: tituloTheme.headlineMedium?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacioGrande),
+      headlineSmall: tituloTheme.headlineSmall?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio == 0 ? -0.3 : espacio),
       titleLarge: tituloTheme.titleLarge?.copyWith(fontWeight: peso(FontWeight.w800), letterSpacing: espacio),
       titleMedium: tituloTheme.titleMedium?.copyWith(fontWeight: peso(FontWeight.w700), letterSpacing: espacio),
       titleSmall: cuerpoTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),

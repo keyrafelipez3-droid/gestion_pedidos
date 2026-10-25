@@ -14,6 +14,7 @@ class BrandOpciones {
   BrandOpciones._();
 
   static const estilos = <EstiloOpcion>[
+    EstiloOpcion('caro', 'Caro', 'Tarjetas finas con borde y títulos grandes'),
     EstiloOpcion('moderno', 'Moderno', 'Tarjetas con sombra suave'),
     EstiloOpcion('minimal', 'Minimal', 'Líneas finas, sin sombras'),
     EstiloOpcion('premium', 'Premium', 'Sobrio, con espaciado en títulos'),
@@ -130,6 +131,12 @@ class BrandStyle extends ThemeExtension<BrandStyle> {
     double espacio = 0;
     Color sombra = const Color(0x1F000000);
     switch (estilo) {
+      case 'caro':
+        // Estilo de la marca Caro: tarjetas con borde fino (se ven bien
+        // sobre fondos oscuros) y una sombra muy suave.
+        tarjeta = 'borde';
+        sombra = const Color(0x33000000);
+        break;
       case 'minimal':
         tarjeta = 'borde';
         break;
@@ -176,12 +183,17 @@ class BrandStyle extends ThemeExtension<BrandStyle> {
 
   /// Decoración de tarjeta según el estilo del negocio.
   BoxDecoration decoracionTarjeta(ColorScheme s, {Color? color}) {
+    final oscuro = s.brightness == Brightness.dark;
     switch (tarjeta) {
       case 'borde':
         return BoxDecoration(
-          color: color ?? s.surface,
+          // En fondo oscuro la tarjeta se separa un poco del fondo.
+          color: color ?? (oscuro ? s.surfaceContainerLow : s.surface),
           borderRadius: card,
           border: Border.all(color: s.outlineVariant, width: grosorBorde),
+          boxShadow: oscuro
+              ? null
+              : [BoxShadow(color: colorSombra.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
         );
       case 'color':
         return BoxDecoration(
@@ -193,6 +205,8 @@ class BrandStyle extends ThemeExtension<BrandStyle> {
         return BoxDecoration(
           color: color ?? s.surfaceContainerLowest,
           borderRadius: card,
+          // En fondo oscuro la sombra no se ve: se marca con un borde fino.
+          border: oscuro ? Border.all(color: s.outlineVariant, width: grosorBorde) : null,
           boxShadow: [
             BoxShadow(
               color: colorSombra,

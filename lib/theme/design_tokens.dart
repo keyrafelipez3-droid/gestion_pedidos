@@ -29,6 +29,7 @@ class AppBrand {
   static const Color doradoOscuro = Color(0xFFDB9622);
   static const Color rojo = Color(0xFFF42925);
   static const Color crema = Color(0xFFFBF7F0);
+  static const Color fondoOscuro = Color(0xFF0B0B0F); // fondo de la marca
   static const Color tinta = Color(0xFF1A1200); // texto sobre dorado
 }
 
