@@ -107,7 +107,7 @@ class MisPedidosScreen extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(
-                    '${tr(p.modalidad)} · Bs ${p.total.toStringAsFixed(2)}'
+                    '${tr(p.modalidad)} · Bs ${p.totalACobrar.toStringAsFixed(2)}'
                     '${p.fechaCreacion == null ? '' : '\n${formatoFechaHora(p.fechaCreacion!)}'}',
                   ),
                   isThreeLine: p.fechaCreacion != null,

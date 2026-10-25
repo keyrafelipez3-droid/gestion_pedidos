@@ -6,13 +6,16 @@ import 'package:flutter/services.dart';
 import '../models/actividad_model.dart';
 import '../services/actividad_service.dart';
 import '../services/auth_service.dart';
+import '../models/usuario_model.dart';
 import '../services/sesion_actual.dart';
 import '../utils/navegacion.dart';
 
 /// Cierra la sesión del PERSONAL después de [limite] sin tocar la app
 /// (mouse, teclado o pantalla). Sirve sobre todo en la computadora de la
 /// caja, que suele quedar sola. Un minuto antes avisa con la opción
-/// "Seguir conectado". Los clientes no se desconectan.
+/// "Seguir conectado". No se desconectan los clientes, ni la Cocina (su
+/// tablero queda abierto en una tablet sin que nadie lo toque) ni el
+/// Repartidor (maneja sin tocar el celular mientras comparte su ubicación).
 class VigilanteInactividad extends StatefulWidget {
   final Widget child;
   final Duration limite;
@@ -60,7 +63,7 @@ class _VigilanteInactividadState extends State<VigilanteInactividad> {
 
   Future<void> _revisar() async {
     final u = SesionActual.instancia.actual;
-    if (u == null || u.esCliente) {
+    if (u == null || u.esCliente || u.rol == Rol.cocina || u.rol == Rol.repartidor) {
       _ultimaActividad = DateTime.now();
       return;
     }

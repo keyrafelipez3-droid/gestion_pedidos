@@ -131,7 +131,7 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen>
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text(
-                                  'Bs ${p.total.toStringAsFixed(2)}',
+                                  'Bs ${p.montoNegocio.toStringAsFixed(2)}',
                                   style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                                 if (p.programadoPara != null)

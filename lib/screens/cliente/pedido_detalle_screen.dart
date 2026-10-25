@@ -226,6 +226,13 @@ class _ProductosDelPedidoState extends State<_ProductosDelPedido> {
   }
 }
 
+/// Quién registra el cobro de un pedido de la app al entregarlo: el Cajero,
+/// salvo un delivery que tomó un repartidor (ese lo cobra el repartidor y
+/// lo entrega en caja en la rendición). Un delivery que el local entrega
+/// sin repartidor de la app lo cobra el Cajero, para que no quede sin
+/// registrar en ninguna caja.
+bool _loCobraLaCaja(PedidoModel p) => p.modalidad != PedidoModalidad.delivery || p.idRepartidor == null;
+
 String? _siguienteEstado(String actual) {
   // Delivery: si el pedido ya salió con un repartidor, el personal solo
   // puede cerrarlo como entregado (el avance normal lo hace el repartidor).
@@ -257,7 +264,7 @@ class _Detalle extends StatelessWidget {
     // Administrador), el pedido quedaría entregado SIN cobro en ninguna caja.
     final requiereCobroCajero = siguienteFlujo == PedidoEstado.entregado &&
         pedido.origen == PedidoOrigen.cliente &&
-        pedido.modalidad != PedidoModalidad.delivery &&
+        _loCobraLaCaja(pedido) &&
         !pedido.cobrado;
     final soloCajeroPuede = requiereCobroCajero && !SesionActual.instancia.esCajero;
     final siguiente = soloCajeroPuede ? null : siguienteFlujo;
@@ -427,7 +434,7 @@ class _Detalle extends StatelessWidget {
                   if (cajero != null &&
                       siguiente == PedidoEstado.entregado &&
                       pedido.origen == PedidoOrigen.cliente &&
-                      pedido.modalidad != PedidoModalidad.delivery &&
+                      _loCobraLaCaja(pedido) &&
                       !pedido.cobrado) {
                     cajaCobro = await CajaService.instancia.cajaAbiertaActual(cajero.idUsuario);
                     if (cajaCobro == null || cajaCobro.contada) {

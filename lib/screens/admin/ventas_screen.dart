@@ -168,7 +168,7 @@ class _VentasScreenState extends State<VentasScreen> {
             (_modalidad == null || p.modalidad == _modalidad) &&
             (_metodo == null || p.metodoPago == _metodo))
         .toList();
-    final total = redondearDinero(filtradas.fold<double>(0, (acc, p) => acc + p.total));
+    final total = redondearDinero(filtradas.fold<double>(0, (acc, p) => acc + p.montoNegocio));
     final promedio = filtradas.isEmpty ? 0.0 : redondearDinero(total / filtradas.length);
 
     return ListView(
@@ -288,7 +288,7 @@ class _VentasScreenState extends State<VentasScreen> {
                 '${nombres[p.idSucursal] ?? 'Sucursal'}',
               ),
               trailing: Text(
-                _bs(p.total),
+                _bs(p.montoNegocio),
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               onTap: () => Navigator.of(context).push(

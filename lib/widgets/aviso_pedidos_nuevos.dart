@@ -68,7 +68,7 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
   void _mostrar(List<PedidoModel> nuevos) {
     final p = nuevos.last;
     final texto = nuevos.length == 1
-        ? 'Nuevo pedido #${p.id.substring(0, 6)} · ${p.etiquetaModalidad} · Bs ${p.total.toStringAsFixed(2)}'
+        ? 'Nuevo pedido #${p.id.substring(0, 6)} · ${p.etiquetaModalidad} · Bs ${p.montoNegocio.toStringAsFixed(2)}'
         : '${nuevos.length} pedidos nuevos';
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();

@@ -305,7 +305,7 @@ class _TarjetaEntregaState extends State<_TarjetaEntrega> {
               texto: cobraEnPuerta
                   ? 'Cobrar en efectivo: Bs ${p.totalACobrar.toStringAsFixed(2)}'
                       '${p.propina > 0 ? ' (incluye propina Bs ${p.propina.toStringAsFixed(2)})' : ''}'
-                  : 'Pago: ${p.metodoPago} · Total Bs ${p.total.toStringAsFixed(2)}'
+                  : 'Pago: ${p.metodoPago} · Total Bs ${p.montoNegocio.toStringAsFixed(2)}'
                       '${p.propina > 0 ? ' · Propina Bs ${p.propina.toStringAsFixed(2)} en efectivo' : ''}',
             ),
             const SizedBox(height: AppSpacing.md),

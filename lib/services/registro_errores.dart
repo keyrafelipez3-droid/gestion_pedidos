@@ -28,6 +28,9 @@ class RegistroErrores {
       } else {
         FlutterError.presentError(detalles);
       }
+      // Una foto que no carga (sin internet, enlace roto) no es un error de
+      // la app: no se guarda, para no llenar el registro.
+      if (detalles.library == 'image resource service') return;
       registrar(detalles.exception, detalles.stack, contexto: detalles.context?.toString());
     };
     PlatformDispatcher.instance.onError = (error, pila) {
