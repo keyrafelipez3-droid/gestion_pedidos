@@ -572,4 +572,12 @@ const traduccionesEn = <String, String>{
   'Ir a mi panel': 'Go to my panel',
   'Enviar otra solicitud': 'Send another request',
   'Cancelar solicitud': 'Cancel request',
+  // Tamaño de letra
+  'Tamaño de letra': 'Text size',
+  'Elige el tamaño que te resulte más cómodo. Se aplica a toda la app.': 'Choose the size that is most comfortable for you. It applies to the whole app.',
+  'Normal': 'Normal',
+  'Grande': 'Large',
+  'Muy grande': 'Very large',
+  'Máximo': 'Maximum',
+  'Accesibilidad': 'Accessibility',
 };
