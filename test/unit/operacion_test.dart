@@ -64,6 +64,14 @@ void main() {
     });
   });
 
+  test('el tablero muestra horas y días y recorta notas enormes', () {
+    expect(textoEspera(45), '45 min');
+    expect(textoEspera(185), '3 h 05');
+    expect(textoEspera(3 * 24 * 60), '3 d');
+    expect(notaCorta('Sin cebolla'), 'Sin cebolla');
+    expect(notaCorta('x' * 1000).length, lessThan(320));
+  });
+
   test('tiempo de espera en cocina: verde, amarillo y rojo', () {
     expect(colorEspera(3), const Color(0xFF2E7D32));
     expect(colorEspera(12), const Color(0xFFF9A825));
@@ -94,10 +102,15 @@ void main() {
       ),
     ];
     final html = htmlComanda(pedido, detalle);
-    expect(html, contains('COMANDA #ABCDEF'));
-    expect(html, contains('2×</span> Pollo broaster'));
+    expect(html, contains('#ABCDEF'));
+    expect(html, contains('<td class="cant">2</td><td class="prod">Pollo broaster'));
     expect(html, contains('ALERGIA: MANÍ'));
     expect(html, contains('Sin &lt;sal&gt;'));
+    expect(html, contains('2 productos'));
     expect(html, isNot(contains('Bs')));
+    // Con traducción: se muestra traducida y el original abajo.
+    final traducida = htmlComanda(pedido, detalle, notaTraducida: 'Sin sal');
+    expect(traducida, contains('NOTA DEL CLIENTE (traducida)'));
+    expect(traducida, contains('Original'));
   });
 }

@@ -197,6 +197,17 @@ class _Columna extends StatelessWidget {
   }
 }
 
+/// "12 min", "3 h 05" o "2 d": el tiempo que lleva esperando un pedido.
+String textoEspera(int minutos) {
+  if (minutos < 60) return '$minutos min';
+  if (minutos < 24 * 60) return '${minutos ~/ 60} h ${(minutos % 60).toString().padLeft(2, '0')}';
+  return '${minutos ~/ (24 * 60)} d';
+}
+
+/// Recorta una nota muy larga para que no tape el tablero.
+String notaCorta(String nota, {int max = 280}) =>
+    nota.length <= max ? nota : '${nota.substring(0, max).trimRight()}… (nota recortada)';
+
 /// Color según los minutos de espera: verde (menos de 10), amarillo
 /// (menos de 20) y rojo (20 o más).
 Color colorEspera(int minutos) {
@@ -229,7 +240,7 @@ class _TarjetaComandaState extends State<_TarjetaComanda> {
   Widget build(BuildContext context) {
     final p = widget.pedido;
     final desde = p.programadoPara ?? p.fechaCreacion ?? DateTime.now();
-    final minutos = DateTime.now().difference(desde).inMinutes.clamp(0, 999);
+    final minutos = DateTime.now().difference(desde).inMinutes.clamp(0, 999999);
     final enPreparacion = p.estado == PedidoEstado.enPreparacion;
     const blanco = TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800);
     return Card(
@@ -252,7 +263,7 @@ class _TarjetaComandaState extends State<_TarjetaComanda> {
                 ),
                 const Icon(Icons.timer_outlined, color: Colors.white, size: 20),
                 const SizedBox(width: 4),
-                Text('$minutos min', style: blanco),
+                Text(textoEspera(minutos), style: blanco),
               ],
             ),
           ),
@@ -296,7 +307,8 @@ class _TarjetaComandaState extends State<_TarjetaComanda> {
                                 if (i.notas.isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(left: 28),
-                                    child: Text('» ${i.notas}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    child: Text('» ${notaCorta(i.notas, max: 160)}',
+                                        style: const TextStyle(fontWeight: FontWeight.w700)),
                                   ),
                               ],
                             ),
@@ -308,7 +320,7 @@ class _TarjetaComandaState extends State<_TarjetaComanda> {
                 if (p.notas.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
                   TextoTraducido(
-                    texto: p.notas,
+                    texto: notaCorta(p.notas),
                     idiomaOrigen: p.idiomaCliente,
                     etiqueta: 'Nota',
                     destacado: true,

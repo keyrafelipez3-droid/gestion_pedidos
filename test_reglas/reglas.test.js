@@ -232,6 +232,11 @@ describe('Pedidos del cliente', () => {
     await assertFails(crear('cli1', pedidoCliente('cli1', { idSucursal: 's2' })));
   });
 
+  test('no acepta notas enormes', async () => {
+    await assertSucceeds(crear('cli1', pedidoCliente('cli1', { notas: 'Sin cebolla, por favor' })));
+    await assertFails(crear('cli1', pedidoCliente('cli1', { notas: 'x'.repeat(600) })));
+  });
+
   test('alergias con códigos válidos', async () => {
     await assertSucceeds(crear('cli1', pedidoCliente('cli1', { alergias: ['mani', 'tomate'] })));
     await assertFails(crear('cli1', pedidoCliente('cli1', { alergias: ['veneno'] })));
