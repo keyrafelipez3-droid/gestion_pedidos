@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
+import '../l10n/tamano_texto.dart';
 import '../models/usuario_model.dart';
 import '../services/actividad_service.dart';
 import '../services/sesion_actual.dart';
@@ -90,6 +91,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 : const SizedBox.shrink(),
           ),
+          // Tamaño de letra: para todos (clientes y personal).
+          const BotonTamanoTexto(),
           IconButton(
             tooltip: tr('Mi cuenta'),
             icon: const Icon(Icons.manage_accounts_outlined),

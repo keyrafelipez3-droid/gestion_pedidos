@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
+import '../../l10n/tamano_texto.dart';
 import '../../services/auth_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contrasena.dart';
@@ -114,7 +115,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
         floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
         floatingActionButton: const Padding(
           padding: EdgeInsets.only(top: AppSpacing.sm),
-          child: BotonIdioma(),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [BotonTamanoTexto(), BotonIdioma()]),
         ),
         body: Row(
           children: [
@@ -143,7 +144,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         title: Text(tr('Crear cuenta')),
-        actions: const [BotonIdioma(color: Colors.white)],
+        actions: const [BotonTamanoTexto(color: Colors.white), BotonIdioma(color: Colors.white)],
       ),
       body: AppPantallaFoto(
         asset: 'assets/images/comida_terraza.jpg',

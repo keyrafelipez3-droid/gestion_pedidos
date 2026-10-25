@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
+import '../../l10n/tamano_texto.dart';
 import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
@@ -103,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
         floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
         floatingActionButton: const Padding(
           padding: EdgeInsets.only(top: AppSpacing.sm),
-          child: BotonIdioma(),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [BotonTamanoTexto(), BotonIdioma()]),
         ),
         body: Row(
           children: [
@@ -135,7 +136,12 @@ class _LoginScreenState extends State<LoginScreen> {
     // Celular: foto de comida a pantalla completa con el formulario encima.
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
-      floatingActionButton: const SafeArea(child: BotonIdioma(color: Colors.white)),
+      floatingActionButton: const SafeArea(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [BotonTamanoTexto(color: Colors.white), BotonIdioma(color: Colors.white)],
+        ),
+      ),
       body: AppPantallaFoto(
         asset: 'assets/images/fondo_movil.jpg',
         formulario: formulario,

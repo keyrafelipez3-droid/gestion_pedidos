@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
+import '../../l10n/tamano_texto.dart';
 import '../../models/usuario_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/sesion_actual.dart';
@@ -517,6 +518,14 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         const TileDosPasos(),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Tamaño de letra: para todos (accesibilidad).
+                  _SeccionCuenta(
+                    icono: Icons.accessibility_new,
+                    titulo: tr('Accesibilidad'),
+                    child: const TileTamanoTexto(),
                   ),
                   const SizedBox(height: AppSpacing.lg),
 
