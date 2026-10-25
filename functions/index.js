@@ -33,6 +33,17 @@ setGlobalOptions({ region: 'southamerica-east1', maxInstances: 10 });
 const redondear = (n) => Math.round(n * 100) / 100;
 
 /** Precio actual de una opción (variante o complemento) del catálogo. */
+// Precio que se cobra hoy: el de promoción si está vigente (HU-35).
+function precioVigente(producto, item) {
+  if (!producto.exists) return Number(item.precioUnitario || 0);
+  const precio = Number(producto.get('precio') ?? item.precioUnitario ?? 0);
+  const promo = producto.get('precioPromo');
+  const hasta = producto.get('promoHasta');
+  const vigente = typeof promo === 'number' && promo > 0 && promo < precio &&
+    (!hasta || hasta.toDate() > new Date());
+  return vigente ? promo : precio;
+}
+
 async function precioOpcion(opcion) {
   const comp = await db.collection('complementos').doc(opcion.id).get();
   if (comp.exists) return Number(comp.get('precio') || 0);
@@ -67,7 +78,7 @@ exports.verificarTotalPedido = onDocumentCreated('pedidos/{idPedido}/historialEs
     const opciones = [...(item.variantes || []), ...(item.complementos || [])];
     items.push({
       cantidad: Number(item.cantidad || 1),
-      precioProducto: Number(producto.get('precio') ?? item.precioUnitario ?? 0),
+      precioProducto: precioVigente(producto, item),
       extras: await Promise.all(opciones.map(precioOpcion)),
     });
   }

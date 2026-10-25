@@ -580,6 +580,24 @@ const traduccionesPt = <String, String>{
   'Muy grande': 'Muito grande',
   'Máximo': 'Máximo',
   'Accesibilidad': 'Acessibilidade',
+  // Favoritos (HU-19)
+  'Favoritos': 'Favoritos',
+  'Todavía no tienes favoritos': 'Você ainda não tem favoritos',
+  'Toca el corazón de un producto para guardarlo aquí.': 'Toque no coração de um produto para salvá-lo aqui.',
+  // Promociones, combos, pausa y reparto (HU-35/37/39/47)
+  'Promos': 'Promoções',
+  'Combos': 'Combos',
+  'No hay promociones en este momento': 'Não há promoções no momento',
+  'Todavía no hay combos': 'Ainda não há combos',
+  'COMBO': 'COMBO',
+  'PROMO -{n}%': 'PROMO -{n}%',
+  'Hasta el {fecha}': 'Até {fecha}',
+  'Incluye: {lista}': 'Inclui: {lista}',
+  'Ahorras Bs {monto}': 'Você economiza Bs {monto}',
+  'Por ahora no estamos recibiendo pedidos. Vuelve a intentarlo en un rato.': 'No momento não estamos recebendo pedidos. Tente novamente em instantes.',
+  'Por ahora no estamos recibiendo pedidos: {motivo}': 'No momento não estamos recebendo pedidos: {motivo}',
+  'Se asignó el pedido al repartidor {nombre}.': 'O pedido foi atribuído ao entregador {nombre}.',
+  'El repartidor {nombre} salió con el pedido.': 'O entregador {nombre} saiu com o seu pedido.',
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Alimente-se bem: prefira água natural, frutas e verduras, e modere o sal, o açúcar e as gorduras.',
 };

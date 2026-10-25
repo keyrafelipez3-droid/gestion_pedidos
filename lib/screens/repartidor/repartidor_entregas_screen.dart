@@ -200,10 +200,13 @@ class _ListaEntregas extends StatelessWidget {
             disponible: disponible,
           ),
         );
-        if (!compartirUbicacion) return lista;
+        if (!compartirUbicacion || !pedidos.any((p) => p.enReparto)) return lista;
         return Column(
           children: [
-            _RastreoUbicacion(idPedidos: pedidos.map((p) => p.id).toList()),
+            // Solo se comparte la ubicación de los pedidos que ya salieron.
+            _RastreoUbicacion(
+              idPedidos: pedidos.where((p) => p.enReparto).map((p) => p.id).toList(),
+            ),
             Expanded(child: lista),
           ],
         );
@@ -353,7 +356,23 @@ class _TarjetaEntregaState extends State<_TarjetaEntrega> {
               const SizedBox(height: AppSpacing.sm),
               SizedBox(
                 width: double.infinity,
-                child: p.estado == PedidoEstado.enCamino
+                child: p.estado == PedidoEstado.listo
+                    // HU-39: te lo asignaron; sales cuando lo recoges.
+                    ? FilledButton.icon(
+                        onPressed: (_ocupado || usuario == null)
+                            ? null
+                            : () => _ejecutar(
+                                  () => PedidoService.instancia.salirConEntregaAsignada(
+                                    idPedido: p.id,
+                                    idRepartidor: usuario.idUsuario,
+                                    nombreRepartidor: usuario.nombre,
+                                  ),
+                                  'Saliste con el pedido. ¡Buen viaje!',
+                                ),
+                        icon: const Icon(Icons.two_wheeler_outlined),
+                        label: const Text('Te lo asignaron · Salir a entregar'),
+                      )
+                    : p.estado == PedidoEstado.enCamino
                     ? FilledButton.icon(
                         onPressed: (_ocupado || usuario == null)
                             ? null

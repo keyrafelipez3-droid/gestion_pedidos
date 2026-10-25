@@ -53,7 +53,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
 
   double get _total => _cantidades.entries.fold<double>(0, (acc, e) {
         final p = _catalogo[e.key];
-        return p == null ? acc : acc + p.precio * e.value;
+        return p == null ? acc : acc + p.precioVigente() * e.value;
       });
 
   void _cambiar(String idProducto, int delta) {
@@ -77,9 +77,9 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
           CarritoItemModel(
             id: '',
             idProducto: e.key,
-            nombreProducto: _catalogo[e.key]!.nombre,
+            nombreProducto: _catalogo[e.key]!.nombreParaPedido(_catalogo.values),
             imagenUrl: _catalogo[e.key]!.imagenUrl,
-            precioUnitario: _catalogo[e.key]!.precio,
+            precioUnitario: _catalogo[e.key]!.precioVigente(),
             cantidad: e.value,
             idNegocio: _idNegocio,
           ),
@@ -205,7 +205,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
                   }
                   _catalogo = {for (final p in snapshot.data!) p.id: p};
                   var productos =
-                      snapshot.data!.where((p) => p.estado && p.disponible).toList();
+                      snapshot.data!.where((p) => p.estado && p.disponible && p.comboDisponible(snapshot.data!)).toList();
                   if (_idCategoria != null) {
                     productos = productos.where((p) => p.idCategoria == _idCategoria).toList();
                   }
@@ -246,7 +246,9 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
                                         ?.copyWith(fontWeight: FontWeight.w800),
                                   ),
                                   Text(
-                                    'Bs ${p.precio.toStringAsFixed(2)}',
+                                    p.promoActiva()
+                                        ? 'Bs ${p.precioVigente().toStringAsFixed(2)} (promo, antes Bs ${p.precio.toStringAsFixed(2)})'
+                                        : 'Bs ${p.precio.toStringAsFixed(2)}',
                                     style: theme.textTheme.bodyMedium
                                         ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
