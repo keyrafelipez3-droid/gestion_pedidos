@@ -277,7 +277,7 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
           children: [
             _PanelHorasPico(ventas: ventas),
             _PanelEnCurso(enCurso: enCurso, error: sCurso.hasError),
-            _PanelTopProductos(entregados: ventas, periodo: _periodo),
+            _PanelTopProductos(entregados: ventas, periodo: _periodo, idNegocio: widget.idNegocio),
             _PanelPagosYModalidad(ventas: ventas, periodo: _periodo),
             _PanelUltimosPedidos(enCurso: enCurso, todas: todas, cancelados: sCanc.data),
             _PanelCajas(cajas: cajas, error: sCajas.hasError),
@@ -472,7 +472,8 @@ class _PanelEnCurso extends StatelessWidget {
 class _PanelTopProductos extends StatefulWidget {
   final List<PedidoModel>? entregados;
   final PeriodoDashboard periodo;
-  const _PanelTopProductos({required this.entregados, required this.periodo});
+  final String idNegocio;
+  const _PanelTopProductos({required this.entregados, required this.periodo, required this.idNegocio});
 
   @override
   State<_PanelTopProductos> createState() => _PanelTopProductosState();
@@ -481,6 +482,8 @@ class _PanelTopProductos extends StatefulWidget {
 class _PanelTopProductosState extends State<_PanelTopProductos> {
   Future<List<ProductoVendido>>? _top;
   String _firma = '';
+  // HU-44: ver los más vendidos o los menos vendidos.
+  bool _menos = false;
 
   @override
   void initState() {
@@ -501,7 +504,20 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
     final firma = (lista.map((p) => p.id).toList()..sort()).join(',');
     if (firma == _firma && _top != null) return;
     _firma = firma;
-    _top = DashboardService.instancia.topProductos(lista);
+    _top = _calcular(lista);
+  }
+
+  /// Ranking completo, sumando los productos activos del catálogo que no
+  /// se vendieron (entran con 0 unidades en "menos vendidos").
+  Future<List<ProductoVendido>> _calcular(List<PedidoModel> lista) async {
+    var catalogo = <String>[];
+    try {
+      final productos = await CatalogoService.instancia.streamProductos(widget.idNegocio).first;
+      catalogo = [for (final p in productos) if (p.estado) p.nombre];
+    } catch (_) {
+      // Sin catálogo igual se muestra el ranking de lo vendido.
+    }
+    return DashboardService.instancia.rankingProductos(lista, catalogo: catalogo);
   }
 
   @override
@@ -519,11 +535,27 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
         builder: (context, s) {
           if (s.hasError) return const TextoError('No se pudo calcular el ranking.');
           if (!s.hasData) return const CargandoSeccion();
-          final top = s.data!;
-          if (top.isEmpty) return const TextoVacio('Sin productos vendidos todavía.');
-          final maximo = top.first.cantidad;
+          final ranking = s.data!;
+          if (ranking.isEmpty) return const TextoVacio('Sin productos vendidos todavía.');
+          final maximo = ranking.first.cantidad;
+          final top = _menos ? ranking.reversed.take(5).toList() : ranking.take(5).toList();
           return Column(
             children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Más vendidos'), icon: Icon(Icons.trending_up)),
+                      ButtonSegment(value: true, label: Text('Menos vendidos'), icon: Icon(Icons.trending_down)),
+                    ],
+                    selected: {_menos},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (v) => setState(() => _menos = v.first),
+                  ),
+                ),
+              ),
               for (var i = 0; i < top.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -531,8 +563,8 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
                     children: [
                       CircleAvatar(
                         radius: 13,
-                        backgroundColor: i == 0 ? scheme.primary : scheme.surfaceContainerHighest,
-                        foregroundColor: i == 0 ? scheme.onPrimary : scheme.onSurface,
+                        backgroundColor: i == 0 && !_menos ? scheme.primary : scheme.surfaceContainerHighest,
+                        foregroundColor: i == 0 && !_menos ? scheme.onPrimary : scheme.onSurface,
                         child: Text('${i + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                       ),
                       const SizedBox(width: AppSpacing.sm),
@@ -549,7 +581,14 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                Text('${top[i].cantidad} u. · ${bs(top[i].total)}', style: texto.bodySmall),
+                                Text(
+                                  top[i].cantidad == 0
+                                      ? 'Sin ventas'
+                                      : '${top[i].cantidad} u. · ${bs(top[i].total)}',
+                                  style: texto.bodySmall?.copyWith(
+                                    color: top[i].cantidad == 0 ? scheme.error : null,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
@@ -573,7 +612,7 @@ class _PanelTopProductosState extends State<_PanelTopProductos> {
       );
     }
     return PanelDashboard(
-      titulo: 'Productos más vendidos',
+      titulo: _menos ? 'Productos menos vendidos' : 'Productos más vendidos',
       icono: Icons.emoji_events_outlined,
       subtitulo: '${widget.periodo == PeriodoDashboard.hoy ? 'Hoy' : 'Últimos ${widget.periodo.dias} días'}, por unidades',
       child: contenido,

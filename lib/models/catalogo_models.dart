@@ -69,6 +69,16 @@ class ProductoModel {
   /// Por debajo de esta cantidad se avisa "Poco stock".
   final int stockMinimo;
 
+  /// HU-35: precio de promoción (null = sin promoción) y hasta cuándo
+  /// dura (null = hasta que el Administrador la quite).
+  final double? precioPromo;
+  final DateTime? promoHasta;
+
+  /// HU-37: un combo es un producto con su propio precio que incluye
+  /// otros productos del catálogo (sus ids, en orden).
+  final bool esCombo;
+  final List<String> comboIds;
+
   const ProductoModel({
     required this.id,
     required this.nombre,
@@ -82,7 +92,50 @@ class ProductoModel {
     this.alergenos = const [],
     this.stock,
     this.stockMinimo = 5,
+    this.precioPromo,
+    this.promoHasta,
+    this.esCombo = false,
+    this.comboIds = const [],
   });
+
+  /// ¿La promoción está vigente? Solo si es más barata que el precio
+  /// normal y no venció.
+  bool promoActiva([DateTime? ahora]) {
+    final p = precioPromo;
+    if (p == null || p <= 0 || p >= precio) return false;
+    final fin = promoHasta;
+    return fin == null || (ahora ?? DateTime.now()).isBefore(fin);
+  }
+
+  /// Precio que se cobra hoy (el de promoción si está vigente).
+  double precioVigente([DateTime? ahora]) => promoActiva(ahora) ? precioPromo! : precio;
+
+  /// Descuento de la promoción en % (redondeado), 0 si no hay.
+  int porcentajePromo([DateTime? ahora]) =>
+      promoActiva(ahora) && precio > 0 ? ((1 - precioPromo! / precio) * 100).round() : 0;
+
+  /// Productos que incluye el combo, buscados en [catalogo] (los que ya
+  /// no existen se omiten).
+  List<ProductoModel> contenidoCombo(Iterable<ProductoModel> catalogo) {
+    final porId = {for (final p in catalogo) p.id: p};
+    return [for (final id in comboIds) if (porId[id] != null) porId[id]!];
+  }
+
+  /// Nombre con el que entra al pedido: un combo lleva lo que incluye, así
+  /// la cocina, el ticket y los reportes saben qué preparar.
+  String nombreParaPedido(Iterable<ProductoModel> catalogo) {
+    if (!esCombo) return nombre;
+    final contenido = contenidoCombo(catalogo).map((p) => p.nombre).join(' + ');
+    return contenido.isEmpty ? nombre : '$nombre ($contenido)';
+  }
+
+  /// Un combo solo se vende si todo lo que incluye se puede vender.
+  bool comboDisponible(Iterable<ProductoModel> catalogo) {
+    if (!esCombo) return true;
+    final contenido = contenidoCombo(catalogo);
+    return contenido.length == comboIds.length &&
+        contenido.every((p) => p.estado && p.disponible && !p.agotado);
+  }
 
   bool get controlaStock => stock != null;
   bool get agotado => stock != null && stock! <= 0;
@@ -100,6 +153,10 @@ class ProductoModel {
         'alergenos': alergenos,
         'stock': stock,
         'stockMinimo': stockMinimo,
+        'precioPromo': precioPromo,
+        'promoHasta': promoHasta == null ? null : Timestamp.fromDate(promoHasta!),
+        'esCombo': esCombo,
+        'comboIds': comboIds,
       };
 
   factory ProductoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -118,6 +175,14 @@ class ProductoModel {
       alergenos: Alergenos.desdeFirestore(data['alergenos']),
       stock: (data['stock'] as num?)?.toInt(),
       stockMinimo: (data['stockMinimo'] as num?)?.toInt() ?? 5,
+      precioPromo: (data['precioPromo'] as num?)?.toDouble(),
+      promoHasta: (data['promoHasta'] as Timestamp?)?.toDate(),
+      esCombo: data['esCombo'] as bool? ?? false,
+      comboIds: [
+        if (data['comboIds'] is List)
+          for (final id in data['comboIds'] as List)
+            if (id is String) id,
+      ],
     );
   }
 }

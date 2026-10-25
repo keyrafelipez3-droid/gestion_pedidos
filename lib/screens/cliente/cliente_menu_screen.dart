@@ -46,6 +46,9 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
   final _buscadorCtrl = TextEditingController();
   String _busqueda = '';
   String? _idCategoriaSeleccionada; // null = "Todas"
+  // Filtros especiales: null, 'favoritos' (HU-19), 'promos' (HU-35) o
+  // 'combos' (HU-37).
+  String? _especial;
   String? _idSucursal;
 
   String get _uid => SesionActual.instancia.actual!.idUsuario;
@@ -60,7 +63,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
 
   /// Agrega al carrito. Si el producto tiene algo a lo que el cliente es
   /// alérgico, primero le pregunta.
-  Future<void> _agregar(ProductoModel producto) async {
+  Future<void> _agregar(ProductoModel producto, List<ProductoModel> catalogo) async {
     final conflicto = Alergenos.enComun(producto.alergenos, _misAlergias);
     if (conflicto.isNotEmpty) {
       final ok = await showDialog<bool>(
@@ -85,9 +88,10 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
       CarritoItemModel(
         id: '',
         idProducto: producto.id,
-        nombreProducto: producto.nombre,
+        nombreProducto: producto.nombreParaPedido(catalogo),
         imagenUrl: producto.imagenUrl,
-        precioUnitario: producto.precio,
+        // HU-35: si está en promoción, se cobra el precio de promoción.
+        precioUnitario: producto.precioVigente(),
         idNegocio: _idNegocio,
       ),
     );
@@ -157,7 +161,12 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
           _FiltroCategorias(
             idNegocio: _idNegocio,
             seleccionada: _idCategoriaSeleccionada,
-            onChanged: (id) => setState(() => _idCategoriaSeleccionada = id),
+            especial: _especial,
+            onChanged: (id) => setState(() {
+              _idCategoriaSeleccionada = id;
+              if (id == null) _especial = null;
+            }),
+            onEspecial: (v) => setState(() => _especial = v),
           ),
           Expanded(
             child: StreamBuilder<List<ProductoModel>>(
@@ -166,9 +175,15 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                 if (!snapProductos.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                var productos = snapProductos.data!
-                    .where((p) => p.estado && p.disponible)
+                final catalogo = snapProductos.data!;
+                var productos = catalogo
+                    .where((p) => p.estado && p.disponible && p.comboDisponible(catalogo))
                     .toList();
+                if (_especial == 'promos') {
+                  productos = productos.where((p) => p.promoActiva()).toList();
+                } else if (_especial == 'combos') {
+                  productos = productos.where((p) => p.esCombo).toList();
+                }
                 if (_idCategoriaSeleccionada != null) {
                   productos = productos
                       .where((p) => p.idCategoria == _idCategoriaSeleccionada)
@@ -181,15 +196,34 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                 }
                 if (productos.isEmpty) {
                   return AppEmptyState(
-                    icon: Icons.restaurant_menu_outlined,
-                    title: tr('No encontramos productos'),
+                    icon: _especial == 'promos'
+                        ? Icons.local_offer_outlined
+                        : _especial == 'combos'
+                            ? Icons.lunch_dining_outlined
+                            : Icons.restaurant_menu_outlined,
+                    title: _especial == 'promos'
+                        ? tr('No hay promociones en este momento')
+                        : _especial == 'combos'
+                            ? tr('Todavía no hay combos')
+                            : tr('No encontramos productos'),
                     message: tr('Prueba con otra búsqueda o categoría.'),
                   );
                 }
+                final todos = productos;
                 return StreamBuilder<Set<String>>(
                   stream: FavoritosService.instancia.streamIdsFavoritos(_uid),
                   builder: (context, snapFavoritos) {
                     final favoritos = snapFavoritos.data ?? {};
+                    final productos = _especial == 'favoritos'
+                        ? todos.where((p) => favoritos.contains(p.id)).toList()
+                        : todos;
+                    if (productos.isEmpty) {
+                      return AppEmptyState(
+                        icon: Icons.favorite_border,
+                        title: tr('Todavía no tienes favoritos'),
+                        message: tr('Toca el corazón de un producto para guardarlo aquí.'),
+                      );
+                    }
                     return ListView.separated(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -213,7 +247,16 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                           esFavoritoActual: favoritos.contains(productos[i].id),
                         ),
                         alergiasCliente: _misAlergias,
-                        onAgregar: () => _agregar(productos[i]),
+                        incluye: productos[i]
+                            .contenidoCombo(catalogo)
+                            .map((p) => p.nombre)
+                            .join(' + '),
+                        ahorro: productos[i].esCombo
+                            ? productos[i].contenidoCombo(catalogo).fold<double>(
+                                    0, (a, p) => a + p.precioVigente()) -
+                                productos[i].precioVigente()
+                            : 0,
+                        onAgregar: () => _agregar(productos[i], catalogo),
                       ),
                     );
                   },
@@ -317,11 +360,15 @@ class _FiltroCategorias extends StatelessWidget {
   final String idNegocio;
   final String? seleccionada;
   final ValueChanged<String?> onChanged;
+  final String? especial;
+  final ValueChanged<String?> onEspecial;
 
   const _FiltroCategorias({
     required this.idNegocio,
     required this.seleccionada,
     required this.onChanged,
+    required this.especial,
+    required this.onEspecial,
   });
 
   @override
@@ -330,7 +377,6 @@ class _FiltroCategorias extends StatelessWidget {
       stream: CatalogoService.instancia.streamCategorias(idNegocio),
       builder: (context, snapshot) {
         final categorias = (snapshot.data ?? []).where((c) => c.estado).toList();
-        if (categorias.isEmpty) return const SizedBox.shrink();
         return SizedBox(
           height: 44,
           child: ListView(
@@ -341,10 +387,30 @@ class _FiltroCategorias extends StatelessWidget {
                 padding: const EdgeInsets.only(right: AppSpacing.xs),
                 child: ChoiceChip(
                   label: Text(tr('Todas')),
-                  selected: seleccionada == null,
+                  selected: seleccionada == null && especial == null,
                   onSelected: (_) => onChanged(null),
                 ),
               ),
+              // Accesos rápidos: favoritos (HU-19), promociones (HU-35) y
+              // combos (HU-37). Se combinan con la categoría y la búsqueda.
+              for (final (id, icono, texto) in [
+                ('favoritos', Icons.favorite_border, tr('Favoritos')),
+                ('promos', Icons.local_offer_outlined, tr('Promos')),
+                ('combos', Icons.lunch_dining_outlined, tr('Combos')),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.xs),
+                  child: FilterChip(
+                    avatar: Icon(
+                      icono,
+                      size: 18,
+                      color: especial == id ? null : (id == 'favoritos' ? AppBrand.rojo : null),
+                    ),
+                    label: Text(texto),
+                    selected: especial == id,
+                    onSelected: (v) => onEspecial(v ? id : null),
+                  ),
+                ),
               for (final c in categorias)
                 Padding(
                   padding: const EdgeInsets.only(right: AppSpacing.xs),
@@ -441,6 +507,10 @@ class _TarjetaProducto extends StatelessWidget {
   final VoidCallback onFavorito;
   final VoidCallback onAgregar;
   final List<String> alergiasCliente;
+  /// Combo (HU-37): lo que incluye y cuánto se ahorra frente a comprarlo
+  /// por separado.
+  final String incluye;
+  final double ahorro;
 
   const _TarjetaProducto({
     required this.producto,
@@ -448,6 +518,8 @@ class _TarjetaProducto extends StatelessWidget {
     required this.onFavorito,
     required this.onAgregar,
     this.alergiasCliente = const [],
+    this.incluye = '',
+    this.ahorro = 0,
   });
 
   @override
@@ -466,18 +538,74 @@ class _TarjetaProducto extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (producto.esCombo || producto.promoActiva())
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          if (producto.esCombo)
+                            _Etiqueta(texto: tr('COMBO'), color: theme.colorScheme.primary),
+                          if (producto.promoActiva())
+                            _Etiqueta(
+                              texto: tr('PROMO -{n}%', {'n': producto.porcentajePromo()}),
+                              color: AppBrand.rojo,
+                            ),
+                        ],
+                      ),
+                    ),
                   Text(
                     producto.nombre,
                     style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    tr('Bs {precio}', {'precio': producto.precio.toStringAsFixed(2)}),
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: theme.colorScheme.primary,
-                    ),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    children: [
+                      Text(
+                        tr('Bs {precio}', {'precio': producto.precioVigente().toStringAsFixed(2)}),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      if (producto.promoActiva())
+                        Text(
+                          tr('Bs {precio}', {'precio': producto.precio.toStringAsFixed(2)}),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            decoration: TextDecoration.lineThrough,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
                   ),
+                  if (producto.promoActiva() && producto.promoHasta != null)
+                    Text(
+                      tr('Hasta el {fecha}', {
+                        'fecha': '${producto.promoHasta!.day.toString().padLeft(2, '0')}/'
+                            '${producto.promoHasta!.month.toString().padLeft(2, '0')}',
+                      }),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  if (incluye.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      tr('Incluye: {lista}', {'lista': incluye}),
+                      style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (ahorro >= 0.5)
+                      Text(
+                        tr('Ahorras Bs {monto}', {'monto': ahorro.toStringAsFixed(2)}),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: context.semanticColors.success,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
                   if (producto.pocoStock)
                     Text(
                       tr('¡Quedan solo {n}!', {'n': producto.stock}),
@@ -561,6 +689,28 @@ class _TarjetaProducto extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Etiqueta pequeña de color (COMBO, PROMO -20%).
+class _Etiqueta extends StatelessWidget {
+  final String texto;
+  final Color color;
+  const _Etiqueta({required this.texto, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+        child: Text(
+          texto,
+          style: TextStyle(
+            color: colorSobre(color),
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.4,
+          ),
+        ),
+      );
 }
 
 class _BarraCarrito extends StatelessWidget {

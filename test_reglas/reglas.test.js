@@ -549,6 +549,65 @@ describe('Solicitudes de negocios nuevos', () => {
   });
 });
 
+describe('Pausa de pedidos (HU-47)', () => {
+  test('con la sucursal en pausa nadie puede hacer un pedido ahí', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { pedidosPausados: true, motivoPausa: 'Cocina llena' }));
+    await assertFails(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+  });
+
+  test('al reanudar, se vuelve a poder pedir', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { pedidosPausados: false }));
+    await assertSucceeds(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+  });
+
+  test('solo el Administrador pausa su sucursal', async () => {
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'sucursales', 's1'), { pedidosPausados: true }));
+    await assertFails(updateDoc(doc(como('cajero1'), 'sucursales', 's1'), { pedidosPausados: true }));
+    await assertFails(updateDoc(doc(como('admin1'), 'sucursales', 's2'), { pedidosPausados: true }));
+  });
+});
+
+describe('Asignar repartidor (HU-39)', () => {
+  const asignacion = (uid) => ({ idRepartidor: uid, nombreRepartidor: 'Repa', telefonoRepartidor: '70000000' });
+
+  test('el Cajero asigna un pedido Listo a un repartidor de su negocio', async () => {
+    await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'pedDelivery'), asignacion('repa1')));
+  });
+
+  test('no se puede asignar a alguien que no es repartidor del negocio', async () => {
+    await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'pedDelivery'), asignacion('cocina1')));
+    await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'pedDelivery'), asignacion('cli1')));
+  });
+
+  test('la Cocina no asigna repartidores', async () => {
+    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'pedDelivery'), asignacion('repa1')));
+  });
+
+  test('no se asigna un pedido que todavía no está Listo', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'pedidos', 'pedDelivery'), { estado: 'En preparación' }));
+    await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'pedDelivery'), asignacion('repa1')));
+  });
+
+  test('el repartidor asignado sale con el pedido; otro no puede tomarlo', async () => {
+    await updateDoc(doc(como('cajero1'), 'pedidos', 'pedDelivery'), asignacion('repa1'));
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'usuarios', 'repa2'), { rol: 'Repartidor', estado: true, idNegocio: 'n1' }));
+    await assertFails(updateDoc(doc(como('repa2'), 'pedidos', 'pedDelivery'), {
+      estado: 'En camino', idRepartidor: 'repa2', nombreRepartidor: 'Otro', telefonoRepartidor: '1',
+    }));
+    await assertSucceeds(updateDoc(doc(como('repa1'), 'pedidos', 'pedDelivery'), { estado: 'En camino' }));
+  });
+
+  test('el Cajero ve a los repartidores de su negocio, pero no al resto del personal', async () => {
+    await assertSucceeds(getDocs(query(collection(como('cajero1'), 'usuarios'),
+      where('idNegocio', '==', 'n1'), where('rol', '==', 'Repartidor'))));
+    await assertFails(getDoc(doc(como('cajero1'), 'usuarios', 'cocina1')));
+  });
+});
+
 describe('Versión publicada de la app', () => {
   const version = { version: '1.1.0', build: 2, buildMinimo: 0, urlApk: '', notas: '' };
 

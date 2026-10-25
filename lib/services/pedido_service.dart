@@ -5,8 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../l10n/idioma.dart';
 import '../models/alergenos.dart';
 import '../models/carrito_models.dart';
+import '../models/catalogo_models.dart';
 import '../models/mesa_model.dart';
 import '../models/pedido_models.dart';
+import '../models/usuario_model.dart';
 import '../utils/errores.dart';
 import 'carrito_service.dart';
 import 'cupon_service.dart';
@@ -544,7 +546,11 @@ class PedidoService {
           .where('idRepartidor', isEqualTo: idRepartidor)
           .snapshots()
           .map((qs) {
-        final lista = qs.docs.map(PedidoModel.fromSnapshot).where((p) => p.enReparto).toList();
+        // También los pedidos Listos que el Cajero le asignó (HU-39).
+        final lista = qs.docs
+            .map(PedidoModel.fromSnapshot)
+            .where((p) => p.enReparto || p.estado == PedidoEstado.listo)
+            .toList();
         lista.sort((a, b) =>
             (a.fechaCreacion ?? DateTime(0)).compareTo(b.fechaCreacion ?? DateTime(0)));
         return lista;
@@ -576,6 +582,52 @@ class PedidoService {
       }
       rethrow;
     }
+    await _registrarHistorial(
+      idPedido,
+      PedidoEstado.enCamino,
+      idRepartidor,
+      'El repartidor $nombreRepartidor salió con el pedido.',
+    );
+  }
+
+  /// HU-39: repartidores activos del negocio (para asignarles pedidos).
+  Stream<List<UsuarioModel>> streamRepartidores(String idNegocio) => _db
+      .collection('usuarios')
+      .where('idNegocio', isEqualTo: idNegocio)
+      .where('rol', isEqualTo: Rol.repartidor)
+      .snapshots()
+      .map((qs) => qs.docs.map(UsuarioModel.fromSnapshot).where((u) => u.estado).toList()
+        ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
+
+  /// HU-39: el Cajero o el Administrador asigna un repartidor a un pedido
+  /// de delivery Listo. El pedido sigue Listo hasta que el repartidor sale.
+  Future<void> asignarRepartidor({
+    required String idPedido,
+    required String idRepartidor,
+    required String nombreRepartidor,
+    required String telefonoRepartidor,
+    required String idUsuario,
+  }) async {
+    await _pedidos.doc(idPedido).update({
+      'idRepartidor': idRepartidor,
+      'nombreRepartidor': nombreRepartidor,
+      'telefonoRepartidor': telefonoRepartidor,
+    });
+    await _registrarHistorial(
+      idPedido,
+      PedidoEstado.listo,
+      idUsuario,
+      'Se asignó el pedido al repartidor $nombreRepartidor.',
+    );
+  }
+
+  /// HU-39: el repartidor sale con un pedido que le asignaron.
+  Future<void> salirConEntregaAsignada({
+    required String idPedido,
+    required String idRepartidor,
+    required String nombreRepartidor,
+  }) async {
+    await _pedidos.doc(idPedido).update({'estado': PedidoEstado.enCamino});
     await _registrarHistorial(
       idPedido,
       PedidoEstado.enCamino,
@@ -757,15 +809,18 @@ class PedidoService {
         faltan.add(d.nombreProducto);
         continue;
       }
-      // Precio de HOY del producto (los extras conservan su precio).
+      // Precio de HOY del producto, con su promoción si está vigente (los
+      // extras conservan su precio). Un combo mantiene el nombre con lo que
+      // incluye.
+      final actual = ProductoModel.fromSnapshot(prod);
       await CarritoService.instancia.agregarAlCarrito(
         idCliente,
         CarritoItemModel(
           id: '',
           idProducto: d.idProducto,
-          nombreProducto: data!['nombre'] as String? ?? d.nombreProducto,
-          imagenUrl: data['imagenUrl'] as String? ?? '',
-          precioUnitario: (data['precio'] as num?)?.toDouble() ?? d.precioUnitario,
+          nombreProducto: actual.esCombo || actual.nombre.isEmpty ? d.nombreProducto : actual.nombre,
+          imagenUrl: actual.imagenUrl,
+          precioUnitario: data?['precio'] is num ? actual.precioVigente() : d.precioUnitario,
           cantidad: d.cantidad,
           variantes: d.variantes,
           complementos: d.complementos,
