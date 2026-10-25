@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gestion_pedidos/services/app_theme_controller.dart';
 
 void main() {
+  AppThemeController.usarFuentesDeGoogle = false;
+
   testWidgets('theme builder produces a valid Material app', (tester) async {
     final theme = AppThemeController.instancia.buildTheme(Brightness.light);
 

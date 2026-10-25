@@ -285,20 +285,37 @@ class _AccionHome extends StatelessWidget {
     final fondo = destacada ? scheme.primary : scheme.surfaceContainerLow;
     final texto = destacada ? scheme.onPrimary : scheme.onSurface;
     final brand = context.brand;
+    final oscuro = scheme.brightness == Brightness.dark;
     return Material(
-      color: destacada ? fondo : scheme.surfaceContainerLowest,
-      elevation: brand.tarjeta == 'sombra' ? (destacada ? 4 : 2) : 0,
+      color: destacada
+          ? fondo
+          : (oscuro ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest),
+      elevation: brand.tarjeta == 'sombra' && !oscuro ? (destacada ? 4 : 2) : 0,
       shadowColor: destacada ? brand.colorSombra.withValues(alpha: 0.35) : brand.colorSombra,
       shape: RoundedRectangleBorder(
         borderRadius: brand.card,
-        side: (!destacada && brand.tarjeta == 'borde')
+        side: (!destacada && (brand.tarjeta == 'borde' || oscuro))
             ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
             : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
+        child: Ink(
+          // La acción principal lleva un degradado suave del color de marca.
+          decoration: destacada
+              ? BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color.lerp(fondo, Colors.white, 0.12)!,
+                      Color.lerp(fondo, Colors.black, 0.12)!,
+                    ],
+                  ),
+                )
+              : null,
+          child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -330,6 +347,7 @@ class _AccionHome extends StatelessWidget {
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -344,75 +362,86 @@ class _TarjetaBienvenida extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final brand = context.brand;
+    final textos = Theme.of(context).textTheme;
+    final inicial = usuario.nombre.isNotEmpty ? usuario.nombre[0].toUpperCase() : '?';
+    return Container(
+      width: double.infinity,
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              vertical: AppSpacing.xl,
-              horizontal: AppSpacing.lg,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  scheme.primary,
-                  Color.lerp(scheme.primary, Colors.black, 0.22)!,
-                ],
-              ),
-            ),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: colorSobre(scheme.primary).withValues(alpha: 0.22),
-                  foregroundColor: colorSobre(scheme.primary),
-                  child: Text(
-                    usuario.nombre.isNotEmpty
-                        ? usuario.nombre[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+      decoration: brand.decoracionTarjeta(scheme),
+      child: DecoratedBox(
+        // Un brillo suave del color de marca desde la esquina.
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.topLeft,
+            radius: 1.4,
+            colors: [
+              scheme.primary.withValues(alpha: 0.20),
+              scheme.primary.withValues(alpha: 0.0),
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: scheme.primary, width: 2),
+                    ),
+                    child: CircleAvatar(
+                      radius: 28,
+                      backgroundColor: scheme.primary,
+                      foregroundColor: scheme.onPrimary,
+                      child: Text(
+                        inicial,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  tr('¡Hola, {nombre}!', {'nombre': usuario.nombre}),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: colorSobre(scheme.primary),
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  usuario.email,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorSobre(scheme.primary).withValues(alpha: 0.9),
-                      ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('¡Hola, {nombre}!', {'nombre': usuario.nombre}),
+                          style: textos.headlineSmall,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          usuario.email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textos.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
+                  AppStatusBadge(
+                    label: tr('Sesión activa'),
+                    tone: AppStatusTone.success,
+                  ),
+                ],
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
-                const SizedBox(width: AppSpacing.sm),
-                AppStatusBadge(
-                  label: tr('Sesión activa'),
-                  tone: AppStatusTone.success,
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
