@@ -197,9 +197,13 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                         AppSpacing.md,
                         96, // deja espacio para la barra flotante del carrito
                       ),
-                      itemCount: productos.length,
+                      // Al final del menú: mensaje de alimentación saludable
+                      // (Ley 775, art. 13.5).
+                      itemCount: productos.length + 1,
                       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                      itemBuilder: (context, i) => _TarjetaProducto(
+                      itemBuilder: (context, i) => i == productos.length
+                          ? const _MensajeSaludable()
+                          : _TarjetaProducto(
                         producto: productos[i],
                         esFavorito: favoritos.contains(productos[i].id),
                         onFavorito: () => FavoritosService.instancia.alternarFavorito(
@@ -628,6 +632,33 @@ class _BarraCarrito extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Mensaje de alimentación saludable que la Ley 775 (art. 13.5) pide
+/// incluir en los menús de los establecimientos de comida.
+class _MensajeSaludable extends StatelessWidget {
+  const _MensajeSaludable();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.eco_outlined, size: 18, color: scheme.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              tr('Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

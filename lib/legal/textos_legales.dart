@@ -27,8 +27,14 @@ class TextosLegales {
               '${AppConfig.titularPlataforma} para que distintos negocios '
               'reciban y gestionen pedidos. Cada negocio aparece identificado '
               'en su ficha y es quien atiende tu pedido.',
-          'Para consultas sobre tus datos puedes escribir a '
+          'Responsable del tratamiento de tus datos: '
+              '${AppConfig.titularPlataforma}, con domicilio en '
+              '${AppConfig.ciudadPais}. Para consultas sobre tus datos escribe a '
               '${AppConfig.correoPrivacidad}.',
+          'Esta política cumple lo que exigen la Constitución Política del '
+              'Estado (arts. 21 y 130) y el Reglamento de la Ley 164 '
+              '(DS 1793, art. 56): pedir tu consentimiento, decirte para qué '
+              'usamos tus datos y respetar tus derechos sobre ellos.',
         ]),
         SeccionLegal('2. Qué datos recopilamos', [
           'Datos de tu cuenta: nombre, correo electrónico y teléfono. Tu '
@@ -58,8 +64,15 @@ class TextosLegales {
           'Datos para factura: si pides factura, el NIT o CI y la razón social '
               'se guardan en el pedido para el negocio y, para no volver a '
               'escribirlos, en tu dispositivo.',
-          'Idioma y avisos: el idioma que eliges y la lista de avisos de tus '
-              'pedidos se guardan solo en tu dispositivo.',
+          'Idioma, tamaño de letra y avisos: se guardan solo en tu dispositivo.',
+          'Copia para usar sin internet: en la app del celular se guarda en tu '
+              'teléfono una copia de los datos ya cargados, para que la app '
+              'funcione si se corta la conexión. En la versión web no se guarda '
+              'ninguna copia en el navegador.',
+          'Informes de fallas: si la app tiene una falla inesperada, se guarda '
+              'un informe técnico (mensaje de error, versión de la app, tipo de '
+              'dispositivo, tu rol y tu identificador de usuario, sin tu nombre '
+              'ni tus pedidos) para poder corregirla. Se borran periódicamente.',
           'No usamos tus datos para publicidad de terceros.',
         ]),
         SeccionLegal('3. Para qué los usamos', [
@@ -79,9 +92,15 @@ class TextosLegales {
               'entregarlo, y tú ves el nombre y teléfono del repartidor '
               'mientras tu pedido va en camino. No compartimos tus datos con '
               'los demás negocios de la plataforma.',
-          'Con proveedores técnicos que almacenan la información por '
-              'nosotros: Google Firebase (cuentas y base de datos) y '
-              'Cloudinary (imágenes).',
+          'Con proveedores técnicos que guardan o procesan la información por '
+              'nosotros: Google Firebase (cuentas, base de datos y alojamiento '
+              'de la web) y Cloudinary (imágenes). Para buscar direcciones y '
+              'mostrar el mapa se usan los servicios de OpenStreetMap, que '
+              'reciben el texto de la dirección que buscas.',
+          'Estos proveedores tienen sus servidores fuera de Bolivia (por '
+              'ejemplo, en Estados Unidos). Al aceptar esta política aceptas '
+              'que tus datos se guarden allí, con las medidas de seguridad de '
+              'esos proveedores.',
           'Traducción: si usas la app en otro idioma, el texto de tus notas y '
               'de la referencia de tu dirección se envía al servicio de '
               'traducción automática MyMemory para que el personal lo lea en '
@@ -106,10 +125,18 @@ class TextosLegales {
           'La Constitución Política del Estado reconoce tu derecho a la '
               'privacidad y a conocer, corregir y eliminar tus datos '
               'personales.',
+          'Tienes derecho a: conocer qué datos tuyos tenemos (acceso), '
+              'corregirlos (rectificación), pedir que los borremos '
+              '(cancelación), oponerte a un uso concreto (oposición) y retirar '
+              'tu consentimiento en cualquier momento. Retirarlo no afecta lo '
+              'que se hizo antes con tu autorización.',
           'Puedes ver y corregir tu nombre y teléfono en "Mi cuenta", y '
               'eliminar tu cuenta en "Mi cuenta > Eliminar mi cuenta". Para '
-              'cualquier otra solicitud sobre tus datos, escribe a '
-              '${AppConfig.correoPrivacidad}.',
+              'cualquier otra solicitud escribe a ${AppConfig.correoPrivacidad}: '
+              'te responderemos en un plazo máximo de 10 días hábiles.',
+          'Si consideras que tus datos se usan de forma indebida, también '
+              'puedes presentar una Acción de Protección de Privacidad ante un '
+              'juez (Constitución, arts. 130 y 131).',
         ]),
         SeccionLegal('7. Seguridad', [
           'Los datos se guardan en servicios de Google Firebase con reglas '
@@ -118,13 +145,22 @@ class TextosLegales {
               'infalible, por eso te recomendamos usar una contraseña única.',
         ]),
         SeccionLegal('8. Menores de edad', [
-          'La plataforma no está dirigida a menores de edad sin la '
-              'supervisión de un adulto responsable.',
+          'Para crear una cuenta debes tener 18 años o más. Si eres menor de '
+              'edad, solo puedes usar la plataforma con la autorización y '
+              'supervisión de tu madre, padre o tutor, que es responsable de '
+              'los pedidos que hagas.',
         ]),
-        SeccionLegal('9. Cambios en esta política', [
-          'Si cambiamos esta política, publicaremos la nueva versión aquí '
-              'y, si el cambio es importante, te pediremos aceptarla de '
-              'nuevo. Versión: ${AppConfig.versionTerminos}.',
+        SeccionLegal('9. Tu consentimiento', [
+          'Al marcar la casilla de aceptación al crear tu cuenta das tu '
+              'consentimiento previo, expreso e informado para que tratemos '
+              'tus datos como explica esta política. Tus alergias (dato de '
+              'salud) solo se guardan si tú las marcas, y solo para preparar '
+              'tus pedidos con seguridad.',
+        ]),
+        SeccionLegal('10. Cambios en esta política', [
+          'Si cambiamos esta política, te pediremos aceptar la nueva versión '
+              'antes de seguir usando la app. Versión: '
+              '${AppConfig.versionTerminos}.',
         ]),
       ];
 
@@ -139,19 +175,23 @@ class TextosLegales {
           'Debes dar datos verdaderos y mantenerlos actualizados. Eres '
               'responsable de cuidar tu contraseña y de lo que se haga con '
               'tu cuenta.',
+          'Debes tener 18 años o más, o usar la plataforma con autorización y '
+              'supervisión de tu madre, padre o tutor.',
         ]),
         SeccionLegal('3. Precios y pedidos', [
-          'Los precios se muestran en bolivianos (Bs). El total que ves '
-              'antes de confirmar tu pedido es el que corresponde pagar, '
-              'incluidos los cargos que el negocio haya informado.',
+          'Los precios se muestran en bolivianos (Bs) e incluyen los impuestos. '
+              'Antes de confirmar ves el detalle completo: productos, descuento, '
+              'costo de envío según tu zona y propina. El total que ves es el '
+              'que corresponde pagar; no hay cobros ocultos (Ley 453, art. 14).',
           'El negocio puede rechazar o cancelar un pedido si no puede '
               'atenderlo; si ocurre, verás el motivo en el detalle del pedido.',
           'Puedes programar un pedido para más tarde, dentro del horario de '
               'atención del local. Los productos con cantidad limitada pueden '
               'agotarse antes de que confirmes.',
           'Los cupones de descuento los crea cada negocio, con sus propias '
-              'condiciones (monto mínimo y fecha de vencimiento). El negocio '
-              'puede pausarlos o retirarlos.',
+              'condiciones (monto mínimo y fecha de vencimiento), que se '
+              'muestran al aplicarlos. Un cupón vigente se respeta en los '
+              'pedidos confirmados mientras estaba vigente.',
           'La propina para el repartidor es voluntaria, va completa para el '
               'repartidor y no forma parte del precio de los productos.',
         ]),
@@ -177,8 +217,9 @@ class TextosLegales {
         ]),
         SeccionLegal('7. Uso adecuado', [
           'No está permitido hacer pedidos falsos, ofender o amenazar al '
-              'personal de un negocio, ni usar la plataforma para fines '
-              'ilegales. El Administrador de un negocio puede bloquear tu '
+              'personal de un negocio, publicar reseñas con insultos, datos de '
+              'otras personas o contenido racista o discriminatorio (Ley 045), '
+              'ni usar la plataforma para fines ilegales. El Administrador de un negocio puede bloquear tu '
               'cuenta en ese negocio si lo incumples; el bloqueo no afecta '
               'a los demás negocios.',
         ]),
@@ -192,7 +233,13 @@ class TextosLegales {
           'Puedes presentar tu reclamo directamente al negocio, de forma '
               'verbal o escrita y sin formalidades. Los datos de contacto '
               'de cada negocio están en su ficha, en el menú del negocio. '
-              'También puedes escribir a ${AppConfig.correoPrivacidad}.',
+              'Para reclamos sobre la plataforma escribe a '
+              '${AppConfig.correoPrivacidad}: te responderemos en un plazo '
+              'máximo de 10 días hábiles.',
+          'Si tu reclamo no se resuelve, puedes acudir al Viceministerio de '
+              'Defensa de los Derechos del Usuario y del Consumidor (Ministerio '
+              'de Justicia), conforme a la Ley 453. Presentar un reclamo es '
+              'gratuito y no necesita abogado.',
         ]),
         SeccionLegal('10. Eliminar tu cuenta', [
           'Puedes eliminar tu cuenta en cualquier momento desde "Mi cuenta". '
@@ -204,8 +251,9 @@ class TextosLegales {
               'de Bolivia. Ciudad de referencia: ${AppConfig.ciudadPais}.',
         ]),
         SeccionLegal('12. Cambios', [
-          'Podemos actualizar estos términos. Versión: '
-              '${AppConfig.versionTerminos}.',
+          'Si cambiamos estos términos, te pediremos aceptar la nueva versión '
+              'antes de seguir usando la app; ningún cambio se aplica sin tu '
+              'aceptación. Versión: ${AppConfig.versionTerminos}.',
         ]),
       ];
 
@@ -276,16 +324,25 @@ class TextosLegales {
           'Administración: gestionas al personal y los datos del Negocio. '
               'Desactiva la cuenta de quien deje de trabajar en el Negocio.',
       ]),
-      const SeccionLegal('6. Fin del acuerdo', [
+      const SeccionLegal('6. Tus datos como parte del personal', [
+        'Para este acuerdo y tu trabajo en la plataforma se guardan tu nombre, '
+            'correo, teléfono, documento de identidad (en la firma), el '
+            'registro de tus acciones y, si eres repartidor, tu ubicación solo '
+            'mientras tienes entregas en curso. Los ve el Administrador del '
+            'Negocio y se usan para operar y para resolver diferencias de caja '
+            'o reclamos. Puedes pedir acceso o corrección a tu Administrador.',
+      ]),
+      const SeccionLegal('7. Fin del acuerdo', [
         'Cuando termina tu relación con el Negocio, el Administrador desactiva '
             'tu cuenta y ya no podrás entrar. La obligación de confidencialidad '
             'se mantiene.',
       ]),
-      SeccionLegal('7. Firma electrónica', [
+      SeccionLegal('8. Firma electrónica', [
         'Al escribir tu nombre completo y tu documento de identidad y pulsar '
             '"Firmar y continuar", aceptas este acuerdo. Queda registrado con la '
             'fecha y hora del servidor y la versión ${AppConfig.versionAcuerdoPersonal}. '
-            'El Negocio puede pedirte además una firma en papel.',
+            'Esta aceptación electrónica es válida conforme a la Ley 164; el '
+            'Negocio puede pedirte además una firma en papel.',
         'Si el acuerdo cambia, se te pedirá firmar la nueva versión.',
       ]),
     ];

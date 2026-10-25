@@ -580,4 +580,6 @@ const traduccionesPt = <String, String>{
   'Muy grande': 'Muito grande',
   'Máximo': 'Máximo',
   'Accesibilidad': 'Acessibilidade',
+  // Ley 775
+  'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Alimente-se bem: prefira água natural, frutas e verduras, e modere o sal, o açúcar e as gorduras.',
 };
