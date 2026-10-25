@@ -31,7 +31,7 @@ String csvVentas(
   double envios = 0;
   for (final p in ordenados) {
     final f = p.fechaCreacion;
-    total += p.total;
+    total += p.montoNegocio;
     descuentos += p.descuento;
     propinas += p.propina;
     envios += p.costoEnvio;
@@ -45,7 +45,7 @@ String csvVentas(
       p.estado,
       p.codigoCupon ?? '',
       p.descuento > 0 ? bs(p.descuento) : '',
-      bs(p.total),
+      bs(p.montoNegocio),
       p.propina > 0 ? bs(p.propina) : '',
       p.costoEnvio > 0 ? bs(p.costoEnvio) : '',
       p.facturaNit ?? '',

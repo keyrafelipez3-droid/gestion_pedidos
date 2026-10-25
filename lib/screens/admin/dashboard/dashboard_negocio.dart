@@ -688,7 +688,7 @@ class _PanelUltimosPedidos extends StatelessWidget {
                               ],
                             ),
                           ),
-                          Text(bs(p.total), style: texto.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          Text(bs(p.montoNegocio), style: texto.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                           const SizedBox(width: AppSpacing.sm),
                           AppStatusBadge(label: p.estado, tone: _tono(p.estado)),
                         ],

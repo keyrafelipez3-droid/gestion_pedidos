@@ -54,7 +54,7 @@ Uint8List excelVentas(
       _texto(p.estado),
       _texto(p.codigoCupon ?? ''),
       p.descuento > 0 ? _numero(p.descuento, _E.dinero) : _vacia(),
-      _numero(p.total, _E.dinero),
+      _numero(p.montoNegocio, _E.dinero),
       p.propina > 0 ? _numero(p.propina, _E.dinero) : _vacia(),
       p.costoEnvio > 0 ? _numero(p.costoEnvio, _E.dinero) : _vacia(),
       _texto(p.facturaNit ?? ''),
@@ -68,7 +68,7 @@ Uint8List excelVentas(
     _texto('TOTAL', _E.totalTexto),
     for (var i = 0; i < 7; i++) _texto('', _E.totalTexto),
     _formula('SUM(${rango('I')})', suma((p) => p.descuento), _E.totalDinero),
-    _formula('SUM(${rango('J')})', suma((p) => p.total), _E.totalDinero),
+    _formula('SUM(${rango('J')})', suma((p) => p.montoNegocio), _E.totalDinero),
     _formula('SUM(${rango('K')})', suma((p) => p.propina), _E.totalDinero),
     _formula('SUM(${rango('L')})', suma((p) => p.costoEnvio), _E.totalDinero),
     _texto('', _E.totalTexto),
@@ -78,7 +78,7 @@ Uint8List excelVentas(
 
   // --------------------------------------------------------------- Resumen
   final resumen = _Hoja();
-  final total = suma((p) => p.total);
+  final total = suma((p) => p.montoNegocio);
   resumen.fila([_texto('Resumen', _E.titulo)]);
   resumen.fila([_texto(periodo.isEmpty ? '${ordenados.length} pedidos' : periodo, _E.nota)]);
   resumen.fila(const []);
@@ -102,7 +102,7 @@ Uint8List excelVentas(
     for (final p in ordenados) {
       final k = clave(p);
       final g = grupos[k] ?? (n: 0, bs: 0.0);
-      grupos[k] = (n: g.n + 1, bs: g.bs + p.total);
+      grupos[k] = (n: g.n + 1, bs: g.bs + p.montoNegocio);
     }
     final lista = grupos.entries.toList()..sort((a, b) => b.value.bs.compareTo(a.value.bs));
     resumen.fila(const []);

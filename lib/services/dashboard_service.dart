@@ -115,8 +115,10 @@ List<PedidoModel> pedidosEntre(List<PedidoModel> pedidos, DateTime desde, DateTi
       return f != null && !f.isBefore(desde) && f.isBefore(hasta);
     }).toList();
 
+/// Ventas = lo que entra al negocio (productos − descuento + envío; sin la
+/// propina, que es del repartidor). Igual que lo que se cobra en caja.
 double sumarTotales(Iterable<PedidoModel> pedidos) =>
-    redondearDinero(pedidos.fold<double>(0, (a, p) => a + p.total));
+    redondearDinero(pedidos.fold<double>(0, (a, p) => a + p.montoNegocio));
 
 /// Suma de [valor] agrupada por la clave que devuelve [clave].
 Map<String, double> agruparSuma(
@@ -126,7 +128,7 @@ Map<String, double> agruparSuma(
   final m = <String, double>{};
   for (final p in pedidos) {
     final k = clave(p);
-    m[k] = redondearDinero((m[k] ?? 0) + p.total);
+    m[k] = redondearDinero((m[k] ?? 0) + p.montoNegocio);
   }
   return m;
 }
@@ -176,7 +178,7 @@ List<double> porHora(Iterable<PedidoModel> pedidos, {bool contar = false}) {
   for (final p in pedidos) {
     final f = p.fechaCreacion;
     if (f == null) continue;
-    v[f.hour] += contar ? 1 : p.total;
+    v[f.hour] += contar ? 1 : p.montoNegocio;
   }
   return v;
 }
@@ -189,7 +191,7 @@ List<double> porDia(Iterable<PedidoModel> pedidos, DateTime desde, DateTime hast
     final f = p.fechaCreacion;
     if (f == null) continue;
     final i = inicioDelDia(f).difference(desde).inDays;
-    if (i >= 0 && i < v.length) v[i] += contar ? 1 : p.total;
+    if (i >= 0 && i < v.length) v[i] += contar ? 1 : p.montoNegocio;
   }
   return v;
 }
