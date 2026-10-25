@@ -36,14 +36,17 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-/// Guarda en el dispositivo lo que se va cargando (hasta 100 MB) para que
-/// la app siga mostrando datos si se corta el internet; los cambios hechos
-/// sin conexión se envían solos al volver. En Android/iOS ya viene activo;
-/// en la web hay que pedirlo.
+/// Modo sin conexión. En el celular (dispositivo personal) se guarda en el
+/// teléfono una copia de lo cargado, hasta 100 MB, para seguir mostrando
+/// datos si se corta el internet. En la WEB NO se guarda en el navegador:
+/// la computadora de la caja suele ser compartida y esa copia quedaría
+/// después de cerrar sesión (seguridad de datos personales, DS 1793
+/// art. 56). En la web la app igual tolera cortes cortos mientras la
+/// pestaña está abierta, y los cambios se envían al volver la conexión.
 void _activarModoSinConexion() {
   try {
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
+    FirebaseFirestore.instance.settings = Settings(
+      persistenceEnabled: !kIsWeb,
       cacheSizeBytes: 100 * 1024 * 1024,
     );
   } catch (_) {

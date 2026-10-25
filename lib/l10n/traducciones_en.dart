@@ -580,4 +580,6 @@ const traduccionesEn = <String, String>{
   'Muy grande': 'Very large',
   'Máximo': 'Maximum',
   'Accesibilidad': 'Accessibility',
+  // Ley 775
+  'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Eat healthy: choose plain water, fruits and vegetables, and limit salt, sugar and fat.',
 };

@@ -16,7 +16,7 @@ class AppConfig {
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.
-  static const String versionTerminos = '2026-10-23';
+  static const String versionTerminos = '2026-10-25';
 
   /// App Check (protección contra bots). Clave de sitio de reCAPTCHA v3
   /// para la versión web: vacía = desactivado. Ver Claude outputs/SEGURIDAD.md.
@@ -28,7 +28,7 @@ class AppConfig {
 
   /// Versión del "Acuerdo de uso y confidencialidad del personal". Si se
   /// sube, todo el personal debe volver a firmarlo al entrar.
-  static const String versionAcuerdoPersonal = '2026-10-23';
+  static const String versionAcuerdoPersonal = '2026-10-25';
 
   /// Quién ofrece la plataforma (persona o empresa titular).
   static const String titularPlataforma =
