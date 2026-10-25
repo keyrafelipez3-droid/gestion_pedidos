@@ -572,4 +572,12 @@ const traduccionesFr = <String, String>{
   'Ir a mi panel': 'Aller à mon panneau',
   'Enviar otra solicitud': 'Envoyer une autre demande',
   'Cancelar solicitud': 'Annuler la demande',
+  // Tamaño de letra
+  'Tamaño de letra': 'Taille du texte',
+  'Elige el tamaño que te resulte más cómodo. Se aplica a toda la app.': 'Choisissez la taille la plus confortable. Elle s’applique à toute l’app.',
+  'Normal': 'Normal',
+  'Grande': 'Grand',
+  'Muy grande': 'Très grand',
+  'Máximo': 'Maximum',
+  'Accesibilidad': 'Accessibilité',
 };

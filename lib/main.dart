@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'config/app_config.dart';
 import 'firebase_options.dart';
 import 'l10n/idioma.dart';
+import 'l10n/tamano_texto.dart';
 import 'models/negocio_model.dart';
 import 'screens/auth_gate.dart';
 import 'services/app_theme_controller.dart';
@@ -31,6 +32,7 @@ Future<void> main() async {
   // se carga recién al iniciar sesión (ver SesionActual.cargar()), según
   // a qué negocio pertenezca. Antes de eso se usa el tema por defecto.
   await IdiomaController.instancia.cargar();
+  await TamanoTextoController.instancia.cargar();
   runApp(const MyApp());
 }
 
@@ -90,9 +92,11 @@ class MyApp extends StatelessWidget {
           navigatorKey: navigatorKey,
           scaffoldMessengerKey: mensajesKey,
           // Cierra la sesión del personal tras 20 minutos sin uso.
-          builder: (context, child) => VigilanteInactividad(
-            child: AvisoActualizacion(
-              child: AvisoSinConexion(child: child ?? const SizedBox.shrink()),
+          builder: (context, child) => EscalaTexto(
+            child: VigilanteInactividad(
+              child: AvisoActualizacion(
+                child: AvisoSinConexion(child: child ?? const SizedBox.shrink()),
+              ),
             ),
           ),
           locale: Locale(idioma),
