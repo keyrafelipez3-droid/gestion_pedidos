@@ -33,6 +33,32 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    // La app ya no usa "service worker": así cada persona ve siempre la
+    // última versión publicada. Si el navegador guardó uno de una versión
+    // anterior, se borra junto con su copia y se recarga una sola vez.
+    (function () {
+      try {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          if (!regs.length) return;
+          var borrar = regs.map(function (r) { return r.unregister(); });
+          if (window.caches) {
+            borrar.push(caches.keys().then(function (ks) {
+              return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+            }));
+          }
+          Promise.all(borrar).then(function () {
+            var yaRecargo = false;
+            try { yaRecargo = sessionStorage.getItem('caroSinSW') === '1'; } catch (e) {}
+            if (yaRecargo) return;
+            try { sessionStorage.setItem('caroSinSW', '1'); } catch (e) {}
+            location.reload();
+          });
+        }).catch(function () {});
+      } catch (e) {}
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
