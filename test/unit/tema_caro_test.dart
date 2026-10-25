@@ -32,6 +32,14 @@ void main() {
     expect(t.colorScheme.brightness, Brightness.dark);
   });
 
+  test('el texto sobre un color siempre es el que más se lee', () {
+    // Dorado medio: letras oscuras (antes salían blancas y no se leían).
+    expect(colorSobre(const Color(0xFFC9A45C)), const Color(0xFF111111));
+    // Azul oscuro y negro: letras blancas.
+    expect(colorSobre(const Color(0xFF0A2E5C)), Colors.white);
+    expect(colorSobre(AppBrand.fondoOscuro), Colors.white);
+  });
+
   test('en fondo oscuro las tarjetas llevan borde fino', () {
     final t = ctrl.buildThemeFor(null, Brightness.dark);
     final forma = t.cardTheme.shape as RoundedRectangleBorder;

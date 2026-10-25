@@ -598,6 +598,14 @@ const traduccionesEn = <String, String>{
   'Por ahora no estamos recibiendo pedidos: {motivo}': "We're not taking orders right now: {motivo}",
   'Se asignó el pedido al repartidor {nombre}.': 'The order was assigned to the delivery driver {nombre}.',
   'El repartidor {nombre} salió con el pedido.': 'The delivery driver {nombre} left with your order.',
+  // Pantalla principal
+  'pedidos en curso': 'orders in progress',
+  'pedidos realizados': 'orders placed',
+  '{n} en curso': '{n} in progress',
+  'Elige un restaurante y arma tu pedido': 'Choose a restaurant and build your order',
+  'Sigue tus pedidos y revisa los anteriores': 'Track your orders and see past ones',
+  'Tus datos, contraseña y preferencias': 'Your details, password and preferences',
+  'Accesos rápidos': 'Shortcuts',
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Eat healthy: choose plain water, fruits and vegetables, and limit salt, sugar and fat.',
 };

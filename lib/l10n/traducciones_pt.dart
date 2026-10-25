@@ -598,6 +598,14 @@ const traduccionesPt = <String, String>{
   'Por ahora no estamos recibiendo pedidos: {motivo}': 'No momento não estamos recebendo pedidos: {motivo}',
   'Se asignó el pedido al repartidor {nombre}.': 'O pedido foi atribuído ao entregador {nombre}.',
   'El repartidor {nombre} salió con el pedido.': 'O entregador {nombre} saiu com o seu pedido.',
+  // Pantalla principal
+  'pedidos en curso': 'pedidos em andamento',
+  'pedidos realizados': 'pedidos feitos',
+  '{n} en curso': '{n} em andamento',
+  'Elige un restaurante y arma tu pedido': 'Escolha um restaurante e monte seu pedido',
+  'Sigue tus pedidos y revisa los anteriores': 'Acompanhe seus pedidos e veja os anteriores',
+  'Tus datos, contraseña y preferencias': 'Seus dados, senha e preferências',
+  'Accesos rápidos': 'Atalhos',
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Alimente-se bem: prefira água natural, frutas e verduras, e modere o sal, o açúcar e as gorduras.',
 };

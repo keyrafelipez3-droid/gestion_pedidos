@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
 import '../l10n/tamano_texto.dart';
+import '../models/mesa_model.dart';
+import '../models/pedido_models.dart';
 import '../models/usuario_model.dart';
 import '../services/actividad_service.dart';
+import '../services/caja_service.dart';
+import '../services/mesa_service.dart';
+import '../services/pedido_service.dart';
 import '../services/sesion_actual.dart';
+import '../services/solicitudes_service.dart';
 import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_status_badge.dart';
@@ -133,125 +139,14 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }
 
-          final ancho = MediaQuery.sizeOf(context).width;
-          final esAmplio = AppBreakpoints.isExpanded(ancho);
-          final scheme = Theme.of(context).colorScheme;
-
-          final acciones = <_AccionHome>[
-            if (usuario.esCliente) ...[
-              _AccionHome(
-                icono: Icons.restaurant_menu_outlined,
-                titulo: tr('Pedir ahora'),
-                destacada: true,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ClienteNegociosScreen()),
-                ),
-              ),
-              _AccionHome(
-                icono: Icons.receipt_long_outlined,
-                titulo: tr('Mis pedidos'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MisPedidosScreen()),
-                ),
-              ),
-            ],
-            if (usuario.rol == Rol.cajero) ...[
-              _AccionHome(
-                icono: Icons.point_of_sale_outlined,
-                titulo: tr('Pedidos recibidos'),
-                destacada: true,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CajeroPedidosScreen()),
-                ),
-              ),
-              _AccionHome(
-                icono: Icons.table_bar_outlined,
-                titulo: tr('Mesas'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CajeroMesasScreen()),
-                ),
-              ),
-              _AccionHome(
-                icono: Icons.point_of_sale,
-                titulo: tr('Caja'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CajeroCajaScreen()),
-                ),
-              ),
-              _AccionHome(
-                icono: Icons.two_wheeler_outlined,
-                titulo: tr('Rendición de repartidores'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CajeroRendicionScreen()),
-                ),
-              ),
-            ],
-            if (usuario.rol == Rol.cocina)
-              _AccionHome(
-                icono: Icons.soup_kitchen_outlined,
-                titulo: tr('Pedidos pendientes'),
-                destacada: true,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CocinaPedidosScreen()),
-                ),
-              ),
-            if (usuario.rol == Rol.repartidor)
-              _AccionHome(
-                icono: Icons.delivery_dining_outlined,
-                titulo: tr('Mis entregas'),
-                destacada: true,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const RepartidorEntregasScreen()),
-                ),
-              ),
-            if (usuario.esAdministrador || usuario.esSuperAdmin)
-              _AccionHome(
-                icono: Icons.admin_panel_settings_outlined,
-                titulo: tr('Panel de administración'),
-                destacada: true,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
-                ),
-              ),
-            _AccionHome(
-              icono: Icons.manage_accounts_outlined,
-              titulo: tr('Mi cuenta'),
-              onTap: _abrirMiCuenta,
-            ),
-          ];
-
           // El personal debe tener activa la verificación en dos pasos.
           final contenido = PuertaDosPasos(
             usuario: usuario,
             // Después de los dos pasos: el personal firma su acuerdo y el
             // cliente acepta los términos vigentes.
             child: PuertaAcuerdos(
-            usuario: usuario,
-            child: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: esAmplio ? 480 : 440),
-                  child: Column(
-                    children: [
-                      _TarjetaBienvenida(usuario: usuario, scheme: scheme),
-                      const SizedBox(height: AppSpacing.lg),
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        mainAxisSpacing: AppSpacing.md,
-                        crossAxisSpacing: AppSpacing.md,
-                        childAspectRatio: 1.15,
-                        children: acciones,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            ),
+              usuario: usuario,
+              child: _ContenidoInicio(usuario: usuario, onMiCuenta: _abrirMiCuenta),
             ),
           );
           // El cliente recibe avisos cuando sus pedidos cambian de estado.
@@ -264,90 +159,447 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Acceso rápido de la pantalla principal: tarjeta grande con ícono. La
-/// acción principal del rol va rellena con el color de marca.
+/// Un dato en vivo de la pantalla principal (por ejemplo "3 pedidos por
+/// atender"). El valor viene de las mismas consultas que usan las pantallas
+/// de cada rol; mientras llega se muestra "—", nunca un número inventado.
+class _Dato {
+  final String etiqueta;
+  final Stream<String> valor;
+  const _Dato(this.etiqueta, this.valor);
+}
+
+/// Contenido de la pantalla principal: saludo, datos en vivo del rol y
+/// accesos rápidos. Las consultas se crean UNA vez (no en cada redibujo).
+class _ContenidoInicio extends StatefulWidget {
+  final UsuarioModel usuario;
+  final VoidCallback onMiCuenta;
+
+  const _ContenidoInicio({required this.usuario, required this.onMiCuenta});
+
+  @override
+  State<_ContenidoInicio> createState() => _ContenidoInicioState();
+}
+
+class _ContenidoInicioState extends State<_ContenidoInicio> {
+  List<_Dato> _datos = const [];
+  // Cantidad que se muestra en la acción principal ("3 nuevos").
+  Stream<int>? _contador;
+  String Function(int)? _textoContador;
+
+  static bool _enCurso(PedidoModel p) =>
+      p.estado != PedidoEstado.entregado && p.estado != PedidoEstado.cancelado;
+
+  @override
+  void initState() {
+    super.initState();
+    final u = widget.usuario;
+    final idNegocio = u.idNegocio;
+    if (u.esCliente) {
+      final pedidos = PedidoService.instancia.streamPedidosCliente(u.idUsuario).asBroadcastStream();
+      final enCurso = pedidos.map((l) => l.where(_enCurso).length).asBroadcastStream();
+      _datos = [
+        _Dato(tr('pedidos en curso'), enCurso.map((n) => '$n')),
+        _Dato(tr('pedidos realizados'), pedidos.map((l) => '${l.length}')),
+      ];
+      _contador = enCurso;
+      _textoContador = (n) => tr('{n} en curso', {'n': n});
+    } else if (u.esSuperAdmin) {
+      final solicitudes =
+          SolicitudesService.instancia.streamPendientes().map((l) => l.length).asBroadcastStream();
+      _datos = [_Dato('solicitudes de negocios por revisar', solicitudes.map((n) => '$n'))];
+      _contador = solicitudes;
+      _textoContador = (n) => n == 1 ? '1 solicitud' : '$n solicitudes';
+    } else if (idNegocio != null && idNegocio.isNotEmpty) {
+      final pendientes = PedidoService.instancia
+          .streamPendientes(idNegocio)
+          .map((l) => l.length)
+          .asBroadcastStream();
+      switch (u.rol) {
+        case Rol.cajero:
+          _datos = [
+            _Dato('pedidos por atender', pendientes.map((n) => '$n')),
+            if (u.idSucursal != null && u.idSucursal!.isNotEmpty)
+              _Dato(
+                'mesas ocupadas',
+                MesaService.instancia
+                    .streamMesas(u.idSucursal!)
+                    .map((l) => '${l.where((m) => m.estado == MesaEstado.ocupada).length}'),
+              ),
+            _Dato(
+              'tu caja',
+              CajaService.instancia.streamCajaAbierta(u.idUsuario).map(
+                    (c) => c == null ? 'Cerrada' : (c.contada ? 'En cierre' : 'Abierta'),
+                  ),
+            ),
+          ];
+          _contador = pendientes;
+          _textoContador = (n) => n == 1 ? '1 nuevo' : '$n nuevos';
+          break;
+        case Rol.cocina:
+          final cocina = PedidoService.instancia.streamPedidosCocina(idNegocio).asBroadcastStream();
+          final porPreparar = cocina
+              .map((l) => l.where((p) => p.estado == PedidoEstado.pendiente).length)
+              .asBroadcastStream();
+          _datos = [
+            _Dato('por preparar', porPreparar.map((n) => '$n')),
+            _Dato(
+              'en preparación',
+              cocina.map((l) => '${l.where((p) => p.estado == PedidoEstado.enPreparacion).length}'),
+            ),
+          ];
+          _contador = porPreparar;
+          _textoContador = (n) => '$n por preparar';
+          break;
+        case Rol.repartidor:
+          final disponibles = PedidoService.instancia
+              .streamEntregasDisponibles(idNegocio, idSucursal: u.idSucursal)
+              .map((l) => l.length)
+              .asBroadcastStream();
+          _datos = [
+            _Dato('entregas disponibles', disponibles.map((n) => '$n')),
+            _Dato(
+              'en curso',
+              PedidoService.instancia
+                  .streamMisEntregas(idNegocio, u.idUsuario)
+                  .map((l) => '${l.length}'),
+            ),
+            _Dato(
+              'propinas de hoy',
+              PedidoService.instancia.streamEntregadosHoy(idNegocio, u.idUsuario).map(
+                    (l) => 'Bs ${l.fold<double>(0, (a, p) => a + p.propina).toStringAsFixed(2)}',
+                  ),
+            ),
+          ];
+          _contador = disponibles;
+          _textoContador = (n) => n == 1 ? '1 disponible' : '$n disponibles';
+          break;
+        default:
+          if (u.esAdministrador) {
+            _datos = [
+              _Dato('pedidos en curso',
+                  PedidoService.instancia.streamPedidosActivos(idNegocio).map((n) => '$n')),
+              _Dato('por atender', pendientes.map((n) => '$n')),
+            ];
+            _contador = pendientes;
+            _textoContador = (n) => n == 1 ? '1 nuevo' : '$n nuevos';
+          }
+      }
+    }
+  }
+
+  void _ir(Widget pantalla) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => pantalla));
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.usuario;
+    final scheme = Theme.of(context).colorScheme;
+    final acciones = <_AccionHome>[
+      if (u.esCliente) ...[
+        _AccionHome(
+          icono: Icons.restaurant_menu_outlined,
+          titulo: tr('Pedir ahora'),
+          descripcion: tr('Elige un restaurante y arma tu pedido'),
+          destacada: true,
+          contador: _contador,
+          textoContador: _textoContador,
+          onTap: () => _ir(const ClienteNegociosScreen()),
+        ),
+        _AccionHome(
+          icono: Icons.receipt_long_outlined,
+          titulo: tr('Mis pedidos'),
+          descripcion: tr('Sigue tus pedidos y revisa los anteriores'),
+          onTap: () => _ir(const MisPedidosScreen()),
+        ),
+      ],
+      if (u.rol == Rol.cajero) ...[
+        _AccionHome(
+          icono: Icons.receipt_long_outlined,
+          titulo: tr('Pedidos recibidos'),
+          descripcion: 'Ver, preparar y cobrar pedidos',
+          destacada: true,
+          contador: _contador,
+          textoContador: _textoContador,
+          onTap: () => _ir(const CajeroPedidosScreen()),
+        ),
+        _AccionHome(
+          icono: Icons.table_restaurant_outlined,
+          titulo: tr('Mesas'),
+          descripcion: 'Tomar pedidos en el local',
+          onTap: () => _ir(const CajeroMesasScreen()),
+        ),
+        _AccionHome(
+          icono: Icons.point_of_sale_outlined,
+          titulo: tr('Caja'),
+          descripcion: 'Abrir, registrar y cerrar caja',
+          onTap: () => _ir(const CajeroCajaScreen()),
+        ),
+        _AccionHome(
+          icono: Icons.two_wheeler_outlined,
+          titulo: tr('Rendición de repartidores'),
+          descripcion: 'Recibir el efectivo de las entregas',
+          onTap: () => _ir(const CajeroRendicionScreen()),
+        ),
+      ],
+      if (u.rol == Rol.cocina)
+        _AccionHome(
+          icono: Icons.soup_kitchen_outlined,
+          titulo: tr('Pedidos pendientes'),
+          descripcion: 'Lo que hay que preparar ahora',
+          destacada: true,
+          contador: _contador,
+          textoContador: _textoContador,
+          onTap: () => _ir(const CocinaPedidosScreen()),
+        ),
+      if (u.rol == Rol.repartidor)
+        _AccionHome(
+          icono: Icons.delivery_dining_outlined,
+          titulo: tr('Mis entregas'),
+          descripcion: 'Tomar pedidos y entregarlos',
+          destacada: true,
+          contador: _contador,
+          textoContador: _textoContador,
+          onTap: () => _ir(const RepartidorEntregasScreen()),
+        ),
+      if (u.esAdministrador || u.esSuperAdmin)
+        _AccionHome(
+          icono: Icons.admin_panel_settings_outlined,
+          titulo: tr('Panel de administración'),
+          descripcion: u.esSuperAdmin
+              ? 'Negocios, solicitudes, versiones y errores'
+              : 'Negocio, menú, personal, ventas y reportes',
+          destacada: true,
+          contador: _contador,
+          textoContador: _textoContador,
+          onTap: () => _ir(const AdminHomeScreen()),
+        ),
+      _AccionHome(
+        icono: Icons.manage_accounts_outlined,
+        titulo: tr('Mi cuenta'),
+        descripcion: tr('Tus datos, contraseña y preferencias'),
+        onTap: widget.onMiCuenta,
+      ),
+    ];
+
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final amplio = c.maxWidth >= 720;
+          final columnas = amplio ? 2 : 1;
+          final filas = <Widget>[];
+          for (var i = 0; i < acciones.length; i += columnas) {
+            if (columnas == 1) {
+              filas.add(acciones[i]);
+            } else {
+              filas.add(IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: acciones[i]),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: i + 1 < acciones.length ? acciones[i + 1] : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ));
+            }
+            filas.add(const SizedBox(height: AppSpacing.md));
+          }
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: amplio ? AppSpacing.lg : AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1040),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TarjetaBienvenida(usuario: u, scheme: scheme, amplio: amplio),
+                    if (_datos.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var i = 0; i < _datos.length; i++) ...[
+                              if (i > 0) SizedBox(width: amplio ? AppSpacing.md : AppSpacing.sm),
+                              Expanded(child: _TarjetaDato(dato: _datos[i])),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      tr('Accesos rápidos').toUpperCase(),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm + 4),
+                    ...filas,
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Tarjeta chica con un dato en vivo: número grande y qué significa.
+class _TarjetaDato extends StatelessWidget {
+  final _Dato dato;
+  const _TarjetaDato({required this.dato});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm + 6),
+      decoration: context.brand.decoracionTarjeta(scheme),
+      child: StreamBuilder<String>(
+        stream: dato.valor,
+        builder: (context, s) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              s.hasError ? '—' : (s.data ?? '—'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textos.headlineSmall?.copyWith(color: scheme.primary),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              dato.etiqueta,
+              style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Acceso rápido de la pantalla principal: tarjeta horizontal con ícono,
+/// título, para qué sirve y una flecha. La acción principal del rol va
+/// rellena con el color de marca y puede mostrar un aviso ("3 nuevos").
 class _AccionHome extends StatelessWidget {
   final IconData icono;
   final String titulo;
+  final String descripcion;
   final VoidCallback onTap;
   final bool destacada;
+  final Stream<int>? contador;
+  final String Function(int)? textoContador;
 
   const _AccionHome({
     required this.icono,
     required this.titulo,
     required this.onTap,
+    this.descripcion = '',
     this.destacada = false,
+    this.contador,
+    this.textoContador,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final fondo = destacada ? scheme.primary : scheme.surfaceContainerLow;
-    final texto = destacada ? scheme.onPrimary : scheme.onSurface;
+    final textos = Theme.of(context).textTheme;
     final brand = context.brand;
     final oscuro = scheme.brightness == Brightness.dark;
+    final fondo = destacada
+        ? scheme.primary
+        : (oscuro ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest);
+    final texto = destacada ? scheme.onPrimary : scheme.onSurface;
+    final flecha = Icon(Icons.chevron_right, color: texto.withValues(alpha: 0.6));
     return Material(
-      color: destacada
-          ? fondo
-          : (oscuro ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest),
-      elevation: brand.tarjeta == 'sombra' && !oscuro ? (destacada ? 4 : 2) : 0,
-      shadowColor: destacada ? brand.colorSombra.withValues(alpha: 0.35) : brand.colorSombra,
+      color: fondo,
+      elevation: !destacada && brand.tarjeta == 'sombra' && !oscuro ? 1 : 0,
+      shadowColor: brand.colorSombra,
       shape: RoundedRectangleBorder(
         borderRadius: brand.card,
-        side: (!destacada && (brand.tarjeta == 'borde' || oscuro))
-            ? BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde)
-            : BorderSide.none,
+        side: destacada
+            ? BorderSide.none
+            : BorderSide(color: scheme.outlineVariant, width: brand.grosorBorde),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Ink(
-        // La acción principal lleva un degradado suave del color de marca
-        // (debajo del InkWell para que se vea el efecto al tocar).
-        decoration: destacada
-              ? BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color.lerp(fondo, Colors.white, 0.12)!,
-                      Color.lerp(fondo, Colors.black, 0.12)!,
-                    ],
-                  ),
-                )
-              : null,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md + 4, vertical: AppSpacing.md + 2),
+          child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: destacada
-                      ? texto.withValues(alpha: 0.18)
-                      : scheme.primaryContainer,
+                      ? texto.withValues(alpha: 0.12)
+                      : scheme.primary.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(
-                    brand.radioPequeno > 14 ? 999 : brand.radioPequeno + 4,
+                    brand.radioPequeno > 14 ? 26 : brand.radioPequeno + 2,
                   ),
                 ),
-                child: Icon(
-                  icono,
-                  size: 30,
-                  color: destacada ? texto : scheme.primary,
+                child: Icon(icono, size: 26, color: destacada ? texto : scheme.primary),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      brand.titulo(titulo),
+                      style: textos.titleMedium?.copyWith(color: texto, fontWeight: FontWeight.w800),
+                    ),
+                    if (descripcion.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        descripcion,
+                        style: textos.bodyMedium?.copyWith(color: texto.withValues(alpha: 0.75)),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                brand.titulo(titulo),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: texto,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
+              const SizedBox(width: AppSpacing.sm),
+              if (contador == null)
+                flecha
+              else
+                StreamBuilder<int>(
+                  stream: contador,
+                  builder: (context, s) {
+                    final n = s.data ?? 0;
+                    if (n <= 0) return flecha;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: destacada ? texto : scheme.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        textoContador?.call(n) ?? '$n',
+                        maxLines: 1,
+                        style: textos.labelLarge?.copyWith(
+                          color: destacada ? fondo : scheme.onPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    );
+                  },
+                ),
             ],
-          ),
           ),
         ),
       ),
@@ -355,17 +607,66 @@ class _AccionHome extends StatelessWidget {
   }
 }
 
+/// Saludo: foto con aro del color de marca, nombre y correo; el rol y
+/// "Sesión activa" a la derecha (o debajo, en el celular).
 class _TarjetaBienvenida extends StatelessWidget {
   final UsuarioModel usuario;
   final ColorScheme scheme;
+  final bool amplio;
 
-  const _TarjetaBienvenida({required this.usuario, required this.scheme});
+  const _TarjetaBienvenida({required this.usuario, required this.scheme, required this.amplio});
 
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
     final textos = Theme.of(context).textTheme;
     final inicial = usuario.nombre.isNotEmpty ? usuario.nombre[0].toUpperCase() : '?';
+    final etiquetas = Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.xs,
+      children: [
+        AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
+        AppStatusBadge(label: tr('Sesión activa'), tone: AppStatusTone.success),
+      ],
+    );
+    final datos = Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: scheme.primary, width: 2),
+          ),
+          child: CircleAvatar(
+            radius: amplio ? 30 : 26,
+            backgroundColor: scheme.primary,
+            foregroundColor: scheme.onPrimary,
+            child: Text(inicial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('¡Hola, {nombre}!', {'nombre': usuario.nombre}),
+                style: amplio ? textos.headlineSmall : textos.titleLarge,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                usuario.email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textos.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
     return Container(
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
@@ -375,73 +676,27 @@ class _TarjetaBienvenida extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: RadialGradient(
             center: Alignment.topLeft,
-            radius: 1.4,
+            radius: 1.6,
             colors: [
-              scheme.primary.withValues(alpha: 0.20),
+              scheme.primary.withValues(alpha: 0.16),
               scheme.primary.withValues(alpha: 0.0),
             ],
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: scheme.primary, width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 28,
-                      backgroundColor: scheme.primary,
-                      foregroundColor: scheme.onPrimary,
-                      child: Text(
-                        inicial,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr('¡Hola, {nombre}!', {'nombre': usuario.nombre}),
-                          style: textos.headlineSmall,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          usuario.email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textos.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
-                  AppStatusBadge(
-                    label: tr('Sesión activa'),
-                    tone: AppStatusTone.success,
-                  ),
-                ],
-              ),
-            ],
-          ),
+          padding: EdgeInsets.all(amplio ? AppSpacing.lg : AppSpacing.md + 4),
+          child: amplio
+              ? Row(
+                  children: [
+                    Expanded(child: datos),
+                    const SizedBox(width: AppSpacing.md),
+                    etiquetas,
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [datos, const SizedBox(height: AppSpacing.md), etiquetas],
+                ),
         ),
       ),
     );
