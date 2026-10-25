@@ -255,5 +255,14 @@ extension BrandContext on BuildContext {
 }
 
 /// Color de texto legible (blanco o casi negro) sobre [fondo].
-Color colorSobre(Color fondo) =>
-    fondo.computeLuminance() > 0.5 ? const Color(0xFF111111) : Colors.white;
+Color colorSobre(Color fondo) => colorLegibleSobre(fondo, oscuro: const Color(0xFF111111));
+
+/// Elige entre texto oscuro o blanco el que MÁS contraste tiene sobre
+/// [fondo] (fórmula de contraste WCAG). Así, por ejemplo, un botón dorado
+/// lleva letras oscuras y se lee bien.
+Color colorLegibleSobre(Color fondo, {required Color oscuro}) {
+  final l = fondo.computeLuminance();
+  final contrasteBlanco = 1.05 / (l + 0.05);
+  final contrasteOscuro = (l + 0.05) / (oscuro.computeLuminance() + 0.05);
+  return contrasteOscuro >= contrasteBlanco ? oscuro : Colors.white;
+}
