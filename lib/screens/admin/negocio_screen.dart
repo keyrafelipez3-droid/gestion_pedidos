@@ -8,6 +8,7 @@ import '../../theme/design_tokens.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/app_cargando.dart';
+import '../../widgets/codigo_restaurante.dart';
 
 /// HU-07 — Pantalla para que el Administrador configure la información
 /// general del negocio (nombre, descripción, teléfono, si está activo).
@@ -156,6 +157,9 @@ class _NegocioScreenState extends State<NegocioScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Código y enlace para compartir con los clientes.
+                    TarjetaCodigoNegocio(idNegocio: widget.idNegocio),
+                    const SizedBox(height: AppSpacing.lg),
                     TextFormField(
                       controller: _nombreCtrl,
                       decoration: const InputDecoration(

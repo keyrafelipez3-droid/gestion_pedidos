@@ -5,8 +5,10 @@ import '../../l10n/tamano_texto.dart';
 import '../../models/negocio_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
+import '../../services/codigo_negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/etiqueta_version.dart';
 import '../../widgets/logo_caro.dart';
 import '../cuenta/dos_pasos_screen.dart';
@@ -308,6 +310,9 @@ class _Formulario extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
 
+          // Entró por el enlace de un restaurante: se muestra cuál es.
+          if (CodigoNegocioService.codigoDelEnlace != null)
+            BannerInvitacion(codigo: CodigoNegocioService.codigoDelEnlace!),
           TextFormField(
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,

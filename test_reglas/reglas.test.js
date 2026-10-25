@@ -57,6 +57,11 @@ async function sembrar() {
     }
     await setDoc(doc(db, 'negocios', 'n1'), { nombre: 'Pollos Caro', estado: true });
     await setDoc(doc(db, 'negocios', 'n2'), { nombre: 'Otra tienda', estado: true });
+    // Codigos de acceso y los clientes que ya entraron con el de n1.
+    await setDoc(doc(db, 'codigosNegocio', 'POLLO1'), { idNegocio: 'n1', nombre: 'Pollos Caro' });
+    await setDoc(doc(db, 'codigosNegocio', 'OTRA22'), { idNegocio: 'n2', nombre: 'Otra tienda' });
+    await setDoc(doc(db, 'usuarios/cli1/misNegocios', 'n1'), { codigo: 'POLLO1' });
+    await setDoc(doc(db, 'usuarios/cli2/misNegocios', 'n1'), { codigo: 'POLLO1' });
     await setDoc(doc(db, 'sucursales', 's1'), { idNegocio: 'n1', nombre: 'Centro' });
     await setDoc(doc(db, 'sucursales', 's2'), { idNegocio: 'n2', nombre: 'Norte' });
     await setDoc(doc(db, 'sucursales', 's3'), {
@@ -546,6 +551,42 @@ describe('Solicitudes de negocios nuevos', () => {
     await assertFails(getDoc(doc(como('cli2'), 'solicitudesNegocio', 'cli1')));
     await assertSucceeds(getDoc(doc(como('cli1'), 'solicitudesNegocio', 'cli1')));
     await assertSucceeds(updateDoc(doc(como('super1'), 'solicitudesNegocio', 'cli1'), { estado: 'Aprobada' }));
+  });
+});
+
+describe('Código de acceso de cada restaurante', () => {
+  const unirse = (uid, idNegocio, codigo) =>
+    setDoc(doc(como(uid), `usuarios/${uid}/misNegocios`, idNegocio), { codigo, fecha: serverTimestamp() });
+
+  test('un cliente no puede pedir en un restaurante al que no entró con su código', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'usuarios', 'cli3'), { rol: 'Cliente', estado: true, email: 'c3@x.com' }));
+    await assertFails(addDoc(collection(como('cli3'), 'pedidos'), pedidoCliente('cli3')));
+  });
+
+  test('con el código correcto entra y ya puede pedir', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'usuarios', 'cli3'), { rol: 'Cliente', estado: true, email: 'c3@x.com' }));
+    await assertSucceeds(unirse('cli3', 'n1', 'POLLO1'));
+    await assertSucceeds(addDoc(collection(como('cli3'), 'pedidos'), pedidoCliente('cli3')));
+  });
+
+  test('no puede entrar con un código de otro restaurante o inventado', async () => {
+    await assertFails(unirse('cli3', 'n1', 'OTRA22'));
+    await assertFails(unirse('cli3', 'n1', 'NOEXIS'));
+    await assertFails(setDoc(doc(como('cli3'), 'usuarios/cli3/misNegocios', 'n2'), { codigo: 'OTRA22' }));
+  });
+
+  test('un código se puede consultar, pero nadie puede listar los códigos', async () => {
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(anon, 'codigosNegocio', 'POLLO1')));
+    await assertFails(getDocs(collection(como('cli1'), 'codigosNegocio')));
+  });
+
+  test('solo el SuperAdmin crea códigos', async () => {
+    await assertSucceeds(setDoc(doc(como('super1'), 'codigosNegocio', 'NUEVO9'), { idNegocio: 'n1', nombre: 'x' }));
+    await assertFails(setDoc(doc(como('admin1'), 'codigosNegocio', 'MIO123'), { idNegocio: 'n1', nombre: 'x' }));
+    await assertFails(setDoc(doc(como('cli1'), 'codigosNegocio', 'MIO123'), { idNegocio: 'n1', nombre: 'x' }));
   });
 });
 

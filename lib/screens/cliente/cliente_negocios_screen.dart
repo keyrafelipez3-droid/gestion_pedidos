@@ -18,7 +18,11 @@ import 'cliente_menu_screen.dart';
 /// checkout). Tarjetas grandes con foto, estilo apps de delivery; cada
 /// negocio muestra su propio color de marca.
 class ClienteNegociosScreen extends StatefulWidget {
-  const ClienteNegociosScreen({super.key});
+  /// Solo estos restaurantes (a los que el cliente entró con su código).
+  /// El cliente nunca ve la lista completa.
+  final List<String> soloIds;
+
+  const ClienteNegociosScreen({super.key, required this.soloIds});
 
   @override
   State<ClienteNegociosScreen> createState() => _ClienteNegociosScreenState();
@@ -47,7 +51,9 @@ class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final todos = snapshot.data!.where((n) => n.estado).toList();
+          final todos = snapshot.data!
+              .where((n) => n.estado && widget.soloIds.contains(n.idNegocio))
+              .toList();
           if (todos.isEmpty) {
             return AppEmptyState(
               icon: Icons.storefront_outlined,

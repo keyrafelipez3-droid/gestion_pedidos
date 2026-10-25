@@ -606,6 +606,23 @@ const traduccionesPt = <String, String>{
   'Sigue tus pedidos y revisa los anteriores': 'Acompanhe seus pedidos e veja os anteriores',
   'Tus datos, contraseña y preferencias': 'Seus dados, senha e preferências',
   'Accesos rápidos': 'Atalhos',
+  // Código de acceso por restaurante
+  'Vas a pedir en {nombre}': 'Você vai pedir em {nombre}',
+  'Ese código no existe. Revisa que esté bien escrito.': 'Esse código não existe. Verifique se está escrito corretamente.',
+  'No se pudo entrar al restaurante. Intenta de nuevo.': 'Não foi possível entrar no restaurante. Tente novamente.',
+  'Código del restaurante': 'Código do restaurante',
+  'Te lo da el restaurante donde quieres pedir.': 'O restaurante onde você quer pedir fornece este código.',
+  'Código': 'Código',
+  'Ese código de restaurante no existe. Revisa que esté bien escrito.': 'Esse código de restaurante não existe. Verifique se está escrito corretamente.',
+  'Código del restaurante *': 'Código do restaurante *',
+  'Ingresa el código del restaurante': 'Digite o código do restaurante',
+  'Ingresa el código de tu restaurante': 'Digite o código do seu restaurante',
+  'Pedir en {nombre}': 'Pedir em {nombre}',
+  'Mira el menú y arma tu pedido': 'Veja o cardápio e monte seu pedido',
+  'Restaurantes': 'Restaurantes',
+  'Agregar un restaurante con su código': 'Adicionar um restaurante com o código',
+  'Si otro restaurante te dio su código, ingrésalo aquí.': 'Se outro restaurante lhe deu o código, digite aqui.',
+  'Listo, ya puedes pedir en ese restaurante.': 'Pronto, agora você pode pedir nesse restaurante.',
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Alimente-se bem: prefira água natural, frutas e verduras, e modere o sal, o açúcar e as gorduras.',
 };
