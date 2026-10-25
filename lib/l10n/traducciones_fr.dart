@@ -580,4 +580,6 @@ const traduccionesFr = <String, String>{
   'Muy grande': 'Très grand',
   'Máximo': 'Maximum',
   'Accesibilidad': 'Accessibilité',
+  // Ley 775
+  'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Mangez sain : privilégiez l’eau, les fruits et les légumes, et limitez le sel, le sucre et les graisses.',
 };
