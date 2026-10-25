@@ -59,6 +59,12 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
   // Cada preset es un punto de partida COMPLETO (color, tipografía, forma,
   // estilo de tarjetas y fondo); después el SuperAdmin ajusta lo que quiera.
   static const List<_PresetEstilo> _presets = [
+    _PresetEstilo('Caro', Color(0xFFF2BC45), Color(0xFFDB9622),
+        estilo: 'caro',
+        tipografia: 'redondeada',
+        forma: 'redondeado',
+        fondo: Color(0xFF0B0B0F),
+        oscuro: true),
     _PresetEstilo('Moderno', Color(0xFF1565C0), Color(0xFFE3F2FD),
         estilo: 'moderno', tipografia: 'sans', forma: 'redondeado'),
     _PresetEstilo('Minimal', Color(0xFFC8281A), Color(0xFFF5F5F5),
