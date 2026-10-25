@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../../l10n/idioma.dart';
 import '../../l10n/tamano_texto.dart';
 import '../../services/auth_service.dart';
+import '../../services/codigo_negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contrasena.dart';
 import '../../widgets/app_pantalla_foto.dart';
 import '../../widgets/campo_telefono.dart';
+import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/logo_caro.dart';
 import '../legal/legal_screen.dart';
 
@@ -32,6 +34,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
   final _telefonoCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmarCtrl = TextEditingController();
+  // Código del restaurante (viene ya escrito si entró por su enlace).
+  final _codigoCtrl = TextEditingController(text: CodigoNegocioService.codigoDelEnlace ?? '');
 
   bool _cargando = false;
   bool _verPassword = false;
@@ -45,6 +49,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
     _telefonoCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmarCtrl.dispose();
+    _codigoCtrl.dispose();
     super.dispose();
   }
 
@@ -59,6 +64,22 @@ class _RegistroScreenState extends State<RegistroScreen> {
     if (!formularioValido) return;
 
     setState(() => _cargando = true);
+
+    // El cliente se registra para pedir en UN restaurante: su código debe
+    // existir. Al entrar, la pantalla principal lo deja dentro de él.
+    final invitacion = await CodigoNegocioService.instancia.buscar(_codigoCtrl.text);
+    if (!mounted) return;
+    if (invitacion == null) {
+      setState(() => _cargando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('Ese código de restaurante no existe. Revisa que esté bien escrito.')),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+    CodigoNegocioService.codigoDelEnlace = invitacion.codigo;
 
     final error = await AuthService.instancia.registrarCliente(
       nombre: _nombreCtrl.text,
@@ -97,6 +118,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
       telefonoCtrl: _telefonoCtrl,
       passwordCtrl: _passwordCtrl,
       confirmarCtrl: _confirmarCtrl,
+      codigoCtrl: _codigoCtrl,
       verPassword: _verPassword,
       cargando: _cargando,
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
@@ -222,6 +244,7 @@ class _Formulario extends StatelessWidget {
   final TextEditingController telefonoCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmarCtrl;
+  final TextEditingController codigoCtrl;
   final bool verPassword;
   final bool cargando;
   final VoidCallback onTogglePassword;
@@ -238,6 +261,7 @@ class _Formulario extends StatelessWidget {
     required this.telefonoCtrl,
     required this.passwordCtrl,
     required this.confirmarCtrl,
+    required this.codigoCtrl,
     required this.verPassword,
     required this.cargando,
     required this.onTogglePassword,
@@ -280,6 +304,22 @@ class _Formulario extends StatelessWidget {
             textAlign: mostrarEncabezado ? TextAlign.center : TextAlign.start,
           ),
           const SizedBox(height: AppSpacing.xl),
+
+          if (CodigoNegocioService.codigoDelEnlace != null)
+            BannerInvitacion(codigo: CodigoNegocioService.codigoDelEnlace!),
+          TextFormField(
+            controller: codigoCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              labelText: tr('Código del restaurante *'),
+              helperText: tr('Te lo da el restaurante donde quieres pedir.'),
+              prefixIcon: const Icon(Icons.vpn_key_outlined),
+            ),
+            validator: (v) => CodigoNegocioService.normalizar(v ?? '').length < 4
+                ? tr('Ingresa el código del restaurante')
+                : null,
+          ),
+          const SizedBox(height: AppSpacing.md),
 
           TextFormField(
             controller: nombreCtrl,

@@ -12,6 +12,7 @@ import 'l10n/tamano_texto.dart';
 import 'models/negocio_model.dart';
 import 'screens/auth_gate.dart';
 import 'services/app_theme_controller.dart';
+import 'services/codigo_negocio_service.dart';
 import 'services/registro_errores.dart';
 import 'theme/design_tokens.dart';
 import 'utils/navegacion.dart';
@@ -33,6 +34,12 @@ Future<void> main() async {
   // a qué negocio pertenezca. Antes de eso se usa el tema por defecto.
   await IdiomaController.instancia.cargar();
   await TamanoTextoController.instancia.cargar();
+  // Enlace de un restaurante (…web.app/?r=CODIGO): el cliente entra
+  // directo a ESE restaurante.
+  final r = Uri.base.queryParameters['r'];
+  if (r != null && r.trim().isNotEmpty) {
+    CodigoNegocioService.codigoDelEnlace = CodigoNegocioService.normalizar(r);
+  }
   runApp(const MyApp());
 }
 

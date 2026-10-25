@@ -12,6 +12,7 @@ import '../../widgets/alergias.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/campo_telefono.dart';
+import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/etiqueta_version.dart';
 import '../../widgets/selector_imagen.dart';
 import '../legal/legal_screen.dart';
@@ -532,6 +533,25 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                   // El panel del personal está siempre en español; el
                   // idioma solo lo elige el cliente.
                   if (usuario.esCliente) ...[
+                    _SeccionCuenta(
+                      icono: Icons.vpn_key_outlined,
+                      titulo: tr('Restaurantes'),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(tr('Agregar un restaurante con su código')),
+                        subtitle: Text(tr('Si otro restaurante te dio su código, ingrésalo aquí.')),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () async {
+                          final ok = await pedirCodigoRestaurante(context, usuario.idUsuario);
+                          if (ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(tr('Listo, ya puedes pedir en ese restaurante.'))),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
                     _SeccionCuenta(
                       icono: Icons.translate,
                       titulo: tr('Idioma'),
