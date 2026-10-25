@@ -138,6 +138,14 @@ String trComentario(String comentario) {
   if (mesa != null) {
     return tr('Pedido registrado por el Cajero para la mesa {numero}.', {'numero': mesa.group(1)});
   }
+  final asignado = RegExp(r'^Se asignó el pedido al repartidor (.+)\.$').firstMatch(comentario);
+  if (asignado != null) {
+    return tr('Se asignó el pedido al repartidor {nombre}.', {'nombre': asignado.group(1)});
+  }
+  final salio = RegExp(r'^El repartidor (.+) salió con el pedido\.$').firstMatch(comentario);
+  if (salio != null) {
+    return tr('El repartidor {nombre} salió con el pedido.', {'nombre': salio.group(1)});
+  }
   return tr(comentario);
 }
 

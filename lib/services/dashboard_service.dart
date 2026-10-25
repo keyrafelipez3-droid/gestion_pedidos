@@ -64,6 +64,16 @@ class DashboardService {
     List<PedidoModel> pedidos, {
     int maxPedidos = 60,
     int top = 5,
+  }) async =>
+      (await rankingProductos(pedidos, maxPedidos: maxPedidos)).take(top).toList();
+
+  /// HU-44: ranking COMPLETO de productos (de más a menos vendido). Los
+  /// nombres de [catalogo] que no se vendieron entran con 0 unidades, así
+  /// el Administrador ve también lo que no se está vendiendo.
+  Future<List<ProductoVendido>> rankingProductos(
+    List<PedidoModel> pedidos, {
+    int maxPedidos = 60,
+    Iterable<String> catalogo = const [],
   }) async {
     final recientes = List.of(pedidos)
       ..sort((a, b) => (b.fechaCreacion ?? DateTime(0)).compareTo(a.fechaCreacion ?? DateTime(0)));
@@ -81,15 +91,31 @@ class DashboardService {
         totales[nombre] = (totales[nombre] ?? 0) + d.subtotal;
       }
     }
-    final lista = cantidades.entries
-        .map((e) => ProductoVendido(e.key, e.value, redondearDinero(totales[e.key] ?? 0)))
-        .toList()
-      ..sort((a, b) {
-        final porCantidad = b.cantidad.compareTo(a.cantidad);
-        return porCantidad != 0 ? porCantidad : b.total.compareTo(a.total);
-      });
-    return lista.take(top).toList();
+    return armarRanking(cantidades, totales, catalogo: catalogo);
   }
+}
+
+/// Ordena los productos de más a menos vendido (por unidades, luego por
+/// monto y luego por nombre). Los del [catalogo] sin ventas van al final
+/// con 0 unidades.
+List<ProductoVendido> armarRanking(
+  Map<String, int> cantidades,
+  Map<String, double> totales, {
+  Iterable<String> catalogo = const [],
+}) {
+  final vendidos = {for (final n in cantidades.keys) n.trim().toLowerCase()};
+  final lista = [
+    for (final e in cantidades.entries)
+      ProductoVendido(e.key, e.value, redondearDinero(totales[e.key] ?? 0)),
+    for (final n in {for (final c in catalogo) c.trim()})
+      if (n.isNotEmpty && !vendidos.contains(n.toLowerCase())) ProductoVendido(n, 0, 0),
+  ]..sort((a, b) {
+      final porCantidad = b.cantidad.compareTo(a.cantidad);
+      if (porCantidad != 0) return porCantidad;
+      final porTotal = b.total.compareTo(a.total);
+      return porTotal != 0 ? porTotal : a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+    });
+  return lista;
 }
 
 // ---------------------------------------------------------------------------

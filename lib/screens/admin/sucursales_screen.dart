@@ -10,6 +10,8 @@ import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../services/sesion_actual.dart';
+import '../../services/actividad_service.dart';
+import '../../models/actividad_model.dart';
 import 'horarios_screen.dart';
 import 'zonas_delivery_screen.dart';
 import '../../widgets/app_cargando.dart';
@@ -133,6 +135,60 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
     });
   }
 
+  /// HU-47: pausa o reanuda los pedidos de la sucursal (con motivo
+  /// opcional que ve el cliente).
+  Future<void> _pausar(BuildContext context, SucursalModel s) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (s.pedidosPausados) {
+      await SucursalService.instancia.pausarPedidos(s.id, pausar: false);
+      ActividadService.instancia.registrar(
+        ActividadTipo.pedido,
+        'Reanudó los pedidos de la sucursal ${s.nombre}',
+      );
+      messenger.showSnackBar(SnackBar(content: Text('${s.nombre} vuelve a recibir pedidos.')));
+      return;
+    }
+    final motivoCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Pausar pedidos'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Mientras esté en pausa, los clientes no podrán hacer pedidos en ${s.nombre}. '
+                    'Los pedidos que ya están en curso siguen normalmente.'),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: motivoCtrl,
+                  maxLength: 80,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo (opcional, lo ve el cliente)',
+                    hintText: 'Ej.: Cocina llena, volvemos en 30 minutos',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Pausar')),
+            ],
+          ),
+        ) ??
+        false;
+    // (El controlador no se libera aquí: el diálogo todavía se está
+    // cerrando con su animación y lo sigue usando.)
+    final motivo = motivoCtrl.text;
+    if (!ok) return;
+    await SucursalService.instancia.pausarPedidos(s.id, pausar: true, motivo: motivo);
+    ActividadService.instancia.registrar(
+      ActividadTipo.pedido,
+      'Pausó los pedidos de la sucursal ${s.nombre}${motivo.trim().isEmpty ? '' : ': ${motivo.trim()}'}',
+    );
+    messenger.showSnackBar(SnackBar(content: Text('Pedidos en pausa en ${s.nombre}.')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -227,12 +283,31 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                                             ),
                                           ),
                                         const SizedBox(height: AppSpacing.xs),
-                                        AppStatusBadge(
-                                          label: s.estado ? 'Activa' : 'Inactiva',
-                                          tone: s.estado
-                                              ? AppStatusTone.success
-                                              : AppStatusTone.neutral,
+                                        Wrap(
+                                          spacing: AppSpacing.xs,
+                                          runSpacing: AppSpacing.xs,
+                                          children: [
+                                            AppStatusBadge(
+                                              label: s.estado ? 'Activa' : 'Inactiva',
+                                              tone: s.estado
+                                                  ? AppStatusTone.success
+                                                  : AppStatusTone.neutral,
+                                            ),
+                                            if (s.pedidosPausados)
+                                              const AppStatusBadge(
+                                                label: 'Pedidos en pausa',
+                                                tone: AppStatusTone.warning,
+                                              ),
+                                          ],
                                         ),
+                                        if (s.pedidosPausados && s.motivoPausa.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              'Motivo: ${s.motivoPausa}',
+                                              style: Theme.of(context).textTheme.bodySmall,
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -262,6 +337,9 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                                           SucursalService.instancia
                                               .cambiarEstado(s.id, !s.estado);
                                           break;
+                                        case 'pausa':
+                                          _pausar(context, s);
+                                          break;
                                       }
                                     },
                                     itemBuilder: (context) => [
@@ -276,6 +354,12 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
                                       const PopupMenuItem(
                                         value: 'delivery',
                                         child: Text('Zonas de delivery'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'pausa',
+                                        child: Text(s.pedidosPausados
+                                            ? 'Reanudar pedidos'
+                                            : 'Pausar pedidos'),
                                       ),
                                       PopupMenuItem(
                                         value: 'estado',

@@ -580,6 +580,24 @@ const traduccionesFr = <String, String>{
   'Muy grande': 'Très grand',
   'Máximo': 'Maximum',
   'Accesibilidad': 'Accessibilité',
+  // Favoritos (HU-19)
+  'Favoritos': 'Favoris',
+  'Todavía no tienes favoritos': "Vous n'avez pas encore de favoris",
+  'Toca el corazón de un producto para guardarlo aquí.': "Touchez le cœur d'un produit pour l'enregistrer ici.",
+  // Promociones, combos, pausa y reparto (HU-35/37/39/47)
+  'Promos': 'Promos',
+  'Combos': 'Menus',
+  'No hay promociones en este momento': "Il n'y a pas de promotions pour le moment",
+  'Todavía no hay combos': "Il n'y a pas encore de menus",
+  'COMBO': 'MENU',
+  'PROMO -{n}%': 'PROMO -{n}%',
+  'Hasta el {fecha}': "Jusqu'au {fecha}",
+  'Incluye: {lista}': 'Comprend : {lista}',
+  'Ahorras Bs {monto}': 'Vous économisez Bs {monto}',
+  'Por ahora no estamos recibiendo pedidos. Vuelve a intentarlo en un rato.': 'Nous ne prenons pas de commandes pour le moment. Réessayez un peu plus tard.',
+  'Por ahora no estamos recibiendo pedidos: {motivo}': 'Nous ne prenons pas de commandes pour le moment : {motivo}',
+  'Se asignó el pedido al repartidor {nombre}.': 'La commande a été attribuée au livreur {nombre}.',
+  'El repartidor {nombre} salió con el pedido.': 'Le livreur {nombre} est parti avec votre commande.',
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Mangez sain : privilégiez l’eau, les fruits et les légumes, et limitez le sel, le sucre et les graisses.',
 };

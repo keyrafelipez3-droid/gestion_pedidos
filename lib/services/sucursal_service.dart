@@ -45,6 +45,14 @@ class SucursalService {
   Future<void> cambiarEstado(String id, bool estado) =>
       _ref.doc(id).update({'estado': estado});
 
+  /// HU-47: pausa o reanuda la recepción de pedidos de una sucursal. Se
+  /// guarda aparte para que editar la sucursal no la borre.
+  Future<void> pausarPedidos(String id, {required bool pausar, String motivo = ''}) =>
+      _ref.doc(id).update({
+        'pedidosPausados': pausar,
+        'motivoPausa': pausar ? motivo.trim() : '',
+      });
+
   Future<void> eliminar(String id) => _ref.doc(id).delete();
 
   Future<Map<String, HorarioDia>> obtenerHorarios(String idSucursal) async {

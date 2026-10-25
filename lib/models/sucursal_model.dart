@@ -58,6 +58,11 @@ class SucursalModel {
   /// Compra mínima (en productos) para pedir delivery. 0 = sin mínimo.
   final double pedidoMinimoDelivery;
 
+  /// HU-47: el Administrador puede dejar de recibir pedidos un rato (por
+  /// ejemplo, cocina saturada o falta de insumos) sin tocar los horarios.
+  final bool pedidosPausados;
+  final String motivoPausa;
+
   const SucursalModel({
     required this.id,
     required this.nombre,
@@ -69,6 +74,8 @@ class SucursalModel {
     this.idNegocio,
     this.zonasDelivery = const {},
     this.pedidoMinimoDelivery = 0,
+    this.pedidosPausados = false,
+    this.motivoPausa = '',
   });
 
   bool get cobraEnvio => zonasDelivery.isNotEmpty;
@@ -94,6 +101,14 @@ class SucursalModel {
   AperturaSucursal estadoApertura([DateTime? ahora]) {
     final t = ahora ?? DateTime.now();
     if (!estado) return AperturaSucursal(false, tr('Esta sucursal no está disponible.'));
+    if (pedidosPausados) {
+      return AperturaSucursal(
+        false,
+        motivoPausa.trim().isEmpty
+            ? tr('Por ahora no estamos recibiendo pedidos. Vuelve a intentarlo en un rato.')
+            : tr('Por ahora no estamos recibiendo pedidos: {motivo}', {'motivo': motivoPausa.trim()}),
+      );
+    }
     if (!horarios.values.any((h) => h.activo)) {
       return const AperturaSucursal(true, '');
     }
@@ -188,6 +203,8 @@ class SucursalModel {
       horarios: horarios.isEmpty ? horariosPorDefecto() : horarios,
       zonasDelivery: zonas,
       pedidoMinimoDelivery: (data['pedidoMinimoDelivery'] as num?)?.toDouble() ?? 0,
+      pedidosPausados: data['pedidosPausados'] as bool? ?? false,
+      motivoPausa: data['motivoPausa'] as String? ?? '',
     );
   }
 }

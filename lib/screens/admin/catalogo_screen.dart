@@ -157,6 +157,29 @@ class _CategoriasTab extends StatelessWidget {
     });
   }
 
+  Future<void> _eliminar(BuildContext context, CategoriaModel item) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Eliminar categoría'),
+            content: Text('¿Eliminar "${item.nombre}"? Esta acción no se puede deshacer.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar')),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok) return;
+    try {
+      await CatalogoService.instancia.eliminarCategoria(item.id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         body: StreamBuilder<List<CategoriaModel>>(
@@ -217,6 +240,15 @@ class _CategoriasTab extends StatelessWidget {
                               onChanged: (v) =>
                                   CatalogoService.instancia.cambiarEstadoCategoria(item.id, v),
                             ),
+                            // Solo se puede eliminar una categoría vacía, para
+                            // no dejar productos sin categoría.
+                            IconButton(
+                              tooltip: cantidad == 0
+                                  ? 'Eliminar categoría'
+                                  : 'Tiene productos: muévelos o desactiva la categoría',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: cantidad == 0 ? () => _eliminar(context, item) : null,
+                            ),
                           ],
                         ),
                       ),
@@ -275,6 +307,20 @@ class _ProductosTabState extends State<_ProductosTab> {
     var controlarStock = item?.controlaStock ?? false;
     final stock = TextEditingController(text: item?.stock?.toString() ?? '');
     final stockMinimo = TextEditingController(text: (item?.stockMinimo ?? 5).toString());
+    // HU-35: promoción.
+    var enPromo = item?.precioPromo != null;
+    final precioPromo = TextEditingController(text: item?.precioPromo?.toStringAsFixed(2) ?? '');
+    DateTime? promoHasta = item?.promoHasta;
+    // HU-37: combo (los productos que incluye se eligen del catálogo).
+    final catalogo = await CatalogoService.instancia.streamProductos(SesionActual.instancia.idNegocio!).first;
+    final opcionesCombo = catalogo.where((p) => p.id != idEfectivo && !p.esCombo).toList();
+    var esCombo = item?.esCombo ?? false;
+    final comboIds = <String>[...?item?.comboIds];
+    String fecha(DateTime d) =>
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    double sumaCombo() => opcionesCombo
+        .where((p) => comboIds.contains(p.id))
+        .fold<double>(0, (a, p) => a + p.precio);
 
     if (!context.mounted) return;
     await showDialog<void>(
@@ -323,6 +369,125 @@ class _ProductosTabState extends State<_ProductosTab> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.local_offer_outlined),
+                      title: const Text('En promoción'),
+                      subtitle: const Text('Precio rebajado, por un tiempo o hasta que la quites'),
+                      value: enPromo,
+                      onChanged: (v) => setState(() => enPromo = v),
+                    ),
+                    if (enPromo) ...[
+                      TextFormField(
+                        controller: precioPromo,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Precio de promoción *',
+                          prefixText: 'Bs ',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) {
+                          if (!enPromo) return null;
+                          final promo = double.tryParse((v ?? '').replaceAll(',', '.'));
+                          final normal = double.tryParse(precio.text.replaceAll(',', '.'));
+                          if (promo == null || promo <= 0) return 'Precio no válido';
+                          if (normal != null && promo >= normal) {
+                            return 'Debe ser menor al precio normal';
+                          }
+                          return null;
+                        },
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.event_outlined, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(promoHasta == null
+                                ? 'Sin fecha de fin'
+                                : 'Hasta el ${fecha(promoHasta!)} (inclusive)'),
+                          ),
+                          if (promoHasta != null)
+                            IconButton(
+                              tooltip: 'Quitar fecha',
+                              icon: const Icon(Icons.close),
+                              onPressed: () => setState(() => promoHasta = null),
+                            ),
+                          TextButton(
+                            onPressed: () async {
+                              final hoy = DateTime.now();
+                              final primero = DateTime(hoy.year, hoy.month, hoy.day);
+                              final actual = promoHasta;
+                              final elegido = await showDatePicker(
+                                context: context,
+                                firstDate: primero,
+                                lastDate: primero.add(const Duration(days: 365)),
+                                // Una promoción ya vencida empieza desde hoy.
+                                initialDate: actual != null && !actual.isBefore(primero) &&
+                                        actual.isBefore(primero.add(const Duration(days: 365)))
+                                    ? DateTime(actual.year, actual.month, actual.day)
+                                    : primero.add(const Duration(days: 7)),
+                              );
+                              if (elegido != null) {
+                                setState(() => promoHasta =
+                                    DateTime(elegido.year, elegido.month, elegido.day, 23, 59, 59));
+                              }
+                            },
+                            child: const Text('Elegir fecha'),
+                          ),
+                        ],
+                      ),
+                    ],
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.lunch_dining_outlined),
+                      title: const Text('Es un combo'),
+                      subtitle: const Text('Incluye varios productos por un solo precio'),
+                      value: esCombo,
+                      onChanged: (v) => setState(() => esCombo = v),
+                    ),
+                    if (esCombo) ...[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '¿Qué incluye? (elige al menos 2)',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      if (opcionesCombo.isEmpty)
+                        const Text('Primero crea los productos que irán en el combo.')
+                      else
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final p in opcionesCombo)
+                              FilterChip(
+                                label: Text(p.nombre),
+                                selected: comboIds.contains(p.id),
+                                onSelected: (v) => setState(() {
+                                  if (v) {
+                                    comboIds.add(p.id);
+                                  } else {
+                                    comboIds.remove(p.id);
+                                  }
+                                }),
+                              ),
+                          ],
+                        ),
+                      if (comboIds.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Por separado costarían Bs ${sumaCombo().toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ),
+                    ],
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: idCategoria.isEmpty ? null : idCategoria,
@@ -424,7 +589,14 @@ class _ProductosTabState extends State<_ProductosTab> {
             FilledButton(
               onPressed: () async {
                 if (!key.currentState!.validate()) return;
+                if (esCombo && comboIds.length < 2) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Un combo debe incluir al menos 2 productos.'),
+                  ));
+                  return;
+                }
                 final valor = double.parse(precio.text.replaceAll(',', '.'));
+                final promo = enPromo ? double.parse(precioPromo.text.replaceAll(',', '.')) : null;
                 final cantidad = controlarStock ? int.parse(stock.text.trim()) : null;
                 try {
                   await CatalogoService.instancia.guardarProducto(
@@ -446,12 +618,19 @@ class _ProductosTabState extends State<_ProductosTab> {
                       alergenos: alergenos,
                       stock: cantidad,
                       stockMinimo: int.tryParse(stockMinimo.text.trim()) ?? 5,
+                      precioPromo: promo,
+                      promoHasta: promo == null ? null : promoHasta,
+                      esCombo: esCombo,
+                      comboIds: esCombo ? comboIds : const [],
                     ),
                   );
                   ActividadService.instancia.registrar(
                     ActividadTipo.catalogo,
                     '${item == null ? 'Creó' : 'Editó'} el producto ${nombre.text.trim()} '
-                    '(Bs ${valor.toStringAsFixed(2)}${cantidad == null ? '' : ', stock $cantidad'})',
+                    '(Bs ${valor.toStringAsFixed(2)}'
+                    '${promo == null ? '' : ', promoción Bs ${promo.toStringAsFixed(2)}'}'
+                    '${esCombo ? ', combo' : ''}'
+                    '${cantidad == null ? '' : ', stock $cantidad'})',
                   );
                   if (ctx.mounted) Navigator.pop(ctx);
                 } catch (e) {
@@ -474,6 +653,7 @@ class _ProductosTabState extends State<_ProductosTab> {
       imagen.dispose();
       stock.dispose();
       stockMinimo.dispose();
+      precioPromo.dispose();
     });
   }
 
@@ -597,7 +777,28 @@ class _ProductosTabState extends State<_ProductosTab> {
                                     spacing: 8,
                                     crossAxisAlignment: WrapCrossAlignment.center,
                                     children: [
-                                      Text('Bs ${item.precio.toStringAsFixed(2)}'),
+                                      if (item.promoActiva())
+                                        Text(
+                                          'Bs ${item.precioVigente().toStringAsFixed(2)}  '
+                                          '(antes Bs ${item.precio.toStringAsFixed(2)})',
+                                        )
+                                      else
+                                        Text('Bs ${item.precio.toStringAsFixed(2)}'),
+                                      if (item.promoActiva())
+                                        AppStatusBadge(
+                                          label: 'Promo -${item.porcentajePromo()}%',
+                                          tone: AppStatusTone.warning,
+                                        )
+                                      else if (item.precioPromo != null)
+                                        const AppStatusBadge(
+                                          label: 'Promo vencida',
+                                          tone: AppStatusTone.neutral,
+                                        ),
+                                      if (item.esCombo)
+                                        AppStatusBadge(
+                                          label: 'Combo · ${item.comboIds.length} productos',
+                                          tone: AppStatusTone.neutral,
+                                        ),
                                       AppStatusBadge(
                                         label:
                                             item.disponible ? 'Disponible' : 'No disponible',

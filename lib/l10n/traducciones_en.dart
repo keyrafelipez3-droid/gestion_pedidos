@@ -580,6 +580,24 @@ const traduccionesEn = <String, String>{
   'Muy grande': 'Very large',
   'Máximo': 'Maximum',
   'Accesibilidad': 'Accessibility',
+  // Favoritos (HU-19)
+  'Favoritos': 'Favorites',
+  'Todavía no tienes favoritos': 'You have no favorites yet',
+  'Toca el corazón de un producto para guardarlo aquí.': 'Tap the heart on a product to save it here.',
+  // Promociones, combos, pausa y reparto (HU-35/37/39/47)
+  'Promos': 'Deals',
+  'Combos': 'Combos',
+  'No hay promociones en este momento': 'There are no deals right now',
+  'Todavía no hay combos': 'There are no combos yet',
+  'COMBO': 'COMBO',
+  'PROMO -{n}%': 'DEAL -{n}%',
+  'Hasta el {fecha}': 'Until {fecha}',
+  'Incluye: {lista}': 'Includes: {lista}',
+  'Ahorras Bs {monto}': 'You save Bs {monto}',
+  'Por ahora no estamos recibiendo pedidos. Vuelve a intentarlo en un rato.': "We're not taking orders right now. Please try again in a while.",
+  'Por ahora no estamos recibiendo pedidos: {motivo}': "We're not taking orders right now: {motivo}",
+  'Se asignó el pedido al repartidor {nombre}.': 'The order was assigned to the delivery driver {nombre}.',
+  'El repartidor {nombre} salió con el pedido.': 'The delivery driver {nombre} left with your order.',
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Eat healthy: choose plain water, fruits and vegetables, and limit salt, sugar and fat.',
 };

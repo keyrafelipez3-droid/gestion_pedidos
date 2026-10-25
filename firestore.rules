@@ -176,6 +176,11 @@ service cloud.firestore {
           request.auth.uid == userId
           || isSuperAdmin()
           || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual())
+          // HU-39: el Cajero ve a los repartidores de su negocio para
+          // asignarles pedidos.
+          || (isCajero()
+              && resource.data.get('idNegocio', null) == idNegocioActual()
+              && resource.data.get('rol', '') == 'Repartidor')
         );
 
       // Auto-registro: solo como Cliente, activo y SIN negocio ni sucursal.
@@ -478,6 +483,9 @@ service cloud.firestore {
           && request.resource.data.get('idiomaCliente', 'es') in ['es', 'en', 'pt', 'fr']
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
                .data.get('idNegocio', null) == request.resource.data.idNegocio
+          // HU-47: la sucursal no tiene los pedidos en pausa.
+          && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
+               .data.get('pedidosPausados', false) != true
           && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid))
         // Mesas: el Cajero (o el Administrador) registra pedidos de mesa
         // de SU negocio, a nombre del local.
@@ -517,6 +525,11 @@ service cloud.firestore {
                 && request.resource.data.idRepartidor == request.auth.uid
                 && request.resource.data.nombreRepartidor is string
                 && request.resource.data.telefonoRepartidor is string)
+              // HU-39: sale con un pedido que le asignaron (sigue Listo).
+              || (resource.data.get('idRepartidor', null) == request.auth.uid
+                && cambios().hasOnly(['estado'])
+                && resource.data.estado == 'Listo'
+                && request.resource.data.estado == 'En camino')
               // Avisar que llego (solo cambia el estado).
               || (resource.data.get('idRepartidor', null) == request.auth.uid
                 && cambios().hasOnly(['estado'])
@@ -551,6 +564,22 @@ service cloud.firestore {
                 && (request.resource.data.estado != 'Cancelado' || puedeCancelar())
                 && request.resource.data.get('ubicacionRepartidor', null) == null
                 && request.resource.data.get('ubicacionActualizada', null) == null)
+              // HU-39: el Cajero o el Administrador asigna (o cambia) el
+              // repartidor de un pedido de delivery que todavia esta Listo.
+              // Debe ser un repartidor activo de este negocio.
+              || ((isCajero() || isAdmin())
+                && resource.data.get('modalidad', '') == 'Delivery'
+                && resource.data.estado == 'Listo'
+                && request.resource.data.estado == 'Listo'
+                && cambios().hasOnly(['idRepartidor', 'nombreRepartidor', 'telefonoRepartidor'])
+                && request.resource.data.nombreRepartidor is string
+                && request.resource.data.telefonoRepartidor is string
+                && get(/databases/$(database)/documents/usuarios/$(request.resource.data.idRepartidor))
+                     .data.get('rol', '') == 'Repartidor'
+                && get(/databases/$(database)/documents/usuarios/$(request.resource.data.idRepartidor))
+                     .data.get('idNegocio', null) == idNegocioActual()
+                && get(/databases/$(database)/documents/usuarios/$(request.resource.data.idRepartidor))
+                     .data.get('estado', false) == true)
               // Cobro (solo Cajero): no se puede "des-cobrar" un pedido.
               || (isCajero()
                 && cambios().hasOnly(['cuentaAbierta', 'cobrado', 'idCaja', 'metodoPago'])
