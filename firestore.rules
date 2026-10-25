@@ -240,8 +240,39 @@ service cloud.firestore {
       // Administrador ni el SuperAdmin necesitan leer las direcciones de
       // un cliente (el pedido guarda su propia copia de la direccion).
       match /{subcollection}/{documentId} {
-        allow read, write: if signedIn() && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId
+          && subcollection != 'misNegocios';
       }
+
+      // Restaurantes a los que el cliente entro con su codigo. Solo se
+      // agrega uno si el codigo existe y es de ese negocio; el cliente no
+      // puede "inventarse" acceso a otro restaurante.
+      match /misNegocios/{idNegocio} {
+        allow read: if signedIn() && (request.auth.uid == userId || isSuperAdmin());
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['codigo', 'fecha'])
+          && request.resource.data.codigo is string
+          && request.resource.data.fecha == request.time
+          && get(/databases/$(database)/documents/codigosNegocio/$(request.resource.data.codigo))
+               .data.idNegocio == idNegocio;
+        allow delete: if signedIn() && request.auth.uid == userId;
+        allow update: if false;
+      }
+    }
+
+    // Codigo de acceso de cada restaurante (lo crea el SuperAdmin). Se puede
+    // consultar un codigo concreto incluso sin sesion (para mostrar el
+    // nombre y el logo del restaurante en su enlace), pero NO se pueden
+    // listar: nadie ve los codigos de otros restaurantes.
+    match /codigosNegocio/{codigo} {
+      allow get: if true;
+      allow list: if false;
+      allow create, delete: if isSuperAdmin();
+      allow update: if isSuperAdmin()
+        || (isAdmin()
+            && resource.data.idNegocio == idNegocioActual()
+            && request.resource.data.idNegocio == resource.data.idNegocio);
     }
 
     // --------------------------------------------- sucursales y catalogo
@@ -486,7 +517,9 @@ service cloud.firestore {
           // HU-47: la sucursal no tiene los pedidos en pausa.
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
                .data.get('pedidosPausados', false) != true
-          && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid))
+          && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid)
+          // Solo puede pedir en un restaurante al que entro con su codigo.
+          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)/misNegocios/$(request.resource.data.idNegocio)))
         // Mesas: el Cajero (o el Administrador) registra pedidos de mesa
         // de SU negocio, a nombre del local.
         || ((isAdmin()

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/negocio_model.dart';
+import 'codigo_negocio_service.dart';
 
 /// HU-07 — "Gestionar información general del negocio".
 ///
@@ -51,8 +52,10 @@ class NegocioService {
 
   /// Crea o actualiza el documento de un negocio ya existente (set con
   /// merge, así no hace falta preocuparse de si ya existía o no).
-  Future<void> guardarNegocio(NegocioModel negocio) {
-    return _col.doc(negocio.idNegocio).set(negocio.toMap(), SetOptions(merge: true));
+  Future<void> guardarNegocio(NegocioModel negocio) async {
+    await _col.doc(negocio.idNegocio).set(negocio.toMap(), SetOptions(merge: true));
+    // El enlace del restaurante muestra su nombre y logo actuales.
+    await CodigoNegocioService.instancia.sincronizarMarca(negocio);
   }
 
   Future<void> cambiarEstadoNegocio(String idNegocio, bool estado) =>

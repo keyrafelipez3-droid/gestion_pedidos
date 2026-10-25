@@ -7,6 +7,7 @@ import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/codigo_restaurante.dart';
 import '../admin/crear_empleado_screen.dart';
 import '../admin/negocio_screen.dart';
 import '../admin/personalizacion_screen.dart';
@@ -77,6 +78,10 @@ class _SuperAdminNegocioDetalleScreenState
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          // Código y enlace con los que los clientes entran SOLO a este
+          // restaurante.
+          TarjetaCodigoNegocio(idNegocio: negocio.idNegocio, puedeCambiar: true),
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [

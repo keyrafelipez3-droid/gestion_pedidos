@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
 import '../l10n/tamano_texto.dart';
 import '../models/mesa_model.dart';
+import '../models/negocio_model.dart';
 import '../models/pedido_models.dart';
 import '../models/usuario_model.dart';
 import '../services/actividad_service.dart';
+import '../services/app_theme_controller.dart';
+import '../services/codigo_negocio_service.dart';
+import '../services/negocio_service.dart';
 import '../services/caja_service.dart';
 import '../services/mesa_service.dart';
 import '../services/pedido_service.dart';
@@ -14,13 +20,16 @@ import '../services/solicitudes_service.dart';
 import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_status_badge.dart';
+import '../widgets/app_fotos_comida.dart';
 import '../widgets/avisos_cliente.dart';
+import '../widgets/codigo_restaurante.dart';
 import '../widgets/logo_caro.dart';
 import 'admin/admin_home_screen.dart';
 import 'cajero/cajero_caja_screen.dart';
 import 'cajero/cajero_mesas_screen.dart';
 import 'cajero/cajero_pedidos_screen.dart';
 import 'cajero/cajero_rendicion_screen.dart';
+import 'cliente/cliente_menu_screen.dart';
 import 'cliente/cliente_negocios_screen.dart';
 import 'cliente/mis_pedidos_screen.dart';
 import 'cocina/cocina_pedidos_screen.dart';
@@ -186,6 +195,10 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
   Stream<int>? _contador;
   String Function(int)? _textoContador;
 
+  // Cliente: restaurantes a los que entró con su código (null = cargando).
+  StreamSubscription<List<String>>? _subMios;
+  List<NegocioModel>? _mios;
+
   static bool _enCurso(PedidoModel p) =>
       p.estado != PedidoEstado.entregado && p.estado != PedidoEstado.cancelado;
 
@@ -195,6 +208,13 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
     final u = widget.usuario;
     final idNegocio = u.idNegocio;
     if (u.esCliente) {
+      _entrarPorEnlace();
+      _subMios = CodigoNegocioService.instancia.streamMisNegocios(u.idUsuario).listen(
+            _cargarMios,
+            onError: (_) {
+              if (mounted) setState(() => _mios = const []);
+            },
+          );
       final pedidos = PedidoService.instancia.streamPedidosCliente(u.idUsuario).asBroadcastStream();
       final enCurso = pedidos.map((l) => l.where(_enCurso).length).asBroadcastStream();
       _datos = [
@@ -287,6 +307,46 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
     }
   }
 
+  @override
+  void dispose() {
+    _subMios?.cancel();
+    super.dispose();
+  }
+
+  /// Si la app se abrió con el enlace de un restaurante (o se acaba de
+  /// registrar con su código), el cliente queda dentro de él.
+  Future<void> _entrarPorEnlace() async {
+    final codigo = CodigoNegocioService.codigoDelEnlace;
+    if (codigo == null) return;
+    final inv = await CodigoNegocioService.instancia.buscar(codigo);
+    if (inv == null) return;
+    try {
+      await CodigoNegocioService.instancia.unirse(widget.usuario.idUsuario, inv);
+      CodigoNegocioService.codigoDelEnlace = null;
+    } catch (_) {
+      // Se puede volver a intentar escribiendo el código.
+    }
+  }
+
+  Future<void> _cargarMios(List<String> ids) async {
+    final lista = <NegocioModel>[];
+    for (final id in ids) {
+      try {
+        final n = await NegocioService.instancia.obtenerNegocioPorId(id);
+        if (n.estado && n.nombre.isNotEmpty) lista.add(n);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() => _mios = lista);
+    // Con un solo restaurante, toda la app toma su marca: para el cliente
+    // es "la app del restaurante".
+    if (lista.length == 1) AppThemeController.instancia.actualizar(lista.first);
+  }
+
+  Future<void> _pedirCodigo() async {
+    await pedirCodigoRestaurante(context, widget.usuario.idUsuario);
+  }
+
   void _ir(Widget pantalla) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => pantalla));
 
@@ -296,15 +356,36 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
     final scheme = Theme.of(context).colorScheme;
     final acciones = <_AccionHome>[
       if (u.esCliente) ...[
-        _AccionHome(
-          icono: Icons.restaurant_menu_outlined,
-          titulo: tr('Pedir ahora'),
-          descripcion: tr('Elige un restaurante y arma tu pedido'),
-          destacada: true,
-          contador: _contador,
-          textoContador: _textoContador,
-          onTap: () => _ir(const ClienteNegociosScreen()),
-        ),
+        if (_mios != null && _mios!.isEmpty)
+          // Todavía no entró a ningún restaurante: se le pide el código.
+          _AccionHome(
+            icono: Icons.vpn_key_outlined,
+            titulo: tr('Ingresa el código de tu restaurante'),
+            descripcion: tr('Te lo da el restaurante donde quieres pedir.'),
+            destacada: true,
+            onTap: _pedirCodigo,
+          )
+        else if (_mios != null)
+          _AccionHome(
+            icono: Icons.restaurant_menu_outlined,
+            titulo: _mios!.length == 1
+                ? tr('Pedir en {nombre}', {'nombre': _mios!.first.nombre})
+                : tr('Pedir ahora'),
+            descripcion: _mios!.length == 1
+                ? tr('Mira el menú y arma tu pedido')
+                : tr('Elige un restaurante y arma tu pedido'),
+            destacada: true,
+            contador: _contador,
+            textoContador: _textoContador,
+            onTap: _mios!.length == 1
+                ? () => _ir(ClienteMenuScreen(
+                      negocio: _mios!.first,
+                      fotoRespaldo: fotoComidaPorIndice(0),
+                    ))
+                : () => _ir(ClienteNegociosScreen(
+                      soloIds: [for (final n in _mios!) n.idNegocio],
+                    )),
+          ),
         _AccionHome(
           icono: Icons.receipt_long_outlined,
           titulo: tr('Mis pedidos'),
