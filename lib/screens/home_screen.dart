@@ -299,11 +299,10 @@ class _AccionHome extends StatelessWidget {
             : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Ink(
-          // La acción principal lleva un degradado suave del color de marca.
-          decoration: destacada
+      child: Ink(
+        // La acción principal lleva un degradado suave del color de marca
+        // (debajo del InkWell para que se vea el efecto al tocar).
+        decoration: destacada
               ? BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -315,6 +314,8 @@ class _AccionHome extends StatelessWidget {
                   ),
                 )
               : null,
+        child: InkWell(
+          onTap: onTap,
           child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(

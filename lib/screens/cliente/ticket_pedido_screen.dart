@@ -178,7 +178,6 @@ class _Recibo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final texto = Theme.of(context).textTheme;
     final n = datos.negocio;
     // El ticket siempre es blanco (como el papel), también en modo oscuro.
@@ -190,7 +189,7 @@ class _Recibo extends StatelessWidget {
           child: Row(
             children: List.generate(
               40,
-              (i) => Expanded(child: Container(height: 1, color: i.isEven ? scheme.outlineVariant : Colors.transparent)),
+              (i) => Expanded(child: Container(height: 1, color: i.isEven ? const Color(0x33000000) : Colors.transparent)),
             ),
           ),
         );
@@ -200,7 +199,7 @@ class _Recibo extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: AppRadius.mdAll,
-        border: Border.all(color: scheme.outlineVariant),
+        border: Border.all(color: const Color(0x1F000000)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, 6))],
       ),
       child: DefaultTextStyle.merge(
