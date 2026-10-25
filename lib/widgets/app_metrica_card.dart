@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 
 /// Tarjeta de métrica del dashboard: ícono, valor grande (ya formateado,
@@ -28,11 +29,7 @@ class AppMetricaCard extends StatelessWidget {
       duration: AppMotion.normal,
       width: 200,
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: scheme.outlineVariant),
-      ),
+      decoration: context.brand.decoracionTarjeta(scheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -40,7 +37,8 @@ class AppMetricaCard extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.35)),
             ),
             child: Icon(icon, color: color, size: 20),
           ),
