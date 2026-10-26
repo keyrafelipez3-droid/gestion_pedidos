@@ -11,7 +11,7 @@ import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_search_field.dart';
-import 'cliente_menu_screen.dart';
+import 'condiciones_restaurante_screen.dart';
 
 /// HU-16 (parte 1): el Cliente elige de qué negocio quiere ver el menú.
 /// Es la puerta de entrada a todo el flujo de Cliente (menú → carrito →
@@ -180,14 +180,8 @@ class _TarjetaNegocioState extends State<_TarjetaNegocio> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ClienteMenuScreen(
-                    negocio: negocio,
-                    fotoRespaldo: fotoComidaPorIndice(widget.indice),
-                  ),
-                ),
-              ),
+              onTap: () => abrirRestaurante(context, negocio,
+                  fotoRespaldo: fotoComidaPorIndice(widget.indice)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -2,9 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
 import '../../l10n/tamano_texto.dart';
+import '../../legal/textos_legales.dart';
+import '../../models/negocio_model.dart';
 import '../../models/usuario_model.dart';
+import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
+import '../../services/codigo_negocio_service.dart';
+import '../../services/negocio_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../services/sucursal_service.dart';
+import '../../utils/documento_imprimible.dart';
 import '../../utils/contrasena.dart';
 import '../../utils/formato.dart';
 import '../../theme/design_tokens.dart';
@@ -15,6 +22,7 @@ import '../../widgets/campo_telefono.dart';
 import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/etiqueta_version.dart';
 import '../../widgets/selector_imagen.dart';
+import '../cliente/condiciones_restaurante_screen.dart';
 import '../legal/legal_screen.dart';
 import 'dos_pasos_screen.dart';
 import 'registrar_negocio_screen.dart';
@@ -283,6 +291,82 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     _telefonoCtrl.dispose();
     _fotoPerfilCtrl.dispose();
     super.dispose();
+  }
+
+  void _aviso(String texto) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
+
+  /// Copia del acuerdo firmado, lista para imprimir o guardar como PDF.
+  Future<void> _descargarAcuerdo(UsuarioModel usuario) async {
+    final acuerdo = usuario.acuerdo;
+    if (acuerdo == null) return;
+    try {
+      NegocioModel? negocio = AppThemeController.instancia.negocio.value;
+      if (negocio == null && usuario.idNegocio != null) {
+        negocio = await NegocioService.instancia.obtenerNegocioPorId(usuario.idNegocio!);
+      }
+      var sucursal = '';
+      if (usuario.idSucursal != null) {
+        sucursal = (await SucursalService.instancia.obtener(usuario.idSucursal!))?.nombre ?? '';
+      }
+      final ok = await imprimirDocumentoLegal(
+        titulo: TextosLegales.tituloAcuerdo,
+        subtitulo: negocio?.nombre ?? '',
+        resumen: TextosLegales.resumenAcuerdo(negocio: negocio, rol: usuario.rol),
+        secciones: TextosLegales.acuerdoPersonal(negocio: negocio, usuario: usuario, sucursal: sucursal),
+        firma: FirmaDocumento(
+          detalle: 'Firmado por ${acuerdo.nombre} (CI ${acuerdo.ci})',
+          fecha: acuerdo.fecha == null ? '' : formatoFechaHora(acuerdo.fecha!),
+          version: acuerdo.version,
+        ),
+      );
+      if (!ok && mounted) {
+        _aviso(tr('Para imprimir o guardar en PDF, abre la app en el navegador.'));
+      }
+    } catch (_) {
+      if (mounted) _aviso(tr('No se pudo preparar el documento. Inténtalo de nuevo.'));
+    }
+  }
+
+  /// El cliente vuelve a leer las condiciones de los restaurantes a los
+  /// que entró con su código.
+  Future<void> _verCondiciones(UsuarioModel usuario) async {
+    try {
+      final ids = await CodigoNegocioService.instancia.streamMisNegocios(usuario.idUsuario).first;
+      final negocios = [
+        for (final id in ids) await NegocioService.instancia.obtenerNegocioPorId(id),
+      ];
+      if (!mounted) return;
+      if (negocios.isEmpty) {
+        _aviso(tr('Todavía no entraste a ningún restaurante con su código.'));
+        return;
+      }
+      NegocioModel? elegido = negocios.length == 1 ? negocios.first : null;
+      elegido ??= await showModalBottomSheet<NegocioModel>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final n in negocios)
+                ListTile(
+                  leading: const Icon(Icons.storefront_outlined),
+                  title: Text(n.nombre),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pop(ctx, n),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (elegido == null || !mounted) return;
+      final n = elegido;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => CondicionesRestauranteScreen(negocio: n, soloLectura: true),
+      ));
+    } catch (_) {
+      if (mounted) _aviso(tr('No se pudo preparar el documento. Inténtalo de nuevo.'));
+    }
   }
 
   /// Eliminar la cuenta (solo Clientes). Pide la contraseña y explica qué
@@ -618,6 +702,21 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                               '${usuario.acuerdo!.fecha == null ? '' : ' el ${formatoFechaHora(usuario.acuerdo!.fecha!)}'}'
                               ' · versión ${usuario.acuerdo!.version}',
                             ),
+                            trailing: IconButton(
+                              tooltip: tr('Descargar mi acuerdo firmado (PDF)'),
+                              icon: const Icon(Icons.download_outlined),
+                              onPressed: () => _descargarAcuerdo(usuario),
+                            ),
+                            onTap: () => _descargarAcuerdo(usuario),
+                          ),
+                        if (usuario.esCliente)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.gavel_outlined),
+                            title: Text(tr('Condiciones de mis restaurantes')),
+                            subtitle: Text(tr('Lo que aceptaste al pedir: pagos, entregas y devoluciones')),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _verCondiciones(usuario),
                           ),
                         ListTile(
                           contentPadding: EdgeInsets.zero,

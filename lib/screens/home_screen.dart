@@ -29,7 +29,7 @@ import 'cajero/cajero_caja_screen.dart';
 import 'cajero/cajero_mesas_screen.dart';
 import 'cajero/cajero_pedidos_screen.dart';
 import 'cajero/cajero_rendicion_screen.dart';
-import 'cliente/cliente_menu_screen.dart';
+import 'cliente/condiciones_restaurante_screen.dart';
 import 'cliente/cliente_negocios_screen.dart';
 import 'cliente/mis_pedidos_screen.dart';
 import 'cocina/cocina_pedidos_screen.dart';
@@ -378,10 +378,8 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
             contador: _contador,
             textoContador: _textoContador,
             onTap: _mios!.length == 1
-                ? () => _ir(ClienteMenuScreen(
-                      negocio: _mios!.first,
-                      fotoRespaldo: fotoComidaPorIndice(0),
-                    ))
+                ? () => abrirRestaurante(context, _mios!.first,
+                    fotoRespaldo: fotoComidaPorIndice(0))
                 : () => _ir(ClienteNegociosScreen(
                       soloIds: [for (final n in _mios!) n.idNegocio],
                     )),
