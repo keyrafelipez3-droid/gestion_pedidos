@@ -8,10 +8,13 @@ import '../../models/negocio_model.dart';
 import '../../models/usuario_model.dart';
 import '../../models/actividad_model.dart';
 import '../../services/actividad_service.dart';
+import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/formato.dart';
+import '../../widgets/documento_legal.dart';
 import '../legal/legal_screen.dart';
 
 /// Antes de usar la app:
@@ -35,7 +38,22 @@ class PuertaAcuerdos extends StatelessWidget {
         if (u.esCliente) {
           return u.terminosVersion == AppConfig.versionTerminos ? child : _AceptarTerminos(usuario: u);
         }
-        return u.acuerdo?.version == AppConfig.versionAcuerdoPersonal ? child : _FirmarAcuerdo(usuario: u);
+        // La versión que debe estar firmada depende también de las reglas
+        // internas de SU restaurante: si el Administrador las cambia, todo
+        // el personal firma de nuevo.
+        return ValueListenableBuilder<NegocioModel?>(
+          valueListenable: AppThemeController.instancia.negocio,
+          builder: (context, negocio, _) {
+            final mio = negocio != null && negocio.idNegocio == u.idNegocio ? negocio : null;
+            final firmada = u.acuerdo?.version;
+            final vigente = mio == null
+                // Mientras carga el restaurante, alcanza con la versión de
+                // la plataforma (se vuelve a revisar al cargar).
+                ? firmada?.split('+').first == AppConfig.versionAcuerdoPersonal
+                : firmada == TextosLegales.versionAcuerdo(mio);
+            return vigente ? child : _FirmarAcuerdo(usuario: u);
+          },
+        );
       },
     );
   }
@@ -181,9 +199,30 @@ class _FirmarAcuerdo extends StatefulWidget {
 }
 
 class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
-  late final Future<NegocioModel?> _negocio = widget.usuario.idNegocio == null
-      ? Future.value(null)
-      : NegocioService.instancia.obtenerNegocioPorId(widget.usuario.idNegocio!);
+  late final Future<(NegocioModel?, String)> _datos = _cargarDatos();
+  NegocioModel? _negocioCargado;
+
+  /// Restaurante (con sus reglas internas) y nombre de la sucursal, para
+  /// personalizar el acuerdo.
+  Future<(NegocioModel?, String)> _cargarDatos() async {
+    final u = widget.usuario;
+    NegocioModel? negocio;
+    var sucursal = '';
+    try {
+      if (u.idNegocio != null) {
+        negocio = await NegocioService.instancia.obtenerNegocioPorId(u.idNegocio!);
+      }
+      if (u.idSucursal != null) {
+        sucursal = (await SucursalService.instancia.obtener(u.idSucursal!))?.nombre ?? '';
+      }
+    } catch (_) {
+      // Sin conexión: se muestra el acuerdo general.
+    }
+    _negocioCargado = negocio;
+    return (negocio, sucursal);
+  }
+
+  String get _version => TextosLegales.versionAcuerdo(_negocioCargado);
   late final _nombre = TextEditingController(text: widget.usuario.nombre);
   final _ci = TextEditingController();
   final _form = GlobalKey<FormState>();
@@ -202,10 +241,11 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
     setState(() => _guardando = true);
     final nombre = _nombre.text.trim();
     final ci = _ci.text.trim().toUpperCase();
+    final version = _version;
     try {
       await _doc(widget.usuario.idUsuario).update({
         'acuerdoPersonal': {
-          'version': AppConfig.versionAcuerdoPersonal,
+          'version': version,
           'fecha': FieldValue.serverTimestamp(),
           'nombre': nombre,
           'ci': ci,
@@ -215,11 +255,11 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
       });
       ActividadService.instancia.registrar(
         ActividadTipo.seguridad,
-        'Firmó el acuerdo del personal (versión ${AppConfig.versionAcuerdoPersonal}, CI $ci)',
+        'Firmó el acuerdo del personal (versión $version, CI $ci)',
       );
       SesionActual.instancia.usuario.value = widget.usuario.conAceptacion(
         acuerdo: AcuerdoFirmado(
-          version: AppConfig.versionAcuerdoPersonal,
+          version: version,
           fecha: DateTime.now(),
           nombre: nombre,
           ci: ci,
@@ -238,7 +278,6 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
 
   @override
   Widget build(BuildContext context) {
-    final textos = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     final anterior = widget.usuario.acuerdo;
     return _Marco(
@@ -248,8 +287,8 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
           ? 'Antes de empezar a trabajar en la app, lee y firma este acuerdo. Solo se firma una vez.'
           : 'El acuerdo cambió desde que lo firmaste${anterior.fecha == null ? '' : ' el ${formatoFechaHora(anterior.fecha!)}'}. Léelo y fírmalo de nuevo.',
       children: [
-        FutureBuilder<NegocioModel?>(
-          future: _negocio,
+        FutureBuilder<(NegocioModel?, String)>(
+          future: _datos,
           builder: (context, s) {
             if (s.connectionState != ConnectionState.done) {
               return const Padding(
@@ -257,9 +296,9 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
                 child: Center(child: CircularProgressIndicator()),
               );
             }
-            final secciones = TextosLegales.acuerdoPersonal(negocio: s.data, usuario: widget.usuario);
+            final (negocio, sucursal) = s.data ?? (null, '');
             return Container(
-              constraints: const BoxConstraints(maxHeight: 360),
+              constraints: const BoxConstraints(maxHeight: 420),
               decoration: BoxDecoration(
                 border: Border.all(color: scheme.outlineVariant),
                 borderRadius: AppRadius.mdAll,
@@ -270,18 +309,16 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
                   shrinkWrap: true,
                   padding: const EdgeInsets.all(AppSpacing.md),
                   children: [
-                    Text('Versión ${AppConfig.versionAcuerdoPersonal}',
-                        style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                    const SizedBox(height: AppSpacing.sm),
-                    for (final sec in secciones) ...[
-                      Text(sec.titulo, style: textos.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: AppSpacing.xs),
-                      for (final p in sec.parrafos) ...[
-                        Text(p, style: textos.bodyMedium),
-                        const SizedBox(height: AppSpacing.xs),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                    ],
+                    VistaDocumentoLegal(
+                      titulo: negocio == null ? 'Tu acuerdo' : 'Tu acuerdo con ${negocio.nombre}',
+                      subtitulo: 'Versión ${TextosLegales.versionAcuerdo(negocio)}',
+                      resumen: TextosLegales.resumenAcuerdo(negocio: negocio, rol: widget.usuario.rol),
+                      secciones: TextosLegales.acuerdoPersonal(
+                        negocio: negocio,
+                        usuario: widget.usuario,
+                        sucursal: sucursal,
+                      ),
+                    ),
                   ],
                 ),
               ),

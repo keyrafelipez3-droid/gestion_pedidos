@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../config/app_config.dart';
+import '../../legal/textos_legales.dart';
 import '../../models/actividad_model.dart';
 import '../../models/usuario_model.dart';
 import '../../utils/formato.dart';
 import '../../services/actividad_service.dart';
 import '../../services/admin_service.dart';
+import '../../services/app_theme_controller.dart';
 import '../../services/sesion_actual.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/confirmar_identidad.dart';
@@ -71,6 +73,19 @@ class EmpleadosScreen extends StatelessWidget {
       ActividadTipo.empleado,
       '${activo ? 'Activó' : 'Desactivó'} la cuenta de ${e.nombre} (${e.rol})',
     );
+  }
+
+  /// ¿Firmó la versión vigente del acuerdo (con las reglas internas de su
+  /// restaurante)? Si el restaurante no está cargado, alcanza con la
+  /// versión de la plataforma.
+  static bool _acuerdoVigente(UsuarioModel e) {
+    final firmada = e.acuerdo?.version;
+    if (firmada == null) return false;
+    final n = AppThemeController.instancia.negocio.value;
+    if (n == null || n.idNegocio != e.idNegocio) {
+      return firmada.split('+').first == AppConfig.versionAcuerdoPersonal;
+    }
+    return firmada == TextosLegales.versionAcuerdo(n);
   }
 
   @override
@@ -158,10 +173,10 @@ class EmpleadosScreen extends StatelessWidget {
                             child: AppStatusBadge(
                               label: e.acuerdo == null
                                   ? 'Acuerdo pendiente'
-                                  : e.acuerdo!.version == AppConfig.versionAcuerdoPersonal
+                                  : _acuerdoVigente(e)
                                       ? 'Acuerdo firmado'
                                       : 'Acuerdo desactualizado',
-                              tone: e.acuerdo?.version == AppConfig.versionAcuerdoPersonal
+                              tone: _acuerdoVigente(e)
                                   ? AppStatusTone.success
                                   : AppStatusTone.warning,
                             ),

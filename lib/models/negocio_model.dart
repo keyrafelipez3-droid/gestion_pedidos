@@ -1,3 +1,5 @@
+import 'condiciones_negocio.dart';
+
 /// Representa UN documento de la colección raíz `negocios`.
 /// Desde la corrección pedida por el docente (multi-tenant real), pueden
 /// existir VARIOS negocios: el SuperAdmin los crea y personaliza todos, y
@@ -11,6 +13,10 @@
 /// sigue funcionando exactamente igual que antes.
 class NegocioModel {
   final String idNegocio;
+  /// Condiciones del restaurante para sus clientes y reglas internas para
+  /// su personal (se guardan aparte; ver `CondicionesService`).
+  final CondicionesNegocio condiciones;
+  final ReglasPersonal reglasPersonal;
   final String nombre;
   final String logoUrl;
   final String bannerUrl;
@@ -67,6 +73,8 @@ class NegocioModel {
     this.estiloBase = 'moderno',
     this.tipografia = 'sans',
     this.formaBotones = 'redondeado',
+    this.condiciones = const CondicionesNegocio(),
+    this.reglasPersonal = const ReglasPersonal(),
   });
 
   NegocioModel copyWith({
@@ -89,6 +97,8 @@ class NegocioModel {
     String? estiloBase,
     String? tipografia,
     String? formaBotones,
+    CondicionesNegocio? condiciones,
+    ReglasPersonal? reglasPersonal,
   }) {
     return NegocioModel(
       idNegocio: idNegocio,
@@ -111,6 +121,8 @@ class NegocioModel {
       estiloBase: estiloBase ?? this.estiloBase,
       tipografia: tipografia ?? this.tipografia,
       formaBotones: formaBotones ?? this.formaBotones,
+      condiciones: condiciones ?? this.condiciones,
+      reglasPersonal: reglasPersonal ?? this.reglasPersonal,
     );
   }
 
@@ -160,6 +172,8 @@ class NegocioModel {
       estiloBase: (data['estiloBase'] ?? 'moderno') as String,
       tipografia: (data['tipografia'] ?? 'sans') as String,
       formaBotones: (data['formaBotones'] ?? 'redondeado') as String,
+      condiciones: CondicionesNegocio.desde(data['condiciones']),
+      reglasPersonal: ReglasPersonal.desde(data['reglasPersonal']),
     );
   }
 }

@@ -590,6 +590,31 @@ describe('Código de acceso de cada restaurante', () => {
   });
 });
 
+describe('Condiciones de cada restaurante', () => {
+  test('si el restaurante cambia sus condiciones, el cliente debe aceptarlas antes de pedir', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), { condiciones: { version: '2026-10-25 20:00' } }));
+    await assertFails(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'usuarios/cli1/misNegocios', 'n1'), {
+      condicionesVersion: '2026-10-25 20:00', condicionesAceptadasEn: serverTimestamp(),
+    }));
+    await assertSucceeds(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+  });
+
+  test('al aceptar, el cliente no puede cambiar a qué restaurante entró', async () => {
+    await assertFails(updateDoc(doc(como('cli1'), 'usuarios/cli1/misNegocios', 'n1'), { codigo: 'OTRA22' }));
+    await assertFails(updateDoc(doc(como('cli2'), 'usuarios/cli1/misNegocios', 'n1'), {
+      condicionesVersion: 'x', condicionesAceptadasEn: serverTimestamp(),
+    }));
+  });
+
+  test('solo el Administrador de ese restaurante cambia sus condiciones', async () => {
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios', 'n1'), { condiciones: { version: 'v' } }));
+    await assertFails(updateDoc(doc(como('admin1'), 'negocios', 'n2'), { condiciones: { version: 'v' } }));
+    await assertFails(updateDoc(doc(como('cajero1'), 'negocios', 'n1'), { condiciones: { version: 'v' } }));
+  });
+});
+
 describe('Pausa de pedidos (HU-47)', () => {
   test('con la sucursal en pausa nadie puede hacer un pedido ahí', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
