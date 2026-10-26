@@ -1,5 +1,4 @@
 import '../config/app_config.dart';
-import '../models/condiciones_negocio.dart';
 import '../models/negocio_model.dart';
 import '../models/usuario_model.dart';
 
