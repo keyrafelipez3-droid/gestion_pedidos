@@ -4,6 +4,8 @@ import '../../config/app_config.dart';
 import '../../l10n/idioma.dart';
 import '../../legal/textos_legales.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/documento_imprimible.dart';
+import '../../widgets/documento_legal.dart';
 
 enum TipoTextoLegal { politicaPrivacidad, terminos }
 
@@ -20,11 +22,34 @@ class LegalScreen extends StatelessWidget {
         esPolitica ? TextosLegales.tituloPolitica : TextosLegales.tituloTerminos;
     final secciones =
         esPolitica ? TextosLegales.politicaPrivacidad() : TextosLegales.terminos();
+    final resumen = esPolitica ? TextosLegales.resumenPrivacidad() : TextosLegales.resumenTerminos();
+    final version = tr('Versión {versionTerminos}', {'versionTerminos': AppConfig.versionTerminos});
     final textos = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(tr(titulo))),
+      appBar: AppBar(
+        title: Text(tr(titulo)),
+        actions: [
+          IconButton(
+            tooltip: tr('Imprimir o guardar como PDF'),
+            icon: const Icon(Icons.print_outlined),
+            onPressed: () async {
+              final ok = await imprimirDocumentoLegal(
+                titulo: titulo,
+                subtitulo: version,
+                resumen: resumen,
+                secciones: secciones,
+              );
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(tr('Para imprimir o guardar en PDF, abre la app en el navegador.')),
+                ));
+              }
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -67,22 +92,12 @@ class LegalScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.md),
                 ],
-                Text(titulo, style: textos.headlineSmall),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  tr('Versión {versionTerminos}', {'versionTerminos': AppConfig.versionTerminos}),
-                  style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                VistaDocumentoLegal(
+                  titulo: titulo,
+                  subtitulo: version,
+                  resumen: resumen,
+                  secciones: secciones,
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                for (final s in secciones) ...[
-                  Text(s.titulo, style: textos.titleMedium),
-                  const SizedBox(height: AppSpacing.xs),
-                  for (final p in s.parrafos) ...[
-                    Text(p, style: textos.bodyMedium),
-                    const SizedBox(height: AppSpacing.sm),
-                  ],
-                  const SizedBox(height: AppSpacing.md),
-                ],
               ],
             ),
           ),

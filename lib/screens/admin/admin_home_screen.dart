@@ -22,6 +22,7 @@ import 'dashboard/dashboard_negocio.dart';
 import 'dashboard/dashboard_plataforma.dart';
 import 'actividad_screen.dart';
 import 'clientes_screen.dart';
+import 'condiciones_negocio_screen.dart';
 import 'cupones_screen.dart';
 import 'resenas_screen.dart';
 import 'empleados_screen.dart';
@@ -51,6 +52,7 @@ enum _SeccionAdmin {
   catalogo,
   ventas,
   cupones,
+  condiciones,
   negocios,
   solicitudes,
   empleados,
@@ -263,6 +265,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           onTap: () => ir(_SeccionAdmin.empleados, () => const EmpleadosScreen()),
         ),
         AppSidebarItem(
+          icon: Icons.gavel_outlined,
+          label: 'Condiciones y reglas',
+          selected: _seccion == _SeccionAdmin.condiciones,
+          onTap: () =>
+              ir(_SeccionAdmin.condiciones, () => const CondicionesNegocioScreen()),
+        ),
+        AppSidebarItem(
           icon: Icons.history,
           label: 'Actividad',
           selected: _seccion == _SeccionAdmin.actividad,
@@ -310,6 +319,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const VentasScreen(incrustada: true);
       case _SeccionAdmin.cupones:
         return const CuponesScreen(incrustada: true);
+      case _SeccionAdmin.condiciones:
+        return const CondicionesNegocioScreen(incrustada: true);
       case _SeccionAdmin.negocios:
         return const SuperAdminNegociosScreen(incrustada: true);
       case _SeccionAdmin.solicitudes:

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../theme/design_tokens.dart';
+import '../cliente/condiciones_restaurante_screen.dart';
 
 /// Ficha del negocio para el cliente: quién es, cómo contactarlo y cómo
 /// reclamar. Los datos los ingresa el Administrador del negocio en "Datos
@@ -71,6 +72,25 @@ class InfoNegocioScreen extends StatelessWidget {
                 Text(
                   tr('Puedes presentarlo directamente a este negocio, de forma verbal o escrita y sin formalidades, usando los datos de contacto de arriba.'),
                   style: textos.bodyMedium,
+                ),
+                if (negocio.condiciones.contactoReclamos.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  SelectableText(
+                    '${tr('Contacto para reclamos')}: ${negocio.condiciones.contactoReclamos}',
+                    style: textos.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.gavel_outlined),
+                    title: Text(tr('Condiciones de {restaurante}', {'restaurante': negocio.nombre})),
+                    subtitle: Text(tr('Pagos, entregas, devoluciones y reclamos')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => CondicionesRestauranteScreen(negocio: negocio, soloLectura: true),
+                    )),
+                  ),
                 ),
               ],
             ),

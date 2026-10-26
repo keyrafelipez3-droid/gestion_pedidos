@@ -28,6 +28,7 @@ import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/selector_imagen.dart';
 import '../mapa/selector_ubicacion_screen.dart';
+import 'condiciones_restaurante_screen.dart';
 import 'pedido_detalle_screen.dart';
 
 /// HU-24/25/26/27: elegir modalidad (mesa/recoger/delivery), dirección
@@ -759,6 +760,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (mounted) setState(() => _sucursal = fresca);
           throw Exception(tr('No se pueden hacer pedidos ahora. {mensaje}', {'mensaje': ap.mensaje}));
         }
+      }
+      // El restaurante pudo cambiar sus condiciones mientras el cliente
+      // armaba el pedido: se aceptan antes de enviarlo.
+      if (!mounted) return;
+      if (!await asegurarCondiciones(context, widget.negocio)) {
+        throw Exception(tr('Para pedir, primero acepta las condiciones del restaurante.'));
       }
       final idPedido = await PedidoService.instancia.confirmarPedido(
         idCliente: _uid,

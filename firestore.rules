@@ -257,7 +257,13 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/codigosNegocio/$(request.resource.data.codigo))
                .data.idNegocio == idNegocio;
         allow delete: if signedIn() && request.auth.uid == userId;
-        allow update: if false;
+        // Solo para registrar que acepto las condiciones del restaurante
+        // (version y hora del servidor).
+        allow update: if signedIn()
+          && request.auth.uid == userId
+          && cambios().hasOnly(['condicionesVersion', 'condicionesAceptadasEn'])
+          && request.resource.data.condicionesVersion is string
+          && request.resource.data.condicionesAceptadasEn == request.time;
       }
     }
 
@@ -518,8 +524,12 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
                .data.get('pedidosPausados', false) != true
           && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid)
-          // Solo puede pedir en un restaurante al que entro con su codigo.
-          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)/misNegocios/$(request.resource.data.idNegocio)))
+          // Solo puede pedir en un restaurante al que entro con su codigo y
+          // cuyas condiciones vigentes acepto.
+          && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)/misNegocios/$(request.resource.data.idNegocio))
+               .data.get('condicionesVersion', '')
+             == get(/databases/$(database)/documents/negocios/$(request.resource.data.idNegocio))
+               .data.get('condiciones', {}).get('version', ''))
         // Mesas: el Cajero (o el Administrador) registra pedidos de mesa
         // de SU negocio, a nombre del local.
         || ((isAdmin()
