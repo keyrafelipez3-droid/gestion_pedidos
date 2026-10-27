@@ -316,6 +316,16 @@ class PedidoService {
         return lista;
       });
 
+  /// Todos los pedidos con la cuenta abierta de las mesas de una sucursal
+  /// (para ver en el plano cuánto lleva cada mesa y desde cuándo). Solo
+  /// igualdades: no necesita índice.
+  Stream<List<PedidoModel>> streamCuentasAbiertas(String idNegocio, String idSucursal) => _pedidos
+      .where('idNegocio', isEqualTo: idNegocio)
+      .where('idSucursal', isEqualTo: idSucursal)
+      .where('cuentaAbierta', isEqualTo: true)
+      .snapshots()
+      .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+
   /// HU-46: cuántas mesas de la sucursal tienen una cuenta abierta (con
   /// algún pedido no cancelado). La caja no se puede cerrar mientras haya.
   Future<int> contarMesasConCuentaAbierta({

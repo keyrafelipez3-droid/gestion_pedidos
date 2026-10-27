@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/actividad_model.dart';
 import '../../models/caja_models.dart';
 import '../../models/usuario_model.dart';
@@ -12,6 +13,7 @@ import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/confirmar_identidad.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/panel_personal.dart';
 
 /// HU-46: apertura, movimientos y cierre de caja del Cajero.
 ///
@@ -254,15 +256,7 @@ class _CajaAbierta extends StatelessWidget {
       }
       final monto = await showDialog<double>(
         context: context,
-        builder: (_) => const _MontoDialog(
-          titulo: 'Contar el efectivo',
-          etiqueta: 'Efectivo contado',
-          ayuda: 'Cuenta todo el efectivo que hay en el cajón. Todavía no verás '
-              'cuánto debería haber. Después de confirmar no podrás cambiar '
-              'este monto ni registrar más movimientos.',
-          confirmar: 'Confirmar conteo',
-          permiteCero: true,
-        ),
+        builder: (_) => const _ConteoDialog(),
       );
       if (monto == null) return;
       await CajaService.instancia.registrarConteo(caja, monto);
@@ -283,60 +277,7 @@ class _CajaAbierta extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              margin: EdgeInsets.zero,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Caja abierta',
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        AppStatusBadge(
-                          label: caja.contada ? 'En cierre' : 'Abierta',
-                          tone: caja.contada ? AppStatusTone.warning : AppStatusTone.success,
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Desde ${_fechaHora(caja.fechaApertura)} · ${caja.nombreCajero}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    const Divider(height: 1),
-                    const SizedBox(height: AppSpacing.sm),
-                    _Fila('Monto inicial', _bs(resumen.montoInicial)),
-                    _Fila('Cobros en efectivo', _bs(resumen.cobrosEfectivo)),
-                    _Fila('Ingresos', _bs(resumen.ingresos)),
-                    _Fila('Egresos', _bs(resumen.egresos)),
-                    const SizedBox(height: AppSpacing.xs),
-                    _Fila(
-                      'Cobros por transferencia y QR (no van al cajón)',
-                      _bs(resumen.cobrosTransferencia + resumen.cobrosQr),
-                    ),
-                    if (!caja.contada) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'El efectivo esperado se muestra al cerrar, después de '
-                        'contar el efectivo del cajón.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+            _ResumenCajaAbierta(caja: caja, resumen: resumen),
             const SizedBox(height: AppSpacing.md),
             if (!caja.contada) ...[
               Row(
@@ -345,7 +286,7 @@ class _CajaAbierta extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () => _registrar(context, MovimientoTipo.ingreso),
                       icon: const Icon(Icons.add),
-                      label: const Text('Ingreso'),
+                      label: Text(tr('Ingreso')),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -356,7 +297,7 @@ class _CajaAbierta extends StatelessWidget {
                           ? () => _registrar(context, MovimientoTipo.egreso)
                           : null,
                       icon: const Icon(Icons.remove),
-                      label: const Text('Egreso'),
+                      label: Text(tr('Egreso')),
                     ),
                   ),
                 ],
@@ -365,31 +306,38 @@ class _CajaAbierta extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                   onPressed: () => _iniciarCierre(context),
                   icon: const Icon(Icons.lock_outline),
-                  label: const Text('Cerrar caja'),
+                  label: Text(tr('Cerrar caja: contar el efectivo')),
                 ),
               ),
             ] else
               _CierrePanel(caja: caja, resumen: resumen),
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Movimientos',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: AppSpacing.xs),
+            TituloColumna(tr('Movimientos de este turno'), contador: movimientos.length),
             if (movimientos.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: Text(
-                  'Todavía no hay movimientos en esta caja.',
+                  tr('Todavía no hay movimientos en esta caja.'),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               )
             else
-              for (final m in movimientos) _MovimientoTile(movimiento: m),
+              TarjetaPanel(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                child: Column(
+                  children: [
+                    for (final (i, m) in movimientos.indexed) ...[
+                      if (i > 0) const Divider(height: 1),
+                      _MovimientoTile(movimiento: m),
+                    ],
+                  ],
+                ),
+              ),
           ],
         );
       },
@@ -803,6 +751,274 @@ class _MovimientoDialogState extends State<_MovimientoDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton(onPressed: _aceptar, child: const Text('Registrar')),
+      ],
+    );
+  }
+}
+
+// ------------------------------------------------------- resumen del turno
+
+/// Lo cobrado en el turno, por forma de pago. A propósito NO muestra el
+/// efectivo que "debería haber": se ve recién después de contar (cierre
+/// ciego).
+class _ResumenCajaAbierta extends StatelessWidget {
+  final CajaModel caja;
+  final ResumenCaja resumen;
+
+  const _ResumenCajaAbierta({required this.caja, required this.resumen});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+    final vendido = resumen.cobrosEfectivo + resumen.cobrosQr + resumen.cobrosTransferencia;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TarjetaPanel(
+          padding: const EdgeInsets.all(AppSpacing.lg - 4),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr('Abierta desde las {hora} · {nombre}', {
+                        'hora': _hora(caja.fechaApertura),
+                        'nombre': caja.nombreCajero,
+                      }),
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                  AppStatusBadge(
+                    label: caja.contada ? tr('En cierre') : tr('Abierta'),
+                    tone: caja.contada ? AppStatusTone.warning : AppStatusTone.success,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                tr('COBRADO EN ESTE TURNO'),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _bs(vendido),
+                  style: theme.textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: scheme.primary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                tr('El efectivo que debe haber en el cajón se muestra después de contarlo.'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        ResumenTurno(datos: [
+          DatoTurno(_bs(resumen.cobrosEfectivo), tr('en efectivo'), icono: Icons.payments_outlined),
+          DatoTurno(_bs(resumen.cobrosQr), tr('por QR'), icono: Icons.qr_code_2),
+          DatoTurno(_bs(resumen.cobrosTransferencia), tr('por transferencia'), icono: Icons.account_balance_outlined),
+          DatoTurno(
+            '+${_bs(resumen.ingresos)} / −${_bs(resumen.egresos)}',
+            tr('ingresos / egresos'),
+            icono: Icons.swap_vert,
+            color: resumen.egresos > resumen.ingresos ? scheme.error : semantic.success,
+          ),
+        ]),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          tr('Monto inicial: {monto}', {'monto': _bs(resumen.montoInicial)}),
+          style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+// --------------------------------------------------- conteo por billetes
+
+/// Billetes y monedas del boliviano, de mayor a menor.
+const denominacionesBs = <double>[200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1];
+
+/// Suma del conteo: cada denominación por la cantidad contada.
+double totalConteo(Map<double, int> cantidades) =>
+    redondearDinero(cantidades.entries.fold(0.0, (a, e) => a + e.key * e.value));
+
+/// "Bs 200" para billetes y monedas de 1 o más; "50 ctvs" para centavos.
+String etiquetaDenominacion(double d) =>
+    d >= 1 ? 'Bs ${d.toStringAsFixed(0)}' : '${(d * 100).round()} ctvs';
+
+/// Cierre ciego, paso 1: el Cajero cuenta el efectivo del cajón billete
+/// por billete (la app suma) o escribe el total. Todavía no ve cuánto
+/// debería haber.
+class _ConteoDialog extends StatefulWidget {
+  const _ConteoDialog();
+
+  @override
+  State<_ConteoDialog> createState() => _ConteoDialogState();
+}
+
+class _ConteoDialogState extends State<_ConteoDialog> {
+  final _cantidades = <double, TextEditingController>{
+    for (final d in denominacionesBs) d: TextEditingController(),
+  };
+  final _total = TextEditingController();
+  bool _porTotal = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    for (final c in _cantidades.values) {
+      c.dispose();
+    }
+    _total.dispose();
+    super.dispose();
+  }
+
+  Map<double, int> get _conteo => {
+        for (final e in _cantidades.entries) e.key: int.tryParse(e.value.text.trim()) ?? 0,
+      };
+
+  void _sumar(double d, int delta) {
+    final ctrl = _cantidades[d]!;
+    final actual = int.tryParse(ctrl.text.trim()) ?? 0;
+    final nuevo = actual + delta;
+    setState(() => ctrl.text = nuevo <= 0 ? '' : '$nuevo');
+  }
+
+  void _confirmar() {
+    if (_porTotal) {
+      final v = double.tryParse(_total.text.trim().replaceAll(',', '.'));
+      if (v == null || v < 0) {
+        setState(() => _error = tr('Escribe un monto válido.'));
+        return;
+      }
+      Navigator.of(context).pop(redondearDinero(v));
+    } else {
+      Navigator.of(context).pop(totalConteo(_conteo));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final suma = totalConteo(_conteo);
+    return AlertDialog(
+      title: Text(tr('Contar el efectivo')),
+      content: SizedBox(
+        width: 440,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                tr('Cuenta todo el efectivo del cajón. Todavía no verás cuánto debería haber. '
+                    'Después de confirmar no podrás cambiar este monto ni registrar más movimientos.'),
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(value: false, label: Text(tr('Por billetes')), icon: const Icon(Icons.payments_outlined)),
+                  ButtonSegment(value: true, label: Text(tr('Escribir el total')), icon: const Icon(Icons.edit_outlined)),
+                ],
+                selected: {_porTotal},
+                onSelectionChanged: (v) => setState(() => _porTotal = v.first),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (_porTotal)
+                TextField(
+                  controller: _total,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: tr('Efectivo contado'),
+                    prefixText: 'Bs ',
+                    errorText: _error,
+                  ),
+                  onSubmitted: (_) => _confirmar(),
+                )
+              else ...[
+                for (final d in denominacionesBs)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 72,
+                          child: Text(etiquetaDenominacion(d), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                        IconButton(
+                          tooltip: tr('Quitar uno'),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _sumar(d, -1),
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                        SizedBox(
+                          width: 56,
+                          child: TextField(
+                            controller: _cantidades[d],
+                            textAlign: TextAlign.center,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(isDense: true, hintText: '0'),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: tr('Agregar uno'),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _sumar(d, 1),
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
+                        Expanded(
+                          child: Text(
+                            _bs(d * (_conteo[d] ?? 0)),
+                            textAlign: TextAlign.right,
+                            style: TextStyle(color: scheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const Divider(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(tr('Total contado'),
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                    ),
+                    Text(
+                      _bs(suma),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(tr('Cancelar'))),
+        FilledButton(onPressed: _confirmar, child: Text(tr('Confirmar conteo'))),
       ],
     );
   }

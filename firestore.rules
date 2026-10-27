@@ -289,7 +289,16 @@ service cloud.firestore {
       allow update: if isSuperAdmin()
         || (isAdmin()
             && resource.data.get('idNegocio', null) == idNegocioActual()
-            && request.resource.data.get('idNegocio', null) == idNegocioActual());
+            && request.resource.data.get('idNegocio', null) == idNegocioActual())
+        // HU-47: la Cocina o el Cajero de la sucursal pueden pausar y
+        // reanudar los pedidos nuevos (por ejemplo, si la cocina se llenó),
+        // y nada más.
+        || ((isCocina() || isCajero())
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && cambios().hasOnly(['pedidosPausados', 'motivoPausa'])
+            && request.resource.data.pedidosPausados is bool
+            && request.resource.data.motivoPausa is string
+            && request.resource.data.motivoPausa.size() <= 120);
       allow delete: if isSuperAdmin()
         || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
 

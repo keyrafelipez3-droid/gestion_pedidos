@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/idioma.dart';
 import '../../models/actividad_model.dart';
 import '../../models/pedido_models.dart';
 import '../../services/actividad_service.dart';
@@ -8,7 +9,11 @@ import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/errores.dart';
+import '../../utils/formato.dart';
+import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/panel_personal.dart';
+import '../../widgets/tarjeta_pedido_personal.dart';
 
 /// Pedidos de delivery entregados que todavía no pasaron por caja,
 /// agrupados por repartidor.
@@ -118,9 +123,9 @@ class _CajeroRendicionScreenState extends State<CajeroRendicionScreen> {
   Widget build(BuildContext context) {
     final stream = _stream;
     return Scaffold(
-      appBar: AppBar(title: const Text('Rendición de repartidores')),
+      appBar: AppBar(title: Text(tr('Rendición de repartidores'))),
       body: stream == null
-          ? const Center(child: Text('No se pudo identificar tu negocio.'))
+          ? Center(child: Text(tr('No se pudo identificar tu negocio.')))
           : StreamBuilder<List<PedidoModel>>(
               stream: stream,
               builder: (context, snap) {
@@ -128,95 +133,160 @@ class _CajeroRendicionScreenState extends State<CajeroRendicionScreen> {
                 if (!snap.hasData) return const Center(child: CircularProgressIndicator());
                 final rendiciones = RendicionRepartidor.agrupar(snap.data!);
                 if (rendiciones.isEmpty) {
-                  return const AppEmptyState(
+                  return AppEmptyState(
                     icon: Icons.two_wheeler_outlined,
-                    title: 'Nada pendiente',
-                    message: 'Cuando un repartidor entregue pedidos, aquí verás cuánto '
-                        'efectivo debe entregar en caja.',
+                    title: tr('Nada pendiente'),
+                    message: tr('Cuando un repartidor entregue pedidos, aquí verás cuánto efectivo debe entregar en caja.'),
                   );
                 }
-                final scheme = Theme.of(context).colorScheme;
-                return ListView(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  children: [
-                    Text(
-                      'Pedidos de delivery entregados en los últimos 7 días que todavía no '
-                      'se registraron en caja.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    for (final r in rendiciones)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: scheme.primaryContainer,
-                                    child: Icon(Icons.delivery_dining, color: scheme.onPrimaryContainer),
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Expanded(
-                                    child: Text(r.nombre,
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                              fontWeight: FontWeight.w800,
-                                            )),
-                                  ),
-                                  Text('${r.pedidos.length} pedido(s)'),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                'Efectivo a entregar: Bs ${r.efectivo.toStringAsFixed(2)}',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      color: scheme.primary,
-                                    ),
-                              ),
-                              if (r.digital > 0) Text('QR / transferencia: Bs ${r.digital.toStringAsFixed(2)}'),
-                              if (r.propinas > 0)
-                                Text('Propinas del repartidor: Bs ${r.propinas.toStringAsFixed(2)}',
-                                    style: Theme.of(context).textTheme.bodySmall),
-                              const SizedBox(height: AppSpacing.xs),
-                              Wrap(
-                                spacing: AppSpacing.xs,
-                                runSpacing: AppSpacing.xs,
-                                children: [
-                                  for (final p in r.pedidos)
-                                    Chip(
-                                      visualDensity: VisualDensity.compact,
-                                      label: Text(
-                                        '#${p.id.substring(0, 6)} · ${p.metodoPago} · Bs ${p.montoNegocio.toStringAsFixed(2)}',
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: FilledButton.icon(
-                                  onPressed: _procesando == null ? () => _recibir(r) : null,
-                                  icon: _procesando == r.idRepartidor
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.payments_outlined),
-                                  label: const Text('Recibir y registrar en caja'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                final efectivo = rendiciones.fold(0.0, (a, r) => a + r.efectivo);
+                final pedidos = rendiciones.fold(0, (a, r) => a + r.pedidos.length);
+                return AppContenidoCentrado(
+                  maxWidth: 820,
+                  child: ListView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    children: [
+                      ResumenTurno(datos: [
+                        DatoTurno(dinero(efectivo), tr('efectivo por recibir'), icono: Icons.payments_outlined),
+                        DatoTurno('$pedidos', tr('entregas sin rendir'), icono: Icons.receipt_long_outlined),
+                        DatoTurno('${rendiciones.length}', tr('repartidores'), icono: Icons.two_wheeler_outlined),
+                      ]),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        tr('Entregas de delivery de los últimos 7 días que todavía no se registraron en caja.'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
                       ),
-                  ],
+                      const SizedBox(height: AppSpacing.md),
+                      for (final r in rendiciones) ...[
+                        _TarjetaRendicion(
+                          rendicion: r,
+                          procesando: _procesando == r.idRepartidor,
+                          habilitado: _procesando == null,
+                          onRecibir: () => _recibir(r),
+                        ),
+                        const SizedBox(height: AppSpacing.sm + 4),
+                      ],
+                    ],
+                  ),
                 );
               },
             ),
+    );
+  }
+}
+
+/// Lo que debe entregar un repartidor: el efectivo en grande, sus
+/// entregas (se pueden desplegar) y el botón con el monto exacto.
+class _TarjetaRendicion extends StatelessWidget {
+  final RendicionRepartidor rendicion;
+  final bool procesando;
+  final bool habilitado;
+  final VoidCallback onRecibir;
+
+  const _TarjetaRendicion({
+    required this.rendicion,
+    required this.procesando,
+    required this.habilitado,
+    required this.onRecibir,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final r = rendicion;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return TarjetaPanel(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: scheme.primary.withValues(alpha: 0.15),
+                child: Text(
+                  r.nombre.isEmpty ? '?' : r.nombre.substring(0, 1).toUpperCase(),
+                  style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm + 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(r.nombre, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                    Text(
+                      tr('{n} entrega(s)', {'n': r.pedidos.length}),
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    dinero(r.efectivo),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: scheme.primary,
+                    ),
+                  ),
+                  Text(tr('en efectivo'), style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs + 2,
+            runSpacing: AppSpacing.xs + 2,
+            children: [
+              if (r.digital > 0)
+                EtiquetaPanel(tr('QR / transferencia: {monto}', {'monto': dinero(r.digital)}),
+                    icono: Icons.qr_code_2),
+              if (r.propinas > 0)
+                EtiquetaPanel(tr('Propinas (son del repartidor): {monto}', {'monto': dinero(r.propinas)}),
+                    icono: Icons.volunteer_activism_outlined),
+            ],
+          ),
+          Theme(
+            data: theme.copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: Text(tr('Ver entregas'), style: theme.textTheme.bodyMedium),
+              children: [
+                for (final p in r.pedidos)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${numeroPedido(p)} · ${tr(p.metodoPago)}'
+                            '${p.fechaCreacion == null ? '' : ' · ${formatoHora(p.fechaCreacion!)}'}',
+                          ),
+                        ),
+                        Text(dinero(p.montoNegocio), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            onPressed: habilitado ? onRecibir : null,
+            icon: procesando
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.payments_outlined),
+            label: Text(tr('Recibí {monto}', {'monto': dinero(r.efectivo)})),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -19,3 +19,32 @@ String formatoProgramado(DateTime f) {
   if (dif == 1) return tr('Mañana {hora}', {'hora': formatoHora(f)});
   return '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')} ${formatoHora(f)}';
 }
+
+/// Monto con la moneda del negocio ("Bs 12.50").
+String dinero(double v) => 'Bs ${v.toStringAsFixed(2)}';
+
+/// Minutos que pasaron desde [desde] (0 si no se sabe o es en el futuro).
+int minutosTranscurridos(DateTime? desde, {DateTime? ahora}) {
+  if (desde == null) return 0;
+  final m = (ahora ?? DateTime.now()).difference(desde).inMinutes;
+  return m < 0 ? 0 : m;
+}
+
+/// "recién", "hace 8 min", "hace 1 h 05" o "hace 2 d".
+String haceTiempo(DateTime? desde, {DateTime? ahora}) {
+  if (desde == null) return '';
+  final m = minutosTranscurridos(desde, ahora: ahora);
+  if (m < 1) return tr('recién');
+  if (m < 60) return tr('hace {n} min', {'n': m});
+  if (m < 24 * 60) {
+    return tr('hace {h} h {m}', {'h': m ~/ 60, 'm': (m % 60).toString().padLeft(2, '0')});
+  }
+  return tr('hace {n} d', {'n': m ~/ (24 * 60)});
+}
+
+/// Duración corta: "35 min", "1 h 05" o "2 d".
+String duracionCorta(int minutos) {
+  if (minutos < 60) return '$minutos min';
+  if (minutos < 24 * 60) return '${minutos ~/ 60} h ${(minutos % 60).toString().padLeft(2, '0')}';
+  return '${minutos ~/ (24 * 60)} d';
+}

@@ -31,6 +31,11 @@ class SucursalService {
     await doc.set(sucursal.toMap(), SetOptions(merge: true));
   }
 
+  /// Una sucursal en vivo (por ejemplo, para ver si los pedidos están
+  /// pausados).
+  Stream<SucursalModel?> streamSucursal(String id) =>
+      _ref.doc(id).snapshots().map((d) => d.exists ? SucursalModel.fromSnapshot(d) : null);
+
   /// Lee la sucursal una sola vez (null si ya no existe).
   Future<SucursalModel?> obtener(String id) async {
     final doc = await _ref.doc(id).get();
