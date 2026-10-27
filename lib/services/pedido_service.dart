@@ -14,6 +14,7 @@ import 'carrito_service.dart';
 import 'cupon_service.dart';
 import 'sesion_actual.dart';
 import 'sucursal_service.dart';
+import '../utils/formato.dart';
 
 /// HU-24 a HU-31: confirmar pedido (a partir del carrito), consultarlo,
 /// y que el personal del negocio (Cajero/Cocina/Administrador) lo
@@ -78,8 +79,8 @@ class PedidoService {
           throw Exception(tr('Elige la zona de entrega.'));
         }
         if (total < sucursal.pedidoMinimoDelivery) {
-          throw Exception(tr('El pedido mínimo para delivery es Bs {monto}.',
-              {'monto': sucursal.pedidoMinimoDelivery.toStringAsFixed(2)}));
+          throw Exception(tr('El pedido mínimo para delivery es {monto}.',
+              {'monto': dinero(sucursal.pedidoMinimoDelivery)}));
         }
         costoEnvio = costo;
         zona = zonaEntrega;

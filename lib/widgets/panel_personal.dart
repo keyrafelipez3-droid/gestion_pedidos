@@ -408,6 +408,11 @@ class PanelConNavegacion extends StatefulWidget {
 
   const PanelConNavegacion({super.key, required this.destinos, this.indiceInicial = 0});
 
+  /// Cambia de sección desde una pantalla que está dentro del panel (por
+  /// ejemplo, ir a "En camino" después de tomar una entrega).
+  static void irA(BuildContext context, int indice) =>
+      context.findAncestorStateOfType<_PanelConNavegacionState>()?._ir(indice);
+
   @override
   State<PanelConNavegacion> createState() => _PanelConNavegacionState();
 }
@@ -418,10 +423,13 @@ class _PanelConNavegacionState extends State<PanelConNavegacion> {
       : widget.indiceInicial;
   late final Set<int> _visitados = {_indice};
 
-  void _ir(int i) => setState(() {
-        _indice = i;
-        _visitados.add(i);
-      });
+  void _ir(int i) {
+    if (i < 0 || i >= widget.destinos.length) return;
+    setState(() {
+      _indice = i;
+      _visitados.add(i);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

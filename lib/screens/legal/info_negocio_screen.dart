@@ -20,7 +20,7 @@ class InfoNegocioScreen extends StatelessWidget {
     final filas = <(IconData, String, String)>[
       if (negocio.razonSocial.isNotEmpty)
         (Icons.business_outlined, tr('Razón social'), negocio.razonSocial),
-      if (negocio.nit.isNotEmpty) (Icons.badge_outlined, tr('NIT'), negocio.nit),
+      if (negocio.nit.isNotEmpty) (Icons.badge_outlined, negocio.datosPais.idFiscal, negocio.nit),
       if (negocio.direccion.isNotEmpty || negocio.ciudad.isNotEmpty)
         (
           Icons.place_outlined,

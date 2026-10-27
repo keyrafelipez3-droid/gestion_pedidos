@@ -1,4 +1,5 @@
 import '../l10n/idioma.dart';
+import '../models/pais.dart';
 
 /// Fecha y hora cortas en español para listas ("21/10 · 14:35").
 String formatoFechaHora(DateTime f) {
@@ -20,8 +21,17 @@ String formatoProgramado(DateTime f) {
   return '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')} ${formatoHora(f)}';
 }
 
-/// Monto con la moneda del negocio ("Bs 12.50").
-String dinero(double v) => 'Bs ${v.toStringAsFixed(2)}';
+/// Monto con la moneda del país del restaurante ("Bs 12.50", "\$12.50").
+String dinero(double v) => Paises.actual.formatear(v);
+
+/// Símbolo para poner delante de un campo de monto ("Bs ", "\$").
+String prefijoMoneda() {
+  final s = Paises.actual.simbolo;
+  return s.endsWith(r'$') ? s : '$s ';
+}
+
+/// Nombre corto de la moneda para etiquetas ("Bs", "\$").
+String simboloMoneda() => Paises.actual.simbolo;
 
 /// Minutos que pasaron desde [desde] (0 si no se sabe o es en el futuro).
 int minutosTranscurridos(DateTime? desde, {DateTime? ahora}) {

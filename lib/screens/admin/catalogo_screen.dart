@@ -15,6 +15,7 @@ import '../../widgets/app_status_badge.dart';
 import '../../services/sesion_actual.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../widgets/app_cargando.dart';
+import '../../utils/formato.dart';
 
 class CatalogoScreen extends StatefulWidget {
   /// Pestaña con la que se abre la pantalla (0=Categorías, 1=Productos,
@@ -357,9 +358,9 @@ class _ProductosTabState extends State<_ProductosTab> {
                     TextFormField(
                       controller: precio,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Precio *',
-                        prefixText: 'Bs ',
+                        prefixText: prefijoMoneda(),
                         border: OutlineInputBorder(),
                       ),
                       validator: (v) {
@@ -382,9 +383,9 @@ class _ProductosTabState extends State<_ProductosTab> {
                       TextFormField(
                         controller: precioPromo,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Precio de promoción *',
-                          prefixText: 'Bs ',
+                          prefixText: prefijoMoneda(),
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) {
@@ -482,7 +483,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Por separado costarían Bs ${sumaCombo().toStringAsFixed(2)}',
+                              'Por separado costarían ${dinero(sumaCombo())}',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ),
@@ -627,8 +628,8 @@ class _ProductosTabState extends State<_ProductosTab> {
                   ActividadService.instancia.registrar(
                     ActividadTipo.catalogo,
                     '${item == null ? 'Creó' : 'Editó'} el producto ${nombre.text.trim()} '
-                    '(Bs ${valor.toStringAsFixed(2)}'
-                    '${promo == null ? '' : ', promoción Bs ${promo.toStringAsFixed(2)}'}'
+                    '(${dinero(valor)}'
+                    '${promo == null ? '' : ', promoción ${dinero(promo)}'}'
                     '${esCombo ? ', combo' : ''}'
                     '${cantidad == null ? '' : ', stock $cantidad'})',
                   );
@@ -779,11 +780,11 @@ class _ProductosTabState extends State<_ProductosTab> {
                                     children: [
                                       if (item.promoActiva())
                                         Text(
-                                          'Bs ${item.precioVigente().toStringAsFixed(2)}  '
-                                          '(antes Bs ${item.precio.toStringAsFixed(2)})',
+                                          '${dinero(item.precioVigente())}  '
+                                          '(antes ${dinero(item.precio)})',
                                         )
                                       else
-                                        Text('Bs ${item.precio.toStringAsFixed(2)}'),
+                                        Text(dinero(item.precio)),
                                       if (item.promoActiva())
                                         AppStatusBadge(
                                           label: 'Promo -${item.porcentajePromo()}%',
@@ -912,9 +913,9 @@ class _ComplementosTab extends StatelessWidget {
                 TextFormField(
                   controller: precio,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Precio adicional *',
-                    prefixText: 'Bs ',
+                    prefixText: prefijoMoneda(),
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) {
@@ -995,7 +996,7 @@ class _ComplementosTab extends StatelessWidget {
                   leading: const CircleAvatar(child: Icon(Icons.add_circle_outline)),
                   title: Text(item.nombre),
                   subtitle: Text(
-                    'Bs ${item.precio.toStringAsFixed(2)} · '
+                    '${dinero(item.precio)} · '
                     '${item.descripcion.isEmpty ? 'Sin descripción' : item.descripcion}',
                   ),
                   onTap: () => _editar(context, item: item),
@@ -1088,9 +1089,9 @@ class _VariantesTab extends StatelessWidget {
                   TextFormField(
                     controller: precio,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Precio adicional *',
-                      prefixText: 'Bs ',
+                      prefixText: prefijoMoneda(),
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
@@ -1184,7 +1185,7 @@ class _VariantesTab extends StatelessWidget {
                       title: Text(item.nombre),
                       subtitle: Text(
                         '${names[item.idProducto] ?? 'Producto'} · '
-                        '+Bs ${item.precioAdicional.toStringAsFixed(2)}',
+                        '+${dinero(item.precioAdicional)}',
                       ),
                       onTap: () => _editar(context, item: item),
                       trailing: Wrap(

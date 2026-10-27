@@ -9,6 +9,7 @@ import '../services/sesion_actual.dart';
 import '../theme/design_tokens.dart';
 import '../utils/errores.dart';
 import 'confirmar_identidad.dart';
+import '../utils/formato.dart';
 
 /// Motivos frecuentes (la persona puede elegir uno y completarlo).
 const motivosCancelacion = [
@@ -45,7 +46,7 @@ Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) a
     );
     ActividadService.instancia.registrar(
       ActividadTipo.pedido,
-      'Canceló el pedido #${pedido.id.substring(0, 6)} (Bs ${pedido.total.toStringAsFixed(2)}). Motivo: $motivo',
+      'Canceló el pedido #${pedido.id.substring(0, 6)} (${dinero(pedido.total)}). Motivo: $motivo',
     );
     messenger.showSnackBar(const SnackBar(content: Text('Pedido cancelado. El cliente verá el motivo.')));
   } catch (e) {

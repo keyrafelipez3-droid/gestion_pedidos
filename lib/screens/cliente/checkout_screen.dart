@@ -143,6 +143,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String get _claveFactura => 'factura_$_uid';
 
+  /// Pide factura solo si el país del restaurante la usa con un número.
+  bool get _pideFactura => _quiereFactura && widget.negocio.datosPais.idFactura.isNotEmpty;
+
   /// Los datos de factura se recuerdan en este dispositivo.
   Future<void> _cargarFactura() async {
     try {
@@ -307,8 +310,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_modalidad == PedidoModalidad.delivery &&
         (_sucursal?.pedidoMinimoDelivery ?? 0) > 0 &&
         _subtotal - _descuento < _sucursal!.pedidoMinimoDelivery) {
-      return tr('El pedido mínimo para delivery es Bs {monto}.',
-          {'monto': _sucursal!.pedidoMinimoDelivery.toStringAsFixed(2)});
+      return tr('El pedido mínimo para delivery es {monto}.',
+          {'monto': dinero(_sucursal!.pedidoMinimoDelivery)});
     }
     // HU-26/27: para Transferencia y QR el comprobante ya no es opcional
     // — sin eso el negocio no tiene forma de verificar que se pagó.
@@ -318,8 +321,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_subtotal - _descuento <= 0) {
       return tr('El cupón no puede cubrir todo el pedido. Agrega más productos o quita el cupón.');
     }
-    if (_quiereFactura && _nitCtrl.text.trim().length < 5) {
-      return tr('Escribe tu NIT o CI para la factura.');
+    if (_pideFactura && _nitCtrl.text.trim().length < 5) {
+      return tr('Escribe tu {documento} para la factura.', {'documento': widget.negocio.datosPais.idFactura});
     }
     return null;
   }
@@ -448,7 +451,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   for (final z in _sucursal!.zonasOrdenadas)
                     DropdownMenuItem(
                       value: z.key,
-                      child: Text('${z.key} · Bs ${z.value.toStringAsFixed(2)}'),
+                      child: Text('${z.key} · ${dinero(z.value)}'),
                     ),
                 ],
                 onChanged: (z) => setState(() => _zona = z),
@@ -613,7 +616,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               children: [
                 for (final p in const [0.0, 2.0, 5.0, 10.0])
                   ChoiceChip(
-                    label: Text(p == 0 ? tr('Sin propina') : 'Bs ${p.toStringAsFixed(0)}'),
+                    label: Text(p == 0 ? tr('Sin propina') : dinero(p)),
                     selected: _propina == p,
                     onSelected: (_) => setState(() => _propina = p),
                   ),
@@ -621,20 +624,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: _quiereFactura,
-            onChanged: (v) => setState(() => _quiereFactura = v ?? false),
-            title: Text(tr('Quiero factura')),
-          ),
-          if (_quiereFactura) ...[
+          // En países donde no se pide factura con un número (EE.UU.,
+          // Canadá) no se muestra esta opción.
+          if (widget.negocio.datosPais.idFactura.isNotEmpty)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _quiereFactura,
+              onChanged: (v) => setState(() => _quiereFactura = v ?? false),
+              title: Text(tr('Quiero factura')),
+            ),
+          if (_quiereFactura && widget.negocio.datosPais.idFactura.isNotEmpty) ...[
             TextField(
               controller: _nitCtrl,
-              keyboardType: TextInputType.number,
+              keyboardType: TextInputType.text,
               maxLength: 20,
               onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(labelText: tr('NIT o CI *')),
+              decoration: InputDecoration(labelText: '${widget.negocio.datosPais.idFactura} *'),
             ),
             TextField(
               controller: _razonSocialCtrl,
@@ -673,7 +679,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: [
               Text(tr('Total'), style: const TextStyle(fontWeight: FontWeight.w600)),
               Text(
-                tr('Bs {total}', {'total': _total.toStringAsFixed(2)}),
+                dinero(_total),
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
@@ -789,11 +795,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         codigoCupon: _cupon?.codigo,
         propina: _propinaAplicada,
         programadoPara: _esProgramado ? _programadoPara : null,
-        facturaNit: _quiereFactura ? _nitCtrl.text.trim() : null,
-        facturaRazonSocial: _quiereFactura ? _razonSocialCtrl.text.trim() : null,
+        facturaNit: _pideFactura ? _nitCtrl.text.trim() : null,
+        facturaRazonSocial: _pideFactura ? _razonSocialCtrl.text.trim() : null,
         zonaEntrega: _modalidad == PedidoModalidad.delivery ? _zona : null,
       );
-      if (_quiereFactura) await _guardarFactura();
+      if (_pideFactura) await _guardarFactura();
       // Si falla, el pedido igual ya se envió con las alergias.
       await _guardarAlergiasEnCuenta().catchError((_) {});
       if (!mounted) return;
@@ -902,8 +908,8 @@ class _FilaResumen extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = resaltar ? Theme.of(context).colorScheme.primary : null;
     final texto = valor < 0
-        ? '−Bs ${(-valor).toStringAsFixed(2)}'
-        : 'Bs ${valor.toStringAsFixed(2)}';
+        ? '−${dinero(-valor)}'
+        : dinero(valor);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(

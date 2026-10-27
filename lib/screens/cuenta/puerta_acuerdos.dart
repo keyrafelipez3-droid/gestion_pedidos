@@ -5,6 +5,7 @@ import '../../config/app_config.dart';
 import '../../l10n/idioma.dart';
 import '../../legal/textos_legales.dart';
 import '../../models/negocio_model.dart';
+import '../../models/pais.dart';
 import '../../models/usuario_model.dart';
 import '../../models/actividad_model.dart';
 import '../../services/actividad_service.dart';
@@ -152,7 +153,7 @@ class _AceptarTerminosState extends State<_AceptarTerminos> {
       icono: Icons.gavel_outlined,
       titulo: yaHabia ? tr('Actualizamos nuestros términos') : tr('Términos y privacidad'),
       texto: yaHabia
-          ? tr('Agregamos alergias, cupones, propinas, pedidos programados, datos de factura y traducción de notas. Revisa los cambios y acéptalos para seguir pidiendo.')
+          ? tr('Agregamos el aviso de cookies y almacenamiento, la lista de servicios de terceros, la edad mínima y las leyes de cada país. Revisa los cambios y acéptalos para seguir pidiendo.')
           : tr('Para usar la app necesitas aceptar los términos y la política de privacidad.'),
       children: [
         OutlinedButton.icon(
@@ -348,16 +349,18 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
               TextFormField(
                 controller: _ci,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  labelText: 'Carnet de identidad (CI) *',
-                  hintText: 'Ej. 1234567 CB',
-                  prefixIcon: Icon(Icons.badge_outlined),
+                decoration: InputDecoration(
+                  labelText: Paises.actual.codigo == 'BO'
+                      ? 'Carnet de identidad (CI) *'
+                      : 'Documento de identidad (${Paises.actual.docIdentidad}) *',
+                  hintText: Paises.actual.codigo == 'BO' ? 'Ej. 1234567 CB' : null,
+                  prefixIcon: const Icon(Icons.badge_outlined),
                 ),
                 validator: (v) {
                   final t = (v ?? '').trim();
-                  if (t.length < 4) return 'Escribe tu número de carnet';
+                  if (t.length < 4) return 'Escribe el número de tu documento';
                   if (t.length > 20) return 'Máximo 20 caracteres';
-                  if (!RegExp(r'\d{4,}').hasMatch(t)) return 'El carnet debe tener al menos 4 números';
+                  if (!RegExp(r'\d{4,}').hasMatch(t)) return 'El documento debe tener al menos 4 números';
                   return null;
                 },
               ),

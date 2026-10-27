@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/negocio_model.dart';
+import '../models/pais.dart';
 import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 import 'negocio_service.dart';
@@ -16,7 +17,11 @@ import 'negocio_service.dart';
 /// color ahora alimenta un ThemeData mucho más completo (tarjetas,
 /// campos de texto, botones, tabs, etc.), en vez de solo el AppBar.
 class AppThemeController {
-  AppThemeController._();
+  AppThemeController._() {
+    // La moneda, el número tributario y las leyes siguen al país del
+    // restaurante que está abierto.
+    negocio.addListener(() => Paises.actual = Paises.porCodigo(negocio.value?.pais));
+  }
   static final instancia = AppThemeController._();
 
   final ValueNotifier<NegocioModel?> negocio = ValueNotifier(null);

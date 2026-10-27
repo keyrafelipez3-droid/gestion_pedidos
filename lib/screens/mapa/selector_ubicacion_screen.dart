@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../config/app_config.dart';
 import '../../l10n/idioma.dart';
+import '../../models/pais.dart';
 import '../../services/geocodificacion_service.dart';
 import '../../services/ubicacion_service.dart';
 import '../../theme/design_tokens.dart';
@@ -42,8 +43,8 @@ class _SelectorUbicacionScreenState extends State<SelectorUbicacionScreen> {
   @override
   void initState() {
     super.initState();
-    _centro = widget.inicial ??
-        const LatLng(AppConfig.mapaLatInicial, AppConfig.mapaLngInicial);
+    // Sin punto de partida: la capital del país del restaurante.
+    _centro = widget.inicial ?? LatLng(Paises.actual.latitud, Paises.actual.longitud);
     // Si no hay un punto de partida, se intenta centrar en el usuario.
     if (widget.inicial == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _irAMiUbicacion(silencioso: true));

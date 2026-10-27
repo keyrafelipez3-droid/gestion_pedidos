@@ -12,6 +12,7 @@ import '../../widgets/app_cargando.dart';
 import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../cliente/pedido_detalle_screen.dart';
+import '../../utils/formato.dart';
 
 enum _Periodo { hoy, sieteDias, mes, personalizado }
 
@@ -302,7 +303,7 @@ class _VentasScreenState extends State<VentasScreen> {
   }
 }
 
-String _bs(double v) => 'Bs ${v.toStringAsFixed(2)}';
+String _bs(double v) => dinero(v);
 
 String _dos(int n) => n.toString().padLeft(2, '0');
 

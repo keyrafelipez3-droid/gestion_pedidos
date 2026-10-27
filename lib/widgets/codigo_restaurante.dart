@@ -6,6 +6,7 @@ import '../services/codigo_negocio_service.dart';
 import '../services/negocio_service.dart';
 import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
+import '../screens/admin/qr_restaurante_screen.dart';
 import 'app_imagen_red.dart';
 
 /// Código de acceso y enlace de un restaurante, con botones para copiarlos.
@@ -21,6 +22,14 @@ class TarjetaCodigoNegocio extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(aviso)));
     }
+  }
+
+  Future<void> _abrirQr(BuildContext context, String codigo) async {
+    final navigator = Navigator.of(context);
+    final negocio = await NegocioService.instancia.obtenerNegocioPorId(idNegocio);
+    navigator.push(MaterialPageRoute(
+      builder: (_) => QrRestauranteScreen(negocio: negocio, codigo: codigo),
+    ));
   }
 
   Future<void> _asignar(BuildContext context, bool cambiar) async {
@@ -130,6 +139,11 @@ class TarjetaCodigoNegocio extends StatelessWidget {
                             _copiar(context, CodigoNegocioService.enlace(codigo), 'Enlace copiado'),
                         icon: const Icon(Icons.link),
                         label: const Text('Copiar enlace'),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: () => _abrirQr(context, codigo),
+                        icon: const Icon(Icons.qr_code_2),
+                        label: const Text('QR para las mesas'),
                       ),
                     ],
                   ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/negocio_model.dart';
+import '../../models/pais.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/negocio_service.dart';
 import '../../services/sesion_actual.dart';
@@ -46,6 +47,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
 
   NegocioModel? _negocioActual;
   bool _activo = true;
+  String _pais = 'BO';
 
   bool _cargando = true;
   bool _guardando = false;
@@ -68,6 +70,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
     _ciudadCtrl.text = negocio.ciudad;
     _correoContactoCtrl.text = negocio.correoContacto;
     _activo = negocio.estado;
+    _pais = Paises.porCodigo(negocio.pais).codigo;
     if (mounted) {
       setState(() {
         _negocioActual = negocio;
@@ -96,6 +99,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
       ciudad: _ciudadCtrl.text.trim(),
       correoContacto: _correoContactoCtrl.text.trim(),
       estado: _activo,
+      pais: _pais,
     );
 
     try {
@@ -201,6 +205,24 @@ class _NegocioScreenState extends State<NegocioScreen> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: AppSpacing.sm),
+                    DropdownButtonFormField<String>(
+                      initialValue: _pais,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'País donde opera',
+                        helperText: 'Define la moneda, el número tributario y las leyes de los textos legales.',
+                        prefixIcon: Icon(Icons.public),
+                      ),
+                      items: [
+                        for (final p in Paises.todos)
+                          DropdownMenuItem(
+                            value: p.codigo,
+                            child: Text('${p.nombre} · ${p.moneda}', overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _pais = v ?? _pais),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                     TextFormField(
                       controller: _razonSocialCtrl,
                       decoration: const InputDecoration(
@@ -211,10 +233,9 @@ class _NegocioScreenState extends State<NegocioScreen> {
                     const SizedBox(height: AppSpacing.md),
                     TextFormField(
                       controller: _nitCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'NIT',
-                        prefixIcon: Icon(Icons.badge_outlined),
+                      decoration: InputDecoration(
+                        labelText: Paises.porCodigo(_pais).idFiscal,
+                        prefixIcon: const Icon(Icons.badge_outlined),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),

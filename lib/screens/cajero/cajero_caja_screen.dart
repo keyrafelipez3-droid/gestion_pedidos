@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/idioma.dart';
 import '../../models/actividad_model.dart';
 import '../../models/caja_models.dart';
+import '../../models/pais.dart';
 import '../../models/usuario_model.dart';
 import '../../services/actividad_service.dart';
 import '../../services/caja_service.dart';
@@ -14,6 +15,7 @@ import '../../widgets/confirmar_identidad.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/panel_personal.dart';
+import '../../utils/formato.dart';
 
 /// HU-46: apertura, movimientos y cierre de caja del Cajero.
 ///
@@ -68,7 +70,7 @@ class CajeroCajaScreen extends StatelessWidget {
 
 // ------------------------------------------------------------------ helpers
 
-String _bs(double v) => 'Bs ${v.toStringAsFixed(2)}';
+String _bs(double v) => dinero(v);
 
 String _mensaje(Object e) => e.toString().replaceFirst('Exception: ', '');
 
@@ -652,7 +654,7 @@ class _MontoDialogState extends State<_MontoDialog> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: widget.etiqueta,
-              prefixText: 'Bs ',
+              prefixText: prefijoMoneda(),
               errorText: _error,
             ),
             onSubmitted: (_) => _aceptar(),
@@ -738,7 +740,7 @@ class _MovimientoDialogState extends State<_MovimientoDialog> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: 'Monto',
-              prefixText: 'Bs ',
+              prefixText: prefijoMoneda(),
               errorText: _errorMonto,
             ),
             onSubmitted: (_) => _aceptar(),
@@ -850,16 +852,15 @@ class _ResumenCajaAbierta extends StatelessWidget {
 
 // --------------------------------------------------- conteo por billetes
 
-/// Billetes y monedas del boliviano, de mayor a menor.
-const denominacionesBs = <double>[200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1];
+/// Billetes y monedas de la moneda del restaurante, de mayor a menor.
+List<double> denominacionesCaja() => Paises.actual.denominaciones;
 
 /// Suma del conteo: cada denominación por la cantidad contada.
 double totalConteo(Map<double, int> cantidades) =>
     redondearDinero(cantidades.entries.fold(0.0, (a, e) => a + e.key * e.value));
 
 /// "Bs 200" para billetes y monedas de 1 o más; "50 ctvs" para centavos.
-String etiquetaDenominacion(double d) =>
-    d >= 1 ? 'Bs ${d.toStringAsFixed(0)}' : '${(d * 100).round()} ctvs';
+String etiquetaDenominacion(double d) => Paises.actual.etiquetaDenominacion(d);
 
 /// Cierre ciego, paso 1: el Cajero cuenta el efectivo del cajón billete
 /// por billete (la app suma) o escribe el total. Todavía no ve cuánto
@@ -873,7 +874,7 @@ class _ConteoDialog extends StatefulWidget {
 
 class _ConteoDialogState extends State<_ConteoDialog> {
   final _cantidades = <double, TextEditingController>{
-    for (final d in denominacionesBs) d: TextEditingController(),
+    for (final d in denominacionesCaja()) d: TextEditingController(),
   };
   final _total = TextEditingController();
   bool _porTotal = false;
@@ -948,13 +949,13 @@ class _ConteoDialogState extends State<_ConteoDialog> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: tr('Efectivo contado'),
-                    prefixText: 'Bs ',
+                    prefixText: prefijoMoneda(),
                     errorText: _error,
                   ),
                   onSubmitted: (_) => _confirmar(),
                 )
               else ...[
-                for (final d in denominacionesBs)
+                for (final d in _cantidades.keys)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(

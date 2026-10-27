@@ -15,6 +15,34 @@ import '../../widgets/consulta_paginada.dart';
 import 'carrito_screen.dart';
 import 'pedido_detalle_screen.dart';
 
+/// Copia el pedido al carrito y abre el carrito para confirmarlo.
+Future<void> volverAPedir(BuildContext context, PedidoModel p) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  final uid = SesionActual.instancia.actual?.idUsuario ?? '';
+  try {
+    final r = await PedidoService.instancia.repetirPedido(idCliente: uid, pedido: p);
+    if (r.agregados == 0) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(tr('Los productos de ese pedido ya no están disponibles.')),
+      ));
+      return;
+    }
+    if (r.noDisponibles.isNotEmpty) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(tr('No se agregaron (ya no están disponibles): {lista}',
+            {'lista': r.noDisponibles.join(', ')})),
+      ));
+    }
+    final negocio = await NegocioService.instancia.obtenerNegocioPorId(p.idNegocio);
+    navigator.push(MaterialPageRoute(
+      builder: (_) => CarritoScreen(negocio: negocio, idSucursal: p.idSucursal),
+    ));
+  } catch (_) {
+    messenger.showSnackBar(SnackBar(content: Text(tr('No se pudo repetir el pedido. Intenta de nuevo.'))));
+  }
+}
+
 /// HU-28: lista de los pedidos del Cliente, de más reciente a más viejo.
 class MisPedidosScreen extends StatelessWidget {
   const MisPedidosScreen({super.key});
@@ -32,34 +60,6 @@ class MisPedidosScreen extends StatelessWidget {
         return AppStatusTone.warning;
       default:
         return AppStatusTone.neutral;
-    }
-  }
-
-  /// Copia el pedido al carrito y abre el carrito para confirmarlo.
-  Future<void> _volverAPedir(BuildContext context, PedidoModel p) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final uid = SesionActual.instancia.actual?.idUsuario ?? '';
-    try {
-      final r = await PedidoService.instancia.repetirPedido(idCliente: uid, pedido: p);
-      if (r.agregados == 0) {
-        messenger.showSnackBar(SnackBar(
-          content: Text(tr('Los productos de ese pedido ya no están disponibles.')),
-        ));
-        return;
-      }
-      if (r.noDisponibles.isNotEmpty) {
-        messenger.showSnackBar(SnackBar(
-          content: Text(tr('No se agregaron (ya no están disponibles): {lista}',
-              {'lista': r.noDisponibles.join(', ')})),
-        ));
-      }
-      final negocio = await NegocioService.instancia.obtenerNegocioPorId(p.idNegocio);
-      navigator.push(MaterialPageRoute(
-        builder: (_) => CarritoScreen(negocio: negocio, idSucursal: p.idSucursal),
-      ));
-    } catch (_) {
-      messenger.showSnackBar(SnackBar(content: Text(tr('No se pudo repetir el pedido. Intenta de nuevo.'))));
     }
   }
 
@@ -107,7 +107,7 @@ class MisPedidosScreen extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(
-                    '${tr(p.modalidad)} · Bs ${p.totalACobrar.toStringAsFixed(2)}'
+                    '${tr(p.modalidad)} · ${dinero(p.totalACobrar)}'
                     '${p.fechaCreacion == null ? '' : '\n${formatoFechaHora(p.fechaCreacion!)}'}',
                   ),
                   isThreeLine: p.fechaCreacion != null,
@@ -120,7 +120,7 @@ class MisPedidosScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 0, AppSpacing.sm, AppSpacing.xs),
                     child: TextButton.icon(
-                      onPressed: () => _volverAPedir(context, p),
+                      onPressed: () => volverAPedir(context, p),
                       icon: const Icon(Icons.replay, size: 18),
                       label: Text(tr('Volver a pedir')),
                     ),

@@ -21,10 +21,12 @@ import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_search_field.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../widgets/panel_personal.dart';
 import '../legal/info_negocio_screen.dart';
 import '../../widgets/tema_negocio.dart';
 import 'carrito_screen.dart';
 import 'resenas_negocio_screen.dart';
+import '../../utils/formato.dart';
 
 /// HU-16/17/18/19/20/21: menú digital de un negocio — ver, buscar,
 /// filtrar por categoría, marcar favoritos y agregar al carrito.
@@ -176,9 +178,10 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final catalogo = snapProductos.data!;
-                var productos = catalogo
-                    .where((p) => p.estado && p.disponible && p.comboDisponible(catalogo))
-                    .toList();
+                // Los agotados se muestran al final, en gris y sin botón
+                // para agregar: así el cliente sabe que existen.
+                bool disponible(ProductoModel p) => p.disponible && p.comboDisponible(catalogo);
+                var productos = catalogo.where((p) => p.estado).toList();
                 if (_especial == 'promos') {
                   productos = productos.where((p) => p.promoActiva()).toList();
                 } else if (_especial == 'combos') {
@@ -194,6 +197,10 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                       .where((p) => p.nombre.toLowerCase().contains(_busqueda))
                       .toList();
                 }
+                productos = [
+                  ...productos.where(disponible),
+                  ...productos.where((p) => !disponible(p)),
+                ];
                 if (productos.isEmpty) {
                   return AppEmptyState(
                     icon: _especial == 'promos'
@@ -247,6 +254,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                           esFavoritoActual: favoritos.contains(productos[i].id),
                         ),
                         alergiasCliente: _misAlergias,
+                        agotado: !disponible(productos[i]),
                         incluye: productos[i]
                             .contenidoCombo(catalogo)
                             .map((p) => p.nombre)
@@ -378,48 +386,40 @@ class _FiltroCategorias extends StatelessWidget {
       builder: (context, snapshot) {
         final categorias = (snapshot.data ?? []).where((c) => c.estado).toList();
         return SizedBox(
-          height: 44,
+          height: 46,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 2, AppSpacing.md, 6),
             children: [
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: ChoiceChip(
-                  label: Text(tr('Todas')),
-                  selected: seleccionada == null && especial == null,
-                  onSelected: (_) => onChanged(null),
-                ),
+              Pildora(
+                etiqueta: tr('Todas'),
+                seleccionada: seleccionada == null && especial == null,
+                onTap: () => onChanged(null),
               ),
+              const SizedBox(width: AppSpacing.xs + 2),
               // Accesos rápidos: favoritos (HU-19), promociones (HU-35) y
               // combos (HU-37). Se combinan con la categoría y la búsqueda.
               for (final (id, icono, texto) in [
                 ('favoritos', Icons.favorite_border, tr('Favoritos')),
                 ('promos', Icons.local_offer_outlined, tr('Promos')),
                 ('combos', Icons.lunch_dining_outlined, tr('Combos')),
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.xs),
-                  child: FilterChip(
-                    avatar: Icon(
-                      icono,
-                      size: 18,
-                      color: especial == id ? null : (id == 'favoritos' ? AppBrand.rojo : null),
-                    ),
-                    label: Text(texto),
-                    selected: especial == id,
-                    onSelected: (v) => onEspecial(v ? id : null),
-                  ),
+              ]) ...[
+                Pildora(
+                  etiqueta: texto,
+                  icono: icono,
+                  seleccionada: especial == id,
+                  onTap: () => onEspecial(especial == id ? null : id),
                 ),
-              for (final c in categorias)
-                Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.xs),
-                  child: ChoiceChip(
-                    label: Text(c.nombre),
-                    selected: seleccionada == c.id,
-                    onSelected: (_) => onChanged(c.id),
-                  ),
+                const SizedBox(width: AppSpacing.xs + 2),
+              ],
+              for (final c in categorias) ...[
+                Pildora(
+                  etiqueta: c.nombre,
+                  seleccionada: seleccionada == c.id,
+                  onTap: () => onChanged(c.id),
                 ),
+                const SizedBox(width: AppSpacing.xs + 2),
+              ],
             ],
           ),
         );
@@ -512,6 +512,9 @@ class _TarjetaProducto extends StatelessWidget {
   final String incluye;
   final double ahorro;
 
+  /// Sin stock o no disponible hoy: se ve en gris y no se puede agregar.
+  final bool agotado;
+
   const _TarjetaProducto({
     required this.producto,
     required this.esFavorito,
@@ -520,12 +523,22 @@ class _TarjetaProducto extends StatelessWidget {
     this.alergiasCliente = const [],
     this.incluye = '',
     this.ahorro = 0,
+    this.agotado = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brand = context.brand;
+    final tarjeta = _contenido(context, theme, brand);
+    if (!agotado) return tarjeta;
+    return Semantics(
+      label: tr('{producto}: agotado por hoy', {'producto': producto.nombre}),
+      child: Opacity(opacity: 0.5, child: tarjeta),
+    );
+  }
+
+  Widget _contenido(BuildContext context, ThemeData theme, BrandStyle brand) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: brand.decoracionTarjeta(theme.colorScheme),
@@ -538,13 +551,15 @@ class _TarjetaProducto extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (producto.esCombo || producto.promoActiva())
+                  if (agotado || producto.esCombo || producto.promoActiva())
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Wrap(
                         spacing: 4,
                         runSpacing: 4,
                         children: [
+                          if (agotado)
+                            _Etiqueta(texto: tr('AGOTADO POR HOY'), color: theme.colorScheme.onSurfaceVariant),
                           if (producto.esCombo)
                             _Etiqueta(texto: tr('COMBO'), color: theme.colorScheme.primary),
                           if (producto.promoActiva())
@@ -565,7 +580,7 @@ class _TarjetaProducto extends StatelessWidget {
                     spacing: 6,
                     children: [
                       Text(
-                        tr('Bs {precio}', {'precio': producto.precioVigente().toStringAsFixed(2)}),
+                        dinero(producto.precioVigente()),
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: theme.colorScheme.primary,
@@ -573,7 +588,7 @@ class _TarjetaProducto extends StatelessWidget {
                       ),
                       if (producto.promoActiva())
                         Text(
-                          tr('Bs {precio}', {'precio': producto.precio.toStringAsFixed(2)}),
+                          dinero(producto.precio),
                           style: theme.textTheme.bodySmall?.copyWith(
                             decoration: TextDecoration.lineThrough,
                             color: theme.colorScheme.onSurfaceVariant,
@@ -599,7 +614,7 @@ class _TarjetaProducto extends StatelessWidget {
                     ),
                     if (ahorro >= 0.5)
                       Text(
-                        tr('Ahorras Bs {monto}', {'monto': ahorro.toStringAsFixed(2)}),
+                        tr('Ahorras {monto}', {'monto': dinero(ahorro)}),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: context.semanticColors.success,
                           fontWeight: FontWeight.w700,
@@ -641,7 +656,7 @@ class _TarjetaProducto extends StatelessWidget {
                 Positioned.fill(
                   child: ClipRRect(
                     borderRadius: brand.pequeno,
-                    child: AppImagenRed(url: producto.imagenUrl),
+                    child: AppImagenRed(url: producto.imagenUrl, descripcion: tr('Foto de {producto}', {'producto': producto.nombre})),
                   ),
                 ),
                 Positioned(
@@ -665,6 +680,7 @@ class _TarjetaProducto extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (!agotado)
                 Positioned(
                   right: 6,
                   bottom: 6,
@@ -771,7 +787,7 @@ class _BarraCarrito extends StatelessWidget {
                     ],
                   ),
                   Text(
-                    tr('Bs {total}', {'total': total.toStringAsFixed(2)}),
+                    dinero(total),
                     style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onPrimary),
                   ),
                 ],
