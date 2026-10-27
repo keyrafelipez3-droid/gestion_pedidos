@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../l10n/idioma.dart';
 import '../models/cupon_model.dart';
+import '../utils/formato.dart';
 
 class CuponException implements Exception {
   final String mensaje;
@@ -46,8 +47,8 @@ class CuponService {
     if (!cupon.activo) throw CuponException(tr('Ese cupón ya no está activo.'));
     if (cupon.vencido) throw CuponException(tr('Ese cupón ya venció.'));
     if (subtotal < cupon.minimo) {
-      throw CuponException(tr('Este cupón es para compras desde Bs {minimo}.',
-          {'minimo': cupon.minimo.toStringAsFixed(2)}));
+      throw CuponException(tr('Este cupón es para compras desde {minimo}.',
+          {'minimo': dinero(cupon.minimo)}));
     }
     return cupon;
   }

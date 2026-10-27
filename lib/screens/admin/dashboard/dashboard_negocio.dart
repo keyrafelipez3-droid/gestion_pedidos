@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../../../models/caja_models.dart';
 import '../../../models/catalogo_models.dart';
+import '../../../legal/textos_legales.dart';
 import '../../../models/cliente_negocio_model.dart';
+import '../../../models/cupon_model.dart';
 import '../../../models/pedido_models.dart';
 import '../../../models/resena_model.dart';
 import '../../../models/sucursal_model.dart';
+import '../../../models/usuario_model.dart';
 import '../../../services/admin_service.dart';
+import '../../../services/app_theme_controller.dart';
 import '../../../services/catalogo_service.dart';
+import '../../../services/cupon_service.dart';
 import '../../../services/dashboard_service.dart';
 import '../../../services/pedido_service.dart';
 import '../../../services/resena_service.dart';
 import '../../../services/sucursal_service.dart';
 import '../../../theme/design_tokens.dart';
+import '../../../utils/errores.dart';
 import '../../../utils/reporte_excel.dart';
 import '../../../widgets/app_status_badge.dart';
 import '../../cliente/pedido_detalle_screen.dart';
@@ -275,6 +281,8 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
 
         GrillaDashboard(
           children: [
+            _PanelSucursalesAhora(sucursales: sSuc.data, enCurso: enCurso, error: sSuc.hasError),
+            _PanelAlertas(idNegocio: widget.idNegocio, enCurso: enCurso),
             _PanelHorasPico(ventas: ventas),
             _PanelEnCurso(enCurso: enCurso, error: sCurso.hasError),
             _PanelTopProductos(entregados: ventas, periodo: _periodo, idNegocio: widget.idNegocio),
@@ -282,7 +290,6 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
             _PanelUltimosPedidos(enCurso: enCurso, todas: todas, cancelados: sCanc.data),
             _PanelCajas(cajas: cajas, error: sCajas.hasError),
             _PanelResenas(idNegocio: widget.idNegocio),
-            _PanelAlertas(idNegocio: widget.idNegocio, enCurso: enCurso),
           ],
         ),
       ],
@@ -895,6 +902,8 @@ class _PanelAlertasState extends State<_PanelAlertas> {
       SucursalService.instancia.streamSucursales(widget.idNegocio);
   late final Stream<List<ClienteNegocioModel>> _clientes =
       AdminService.instancia.streamClientesDeNegocio(widget.idNegocio);
+  late final Stream<List<UsuarioModel>> _empleados = AdminService.instancia.streamEmpleados(widget.idNegocio);
+  late final Stream<List<CuponModel>> _cupones = CuponService.instancia.stream(widget.idNegocio);
 
   @override
   Widget build(BuildContext context) {
@@ -910,7 +919,11 @@ class _PanelAlertasState extends State<_PanelAlertas> {
           stream: _sucursales,
           builder: (context, sSuc) => StreamBuilder<List<ClienteNegocioModel>>(
             stream: _clientes,
-            builder: (context, sCli) {
+            builder: (context, sCli) => StreamBuilder<List<UsuarioModel>>(
+              stream: _empleados,
+              builder: (context, sEmp) => StreamBuilder<List<CuponModel>>(
+                stream: _cupones,
+                builder: (context, sCup) {
               if (!sProd.hasData || !sSuc.hasData || !sCli.hasData) {
                 if (sProd.hasError || sSuc.hasError || sCli.hasError) {
                   return const TextoError('No se pudieron cargar las alertas.');
@@ -925,6 +938,14 @@ class _PanelAlertasState extends State<_PanelAlertas> {
               final activas = sSuc.data!.where((s) => s.estado).toList();
               final cerradas = activas.where((s) => !s.estadoApertura().abierta).toList();
               final bloqueados = sCli.data!.where((c) => c.bloqueado).length;
+              final negocio = AppThemeController.instancia.negocio.value;
+              final sinFirmar = (sEmp.data ?? const <UsuarioModel>[])
+                  .where((e) => e.estado && !TextosLegales.acuerdoAlDia(e.acuerdo?.version, negocio))
+                  .toList();
+              final limite = DateTime.now().add(const Duration(days: 3));
+              final porVencer = (sCup.data ?? const <CuponModel>[])
+                  .where((c) => c.activo && c.vence != null && c.vence!.isAfter(DateTime.now()) && c.vence!.isBefore(limite))
+                  .toList();
               final demorados = (widget.enCurso ?? const <PedidoModel>[])
                   .where((p) =>
                       p.estado == PedidoEstado.pendiente &&
@@ -955,6 +976,21 @@ class _PanelAlertasState extends State<_PanelAlertas> {
                     texto: 'Poco stock: ${pocoStock.take(3).map((p) => '${p.nombre} (${p.stock})').join(', ')}'
                         '${pocoStock.length > 3 ? '…' : ''}',
                     valor: '${pocoStock.length}',
+                  ),
+                if (sinFirmar.isNotEmpty)
+                  FilaIndicador(
+                    icono: Icons.draw_outlined,
+                    color: semantic.warning,
+                    texto: 'Personal sin firmar el acuerdo vigente: ${sinFirmar.take(3).map((e) => e.nombre).join(', ')}'
+                        '${sinFirmar.length > 3 ? '…' : ''}',
+                    valor: '${sinFirmar.length}',
+                  ),
+                if (porVencer.isNotEmpty)
+                  FilaIndicador(
+                    icono: Icons.local_offer_outlined,
+                    color: semantic.info,
+                    texto: 'Cupones que vencen en 3 días: ${porVencer.map((c) => c.codigo).join(', ')}',
+                    valor: '${porVencer.length}',
                   ),
                 if (programados > 0)
                   FilaIndicador(
@@ -987,10 +1023,113 @@ class _PanelAlertasState extends State<_PanelAlertas> {
                 );
               }
               return Column(children: filas);
-            },
+                },
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sucursales ahora
+// ---------------------------------------------------------------------------
+class _PanelSucursalesAhora extends StatelessWidget {
+  final List<SucursalModel>? sucursales;
+  final List<PedidoModel>? enCurso;
+  final bool error;
+
+  const _PanelSucursalesAhora({required this.sucursales, required this.enCurso, required this.error});
+
+  Future<void> _pausar(BuildContext context, SucursalModel s) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SucursalService.instancia.pausarPedidos(
+        s.id,
+        pausar: !s.pedidosPausados,
+        motivo: s.pedidosPausados ? '' : 'Pausado por el Administrador',
+      );
+      messenger.showSnackBar(SnackBar(
+        content: Text(s.pedidosPausados
+            ? 'Se reanudaron los pedidos en ${s.nombre}.'
+            : 'Pedidos nuevos pausados en ${s.nombre}.'),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(textoError(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+    final lista = sucursales;
+    return PanelDashboard(
+      titulo: 'Sucursales ahora',
+      icono: Icons.storefront_outlined,
+      subtitulo: 'Si reciben pedidos y cuántos tienen en curso',
+      child: lista == null
+          ? (error ? const TextoError('No se pudieron cargar las sucursales.') : const CargandoSeccion())
+          : lista.isEmpty
+              ? const Text('Todavía no tienes sucursales.')
+              : Column(
+                  children: [
+                    for (final s in lista)
+                      Builder(builder: (context) {
+                        final ap = s.estadoApertura();
+                        final pedidos = (enCurso ?? const <PedidoModel>[]).where((p) => p.idSucursal == s.id).length;
+                        final (texto, color) = !s.estado
+                            ? ('Desactivada', scheme.onSurfaceVariant)
+                            : s.pedidosPausados
+                                ? (s.motivoPausa.trim().isEmpty ? 'Pausada' : 'Pausada · ${s.motivoPausa.trim()}',
+                                    semantic.warning)
+                                : ap.abierta
+                                    ? ('Abierta', semantic.success)
+                                    : ('Cerrada', scheme.error);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(s.nombre, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    Text(
+                                      pedidos == 1 ? '1 pedido en curso' : '$pedidos pedidos en curso',
+                                      style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    texto,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                              if (s.estado)
+                                IconButton(
+                                  tooltip: s.pedidosPausados ? 'Reanudar pedidos' : 'Pausar pedidos nuevos',
+                                  onPressed: () => _pausar(context, s),
+                                  icon: Icon(s.pedidosPausados ? Icons.play_arrow : Icons.pause),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
+                ),
     );
   }
 }

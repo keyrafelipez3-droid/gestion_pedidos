@@ -6,6 +6,7 @@ import '../models/pedido_models.dart';
 import '../screens/cliente/pedido_detalle_screen.dart';
 import '../services/pedido_service.dart';
 import '../utils/sonido.dart';
+import '../utils/formato.dart';
 
 /// Envuelve una pantalla del personal (Cocina, Cajero) y avisa cuando
 /// entra un pedido nuevo: suena un aviso corto y aparece un mensaje con el
@@ -68,7 +69,7 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
   void _mostrar(List<PedidoModel> nuevos) {
     final p = nuevos.last;
     final texto = nuevos.length == 1
-        ? 'Nuevo pedido #${p.id.substring(0, 6)} · ${p.etiquetaModalidad} · Bs ${p.montoNegocio.toStringAsFixed(2)}'
+        ? 'Nuevo pedido #${p.id.substring(0, 6)} · ${p.etiquetaModalidad} · ${dinero(p.montoNegocio)}'
         : '${nuevos.length} pedidos nuevos';
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();

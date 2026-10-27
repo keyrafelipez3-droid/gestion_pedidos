@@ -11,6 +11,7 @@ import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_imagen_red.dart';
 import 'checkout_screen.dart';
+import '../../utils/formato.dart';
 
 /// HU-20/22/23: revisar el carrito, editar cantidades, quitar items y
 /// ver el total antes de pasar al checkout.
@@ -63,7 +64,7 @@ class CarritoScreen extends StatelessWidget {
                         children: [
                           Text(tr('Total'), style: TextStyle(fontWeight: FontWeight.w600)),
                           Text(
-                            tr('Bs {total}', {'total': total.toStringAsFixed(2)}),
+                            dinero(total),
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -139,7 +140,7 @@ class _TarjetaItemCarrito extends StatelessWidget {
                     Text(tr('Nota: {notas}', {'notas': item.notas}), style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 4),
                   Text(
-                    tr('Bs {subtotal}', {'subtotal': item.subtotal.toStringAsFixed(2)}),
+                    dinero(item.subtotal),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w700,

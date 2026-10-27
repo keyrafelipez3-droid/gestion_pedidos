@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/caja_models.dart';
 import '../models/pedido_models.dart';
+import '../utils/formato.dart';
 
 /// Un producto en el ranking de más vendidos.
 class ProductoVendido {
@@ -196,7 +197,7 @@ String textoEspera(int minutos) {
   return m == 0 ? 'hace $h h' : 'hace $h h $m min';
 }
 
-String bs(double v) => 'Bs ${v.toStringAsFixed(2)}';
+String bs(double v) => dinero(v);
 
 /// Valores por hora (0 a 23) de [pedidos]: suma de totales o cantidad.
 List<double> porHora(Iterable<PedidoModel> pedidos, {bool contar = false}) {

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/pedido_models.dart';
+import '../models/pais.dart';
 import 'descarga.dart';
+import 'formato.dart';
 
 /// Reporte de ventas en CSV listo para abrir en Excel: separado por ";"
 /// (Excel en español usa la coma como decimal) y con BOM UTF-8 para que
@@ -21,7 +23,8 @@ String csvVentas(
     ..sort((a, b) => (a.fechaCreacion ?? DateTime(0)).compareTo(b.fechaCreacion ?? DateTime(0)));
   final filas = <String>[
     ['Fecha', 'Hora', 'Pedido', 'Sucursal', 'Modalidad', 'Método de pago', 'Estado',
-     'Cupón', 'Descuento (Bs)', 'Total (Bs)', 'Propina (Bs)', 'Envío (Bs)', 'NIT/CI', 'Razón social']
+     'Cupón', 'Descuento (${simboloMoneda()})', 'Total (${simboloMoneda()})', 'Propina (${simboloMoneda()})',
+     'Envío (${simboloMoneda()})', Paises.actual.idFactura.isEmpty ? 'ID fiscal' : Paises.actual.idFactura, 'Razón social']
         .join(';'),
   ];
   String bs(double v) => v.toStringAsFixed(2).replaceAll('.', ',');

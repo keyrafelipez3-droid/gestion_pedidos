@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/idioma.dart';
 import '../../legal/textos_legales.dart';
 import '../../models/negocio_model.dart';
+import '../../models/pais.dart';
 import '../../services/condiciones_service.dart';
 import '../../services/negocio_service.dart';
 import '../../services/sesion_actual.dart';
@@ -39,6 +40,8 @@ Future<bool> asegurarCondiciones(BuildContext context, NegocioModel negocio) asy
 /// Abre el menú del restaurante, pidiendo antes aceptar sus condiciones si
 /// hace falta.
 Future<void> abrirRestaurante(BuildContext context, NegocioModel negocio, {String? fotoRespaldo}) async {
+  // Precios y textos legales en la moneda y las leyes del país del restaurante.
+  Paises.actual = negocio.datosPais;
   if (!await asegurarCondiciones(context, negocio) || !context.mounted) return;
   await Navigator.of(context).push(MaterialPageRoute(
     builder: (_) => ClienteMenuScreen(negocio: negocio, fotoRespaldo: fotoRespaldo),

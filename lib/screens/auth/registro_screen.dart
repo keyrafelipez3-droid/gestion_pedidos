@@ -417,6 +417,7 @@ class _Formulario extends StatelessWidget {
                         texto: tr('Política de privacidad'),
                         tipo: TipoTextoLegal.politicaPrivacidad,
                       ),
+                      Text(tr(', y confirmo que tengo 18 años o más (o el permiso de mi madre, padre o tutor)')),
                       const Text(' *'),
                     ],
                   ),

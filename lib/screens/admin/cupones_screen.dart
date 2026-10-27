@@ -10,6 +10,7 @@ import '../../utils/errores.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
+import '../../utils/formato.dart';
 
 /// Cupones de descuento del negocio: el Administrador crea códigos (por
 /// porcentaje o monto fijo, con compra mínima y fecha de vencimiento) que
@@ -61,9 +62,13 @@ class CuponesScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: CuponModel.porcentaje, label: Text('Porcentaje %'), icon: Icon(Icons.percent)),
-                        ButtonSegment(value: CuponModel.monto, label: Text('Monto Bs'), icon: Icon(Icons.payments_outlined)),
+                      segments: [
+                        const ButtonSegment(value: CuponModel.porcentaje, label: Text('Porcentaje %'), icon: Icon(Icons.percent)),
+                        ButtonSegment(
+                          value: CuponModel.monto,
+                          label: Text('Monto ${simboloMoneda()}'),
+                          icon: const Icon(Icons.payments_outlined),
+                        ),
                       ],
                       selected: {tipo},
                       onSelectionChanged: (s) => setState(() => tipo = s.first),
@@ -73,9 +78,9 @@ class CuponesScreen extends StatelessWidget {
                       controller: valor,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: tipo == CuponModel.porcentaje ? 'Descuento (%) *' : 'Descuento (Bs) *',
+                        labelText: tipo == CuponModel.porcentaje ? 'Descuento (%) *' : 'Descuento (${simboloMoneda()}) *',
                         suffixText: tipo == CuponModel.porcentaje ? '%' : null,
-                        prefixText: tipo == CuponModel.monto ? 'Bs ' : null,
+                        prefixText: tipo == CuponModel.monto ? prefijoMoneda() : null,
                       ),
                       validator: (v) {
                         final n = double.tryParse((v ?? '').replaceAll(',', '.'));
@@ -88,9 +93,9 @@ class CuponesScreen extends StatelessWidget {
                     TextFormField(
                       controller: minimo,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Compra mínima (opcional)',
-                        prefixText: 'Bs ',
+                        prefixText: prefijoMoneda(),
                       ),
                       validator: (v) {
                         if ((v ?? '').trim().isEmpty) return null;
@@ -245,7 +250,7 @@ class CuponesScreen extends StatelessWidget {
                     final c = cupones[i];
                     final detalle = [
                       if (c.descripcion.isNotEmpty) c.descripcion,
-                      if (c.minimo > 0) 'Compra mínima Bs ${c.minimo.toStringAsFixed(2)}',
+                      if (c.minimo > 0) 'Compra mínima ${dinero(c.minimo)}',
                       c.vence == null ? 'Sin vencimiento' : 'Vence el ${_fecha(c.vence!)}',
                     ].join(' · ');
                     return Card(

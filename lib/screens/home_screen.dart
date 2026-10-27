@@ -27,6 +27,7 @@ import '../widgets/logo_caro.dart';
 import 'admin/admin_home_screen.dart';
 import 'cajero/panel_cajero.dart';
 import 'cliente/condiciones_restaurante_screen.dart';
+import 'cliente/inicio_cliente.dart';
 import 'cliente/cliente_negocios_screen.dart';
 import 'cliente/mis_pedidos_screen.dart';
 import 'cocina/cocina_pedidos_screen.dart';
@@ -34,6 +35,7 @@ import 'cuenta/dos_pasos_screen.dart';
 import 'cuenta/mi_cuenta_screen.dart';
 import 'cuenta/puerta_acuerdos.dart';
 import 'repartidor/repartidor_entregas_screen.dart';
+import '../utils/formato.dart';
 
 /// Pantalla mostrada justo después de iniciar sesión / registrarse.
 /// Si el usuario es Administrador, muestra además un acceso al panel de
@@ -195,6 +197,7 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
   // Cliente: restaurantes a los que entró con su código (null = cargando).
   StreamSubscription<List<String>>? _subMios;
   List<NegocioModel>? _mios;
+  Stream<List<PedidoModel>>? _pedidosCliente;
 
   static bool _enCurso(PedidoModel p) =>
       p.estado != PedidoEstado.entregado && p.estado != PedidoEstado.cancelado;
@@ -213,6 +216,7 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
             },
           );
       final pedidos = PedidoService.instancia.streamPedidosCliente(u.idUsuario).asBroadcastStream();
+      _pedidosCliente = pedidos;
       final enCurso = pedidos.map((l) => l.where(_enCurso).length).asBroadcastStream();
       _datos = [
         _Dato(tr('pedidos en curso'), enCurso.map((n) => '$n')),
@@ -283,7 +287,7 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
             _Dato(
               'propinas de hoy',
               PedidoService.instancia.streamEntregadosHoy(idNegocio, u.idUsuario).map(
-                    (l) => 'Bs ${l.fold<double>(0, (a, p) => a + p.propina).toStringAsFixed(2)}',
+                    (l) => dinero(l.fold<double>(0, (a, p) => a + p.propina)),
                   ),
             ),
           ];
@@ -350,6 +354,16 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
   @override
   Widget build(BuildContext context) {
     final u = widget.usuario;
+    final pedidosCliente = _pedidosCliente;
+    if (u.esCliente && pedidosCliente != null) {
+      return InicioCliente(
+        nombre: u.nombre,
+        restaurantes: _mios,
+        pedidos: pedidosCliente,
+        onIngresarCodigo: _pedirCodigo,
+        onMiCuenta: widget.onMiCuenta,
+      );
+    }
     final scheme = Theme.of(context).colorScheme;
     final acciones = <_AccionHome>[
       if (u.esCliente) ...[

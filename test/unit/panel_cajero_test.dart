@@ -143,7 +143,7 @@ void main() {
     test('nombres de las denominaciones', () {
       expect(etiquetaDenominacion(200), 'Bs 200');
       expect(etiquetaDenominacion(0.5), '50 ctvs');
-      expect(denominacionesBs.first, 200);
+      expect(denominacionesCaja().first, 200);
     });
   });
 

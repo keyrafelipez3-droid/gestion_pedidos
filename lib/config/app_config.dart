@@ -16,7 +16,7 @@ class AppConfig {
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.
-  static const String versionTerminos = '2026-10-25';
+  static const String versionTerminos = '2026-10-27';
 
   /// App Check (protección contra bots). Clave de sitio de reCAPTCHA v3
   /// para la versión web: vacía = desactivado. Ver Claude outputs/SEGURIDAD.md.

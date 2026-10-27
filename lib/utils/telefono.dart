@@ -1,6 +1,7 @@
 import 'package:phone_numbers_parser/phone_numbers_parser.dart';
 
 import '../l10n/idioma.dart';
+import '../models/pais.dart';
 
 /// País disponible para ingresar un número de teléfono.
 class PaisTelefono {
@@ -19,6 +20,16 @@ class Telefono {
   Telefono._();
 
   static const bolivia = PaisTelefono('Bolivia', 'BO', '591');
+
+  /// País que se propone para un teléfono nuevo: el del restaurante
+  /// (Canadá comparte el +1 con Estados Unidos).
+  static PaisTelefono get porDefecto {
+    final iso = Paises.actual.codigo == 'CA' ? 'US' : Paises.actual.codigo;
+    for (final p in paises) {
+      if (p.iso == iso) return p;
+    }
+    return bolivia;
+  }
 
   /// Lista de países. Los códigos de marcación son únicos para poder
   /// reconocer el país a partir de un número guardado.
@@ -62,6 +73,8 @@ class Telefono {
   /// guardados sin '+' se consideran de Bolivia.
   static ({PaisTelefono pais, String numero}) separar(String valor) {
     final texto = valor.trim();
+    // Campo vacío: se propone el país del restaurante.
+    if (texto.isEmpty) return (pais: porDefecto, numero: '');
     if (texto.startsWith('+')) {
       final digitos = _soloDigitos(texto);
       // Se prueba primero el código más largo (3 dígitos, luego 2, luego 1).

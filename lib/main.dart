@@ -17,6 +17,7 @@ import 'services/registro_errores.dart';
 import 'theme/design_tokens.dart';
 import 'utils/navegacion.dart';
 import 'widgets/aviso_actualizacion.dart';
+import 'widgets/aviso_almacenamiento.dart';
 import 'widgets/aviso_sin_conexion.dart';
 import 'widgets/vigilante_inactividad.dart';
 
@@ -105,7 +106,9 @@ class MyApp extends StatelessWidget {
           builder: (context, child) => EscalaTexto(
             child: VigilanteInactividad(
               child: AvisoActualizacion(
-                child: AvisoSinConexion(child: child ?? const SizedBox.shrink()),
+                child: AvisoSinConexion(
+                  child: AvisoAlmacenamiento(child: child ?? const SizedBox.shrink()),
+                ),
               ),
             ),
           ),

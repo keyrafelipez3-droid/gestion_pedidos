@@ -12,6 +12,7 @@ import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_imagen_red.dart';
 import '../../widgets/app_search_field.dart';
+import '../../utils/formato.dart';
 
 /// HU-29 / HU-32: el Cajero registra un pedido para una mesa que ya
 /// asignó a un grupo de clientes. Elige los productos del menú del negocio
@@ -104,7 +105,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
                 ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Total: Bs ${_total.toStringAsFixed(2)}',
+                'Total: ${dinero(_total)}',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -247,8 +248,8 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
                                   ),
                                   Text(
                                     p.promoActiva()
-                                        ? 'Bs ${p.precioVigente().toStringAsFixed(2)} (promo, antes Bs ${p.precio.toStringAsFixed(2)})'
-                                        : 'Bs ${p.precio.toStringAsFixed(2)}',
+                                        ? '${dinero(p.precioVigente())} (promo, antes ${dinero(p.precio)})'
+                                        : dinero(p.precio),
                                     style: theme.textTheme.bodyMedium
                                         ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
@@ -307,7 +308,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
                 label: Text(
                   _totalProductos == 0
                       ? 'Agrega productos al pedido'
-                      : 'Enviar a cocina · $_totalProductos prod. · Bs ${_total.toStringAsFixed(2)}',
+                      : 'Enviar a cocina · $_totalProductos prod. · ${dinero(_total)}',
                 ),
               ),
             ),

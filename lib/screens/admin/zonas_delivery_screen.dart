@@ -7,6 +7,7 @@ import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/errores.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../utils/formato.dart';
 
 /// Zonas de delivery de una sucursal, con su costo de envío, y la compra
 /// mínima para pedir delivery. El cliente elige su zona al confirmar.
@@ -67,7 +68,7 @@ class _ZonasDeliveryScreenState extends State<ZonasDeliveryScreen> {
               TextFormField(
                 controller: costo,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Costo de envío (Bs) *', prefixText: 'Bs '),
+                decoration: InputDecoration(labelText: 'Costo de envío (${simboloMoneda()}) *', prefixText: prefijoMoneda()),
                 validator: (v) {
                   final n = double.tryParse((v ?? '').replaceAll(',', '.'));
                   if (n == null || n < 0 || n > 200) return 'Entre 0 y 200';
@@ -145,10 +146,10 @@ class _ZonasDeliveryScreenState extends State<ZonasDeliveryScreen> {
           TextField(
             controller: _minimo,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Pedido mínimo para delivery (Bs)',
+            decoration: InputDecoration(
+              labelText: 'Pedido mínimo para delivery (${simboloMoneda()})',
               helperText: 'En productos. Vacío o 0 = sin mínimo.',
-              prefixText: 'Bs ',
+              prefixText: prefijoMoneda(),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -164,7 +165,7 @@ class _ZonasDeliveryScreenState extends State<ZonasDeliveryScreen> {
                 child: ListTile(
                   leading: const Icon(Icons.place_outlined),
                   title: Text(z.key),
-                  subtitle: Text('Envío: Bs ${z.value.toStringAsFixed(2)}'),
+                  subtitle: Text('Envío: ${dinero(z.value)}'),
                   onTap: () => _editarZona(z.key),
                   trailing: IconButton(
                     tooltip: 'Quitar zona',
