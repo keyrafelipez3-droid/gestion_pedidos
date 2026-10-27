@@ -1,4 +1,5 @@
 import 'condiciones_negocio.dart';
+import 'pais.dart';
 
 /// Representa UN documento de la colección raíz `negocios`.
 /// Desde la corrección pedida por el docente (multi-tenant real), pueden
@@ -52,6 +53,13 @@ class NegocioModel {
   /// Forma de botones y tarjetas: cuadrado, redondeado, pildora.
   final String formaBotones;
 
+  /// País donde opera (código ISO: 'BO', 'MX', 'US'...). Define la moneda,
+  /// el número tributario y las leyes de los textos legales (ver `Pais`).
+  final String pais;
+
+  /// Datos del país del negocio (moneda, leyes, número tributario).
+  Pais get datosPais => Paises.porCodigo(pais);
+
   const NegocioModel({
     required this.idNegocio,
     required this.nombre,
@@ -73,6 +81,7 @@ class NegocioModel {
     this.estiloBase = 'moderno',
     this.tipografia = 'sans',
     this.formaBotones = 'redondeado',
+    this.pais = 'BO',
     this.condiciones = const CondicionesNegocio(),
     this.reglasPersonal = const ReglasPersonal(),
   });
@@ -97,6 +106,7 @@ class NegocioModel {
     String? estiloBase,
     String? tipografia,
     String? formaBotones,
+    String? pais,
     CondicionesNegocio? condiciones,
     ReglasPersonal? reglasPersonal,
   }) {
@@ -121,6 +131,7 @@ class NegocioModel {
       estiloBase: estiloBase ?? this.estiloBase,
       tipografia: tipografia ?? this.tipografia,
       formaBotones: formaBotones ?? this.formaBotones,
+      pais: pais ?? this.pais,
       condiciones: condiciones ?? this.condiciones,
       reglasPersonal: reglasPersonal ?? this.reglasPersonal,
     );
@@ -147,6 +158,7 @@ class NegocioModel {
       'estiloBase': estiloBase,
       'tipografia': tipografia,
       'formaBotones': formaBotones,
+      'pais': pais,
     };
   }
 
@@ -172,6 +184,7 @@ class NegocioModel {
       estiloBase: (data['estiloBase'] ?? 'moderno') as String,
       tipografia: (data['tipografia'] ?? 'sans') as String,
       formaBotones: (data['formaBotones'] ?? 'redondeado') as String,
+      pais: (data['pais'] as String?) ?? 'BO',
       condiciones: CondicionesNegocio.desde(data['condiciones']),
       reglasPersonal: ReglasPersonal.desde(data['reglasPersonal']),
     );

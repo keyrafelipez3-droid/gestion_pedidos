@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/formato.dart';
 
 /// Cupón de descuento de un negocio: `negocios/{id}/cupones/{CODIGO}`.
 /// El id del documento es el código en mayúsculas (ej. CARO10).
@@ -29,7 +30,7 @@ class CuponModel {
 
   /// "10 %" o "Bs 15.00".
   String get etiquetaValor =>
-      tipo == porcentaje ? '${valor.toStringAsFixed(valor % 1 == 0 ? 0 : 1)} %' : 'Bs ${valor.toStringAsFixed(2)}';
+      tipo == porcentaje ? '${valor.toStringAsFixed(valor % 1 == 0 ? 0 : 1)} %' : dinero(valor);
 
   /// Descuento para una compra de [subtotal] Bs (nunca más que el subtotal).
   double descuentoPara(double subtotal) {

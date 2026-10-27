@@ -9,6 +9,7 @@ import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_fotos_comida.dart';
 import '../../widgets/selector_imagen.dart';
+import '../../utils/formato.dart';
 
 /// HU-10 — "Personalizar la apariencia del negocio" (Fase 5).
 ///
@@ -1152,7 +1153,7 @@ class _MaquetaMenu extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Bs ${_platos[i].$3.toStringAsFixed(2)}',
+                          dinero(_platos[i].$3),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: scheme.primary,
                             fontWeight: FontWeight.w800,
@@ -1177,9 +1178,9 @@ class _MaquetaMenu extends StatelessWidget {
           ],
           FilledButton(
             onPressed: () {},
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [Text('Ver carrito (2)'), Text('Bs 130.00')],
+              children: [const Text('Ver carrito (2)'), Text(dinero(130))],
             ),
           ),
           const SizedBox(height: AppSpacing.sm),

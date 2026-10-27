@@ -114,7 +114,7 @@ class _RegistrarNegocioScreenState extends State<RegistrarNegocioScreen> {
           TextFormField(
             controller: _nit,
             maxLength: 20,
-            decoration: InputDecoration(labelText: tr('NIT (opcional)')),
+            decoration: InputDecoration(labelText: tr('Número tributario: NIT, RFC, RUC… (opcional)')),
           ),
           TextFormField(
             controller: _mensaje,

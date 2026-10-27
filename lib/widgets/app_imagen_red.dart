@@ -14,6 +14,10 @@ class AppImagenRed extends StatelessWidget {
   /// banner de comida para negocios que todavía no subieron el suyo).
   final String? respaldoAsset;
 
+  /// Texto alternativo para lectores de pantalla (por ejemplo, el nombre
+  /// del producto). Si es null, la imagen se considera decorativa.
+  final String? descripcion;
+
   const AppImagenRed({
     super.key,
     required this.url,
@@ -22,10 +26,18 @@ class AppImagenRed extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.icono = Icons.fastfood_outlined,
     this.respaldoAsset,
+    this.descripcion,
   });
 
   @override
   Widget build(BuildContext context) {
+    final imagen = _imagen(context);
+    final d = descripcion;
+    if (d == null || d.trim().isEmpty) return ExcludeSemantics(child: imagen);
+    return Semantics(image: true, label: d, child: ExcludeSemantics(child: imagen));
+  }
+
+  Widget _imagen(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     Widget vacio() => respaldoAsset != null
         ? Image.asset(

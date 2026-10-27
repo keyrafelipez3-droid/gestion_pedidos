@@ -119,7 +119,7 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
       filas.write('<tr><td>${i.cantidad} x ${esc(i.nombreProducto)}'
           '${extras.isEmpty ? '' : '<div class="extra">${esc(extras)}</div>'}'
           '${i.notas.isEmpty ? '' : '<div class="extra">${esc(tr('Nota: {notas}', {'notas': i.notas}))}</div>'}'
-          '</td><td class="der">Bs ${i.subtotal.toStringAsFixed(2)}</td></tr>');
+          '</td><td class="der">${dinero(i.subtotal)}</td></tr>');
     }
     final n = d.negocio;
     final logo = n.logoUrl.trim().isEmpty ? '' : '<img class="logo" src="${esc(n.logoUrl.trim())}" alt="">';
@@ -141,7 +141,7 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   <div class="centro">$logo
     <h1>${esc(n.nombre)}</h1>
     ${n.razonSocial.isEmpty ? '' : '<p class="gris">${esc(n.razonSocial)}</p>'}
-    ${n.nit.isEmpty ? '' : '<p class="gris">${esc(tr('NIT: {nit}', {'nit': n.nit}))}</p>'}
+    ${n.nit.isEmpty ? '' : '<p class="gris">${esc('${n.datosPais.idFiscal}: ${n.nit}')}</p>'}
     ${d.sucursal == null ? '' : '<p class="gris">${esc(d.sucursal!.nombre)} · ${esc(d.sucursal!.direccion)}</p>'}
     ${n.telefono.isEmpty ? '' : '<p class="gris">${esc(tr('Tel. {telefono}', {'telefono': n.telefono}))}</p>'}
   </div>
@@ -155,10 +155,10 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   ${p.tieneAlergias ? '<p class="alergia">&#9888; ${esc(tr('ALERGIA'))}: ${esc(Alergenos.nombres(p.alergias))}</p>' : ''}
   <hr>
   <table>$filas
-    ${p.descuento > 0 ? '<tr><td>${esc(tr('Descuento ({codigo})', {'codigo': p.codigoCupon ?? ''}))}</td><td class="der">-Bs ${p.descuento.toStringAsFixed(2)}</td></tr>' : ''}
-    ${p.costoEnvio > 0 ? '<tr><td>${esc(tr('Envío ({zona})', {'zona': p.zonaEntrega ?? ''}))}</td><td class="der">Bs ${p.costoEnvio.toStringAsFixed(2)}</td></tr>' : ''}
-    <tr class="total"><td>${esc(tr('TOTAL'))}</td><td class="der">Bs ${p.montoNegocio.toStringAsFixed(2)}</td></tr>
-    ${p.propina > 0 ? '<tr><td>${esc(tr('Propina'))}</td><td class="der">Bs ${p.propina.toStringAsFixed(2)}</td></tr>' : ''}
+    ${p.descuento > 0 ? '<tr><td>${esc(tr('Descuento ({codigo})', {'codigo': p.codigoCupon ?? ''}))}</td><td class="der">-${dinero(p.descuento)}</td></tr>' : ''}
+    ${p.costoEnvio > 0 ? '<tr><td>${esc(tr('Envío ({zona})', {'zona': p.zonaEntrega ?? ''}))}</td><td class="der">${dinero(p.costoEnvio)}</td></tr>' : ''}
+    <tr class="total"><td>${esc(tr('TOTAL'))}</td><td class="der">${dinero(p.montoNegocio)}</td></tr>
+    ${p.propina > 0 ? '<tr><td>${esc(tr('Propina'))}</td><td class="der">${dinero(p.propina)}</td></tr>' : ''}
   </table>
   <hr>
   <p class="gris">${esc(tr('Pago: {metodo}', {'metodo': tr(p.metodoPago)}))}${p.cobrado ? ' · ${esc(tr('Cobrado'))}' : ''}</p>
@@ -223,7 +223,7 @@ class _Recibo extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(n.nombre, textAlign: TextAlign.center, style: t(texto.titleLarge)?.copyWith(fontWeight: FontWeight.w700)),
             if (n.razonSocial.isNotEmpty) Text(n.razonSocial, textAlign: TextAlign.center, style: gris),
-            if (n.nit.isNotEmpty) Text(tr('NIT: {nit}', {'nit': n.nit}), textAlign: TextAlign.center, style: gris),
+            if (n.nit.isNotEmpty) Text('${n.datosPais.idFiscal}: ${n.nit}', textAlign: TextAlign.center, style: gris),
             if (datos.sucursal != null)
               Text('${datos.sucursal!.nombre} · ${datos.sucursal!.direccion}', textAlign: TextAlign.center, style: gris),
             if (n.telefono.isNotEmpty) Text(tr('Tel. {telefono}', {'telefono': n.telefono}), textAlign: TextAlign.center, style: gris),
@@ -268,7 +268,7 @@ class _Recibo extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text(tr('Bs {subtotal}', {'subtotal': i.subtotal.toStringAsFixed(2)}), style: t(texto.bodyMedium)),
+                    Text(dinero(i.subtotal), style: t(texto.bodyMedium)),
                   ],
                 ),
               ),
@@ -277,20 +277,20 @@ class _Recibo extends StatelessWidget {
               Row(
                 children: [
                   Expanded(child: Text(tr('Descuento ({codigo})', {'codigo': pedido.codigoCupon ?? ''}), style: gris)),
-                  Text('-Bs ${pedido.descuento.toStringAsFixed(2)}', style: gris),
+                  Text('-${dinero(pedido.descuento)}', style: gris),
                 ],
               ),
             if (pedido.costoEnvio > 0)
               Row(
                 children: [
                   Expanded(child: Text(tr('Envío ({zona})', {'zona': pedido.zonaEntrega ?? ''}), style: gris)),
-                  Text('Bs ${pedido.costoEnvio.toStringAsFixed(2)}', style: gris),
+                  Text(dinero(pedido.costoEnvio), style: gris),
                 ],
               ),
             Row(
               children: [
                 Expanded(child: Text(tr('TOTAL'), style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800))),
-                Text(tr('Bs {total}', {'total': pedido.montoNegocio.toStringAsFixed(2)}),
+                Text(dinero(pedido.montoNegocio),
                     style: t(texto.titleMedium)?.copyWith(fontWeight: FontWeight.w800)),
               ],
             ),
@@ -298,7 +298,7 @@ class _Recibo extends StatelessWidget {
               Row(
                 children: [
                   Expanded(child: Text(tr('Propina'), style: gris)),
-                  Text('Bs ${pedido.propina.toStringAsFixed(2)}', style: gris),
+                  Text(dinero(pedido.propina), style: gris),
                 ],
               ),
             linea(),

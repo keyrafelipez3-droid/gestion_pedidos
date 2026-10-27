@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../config/app_config.dart';
 import '../l10n/idioma.dart';
+import '../models/pais.dart';
 
 /// Resultado de buscar una dirección.
 class LugarEncontrado {
@@ -37,7 +38,8 @@ class GeocodificacionService {
         'q': consulta,
         'format': 'jsonv2',
         'limit': '6',
-        if (AppConfig.paisBusqueda.isNotEmpty) 'countrycodes': AppConfig.paisBusqueda,
+        // Se busca en el país del restaurante.
+        'countrycodes': Paises.actual.codigo.toLowerCase(),
       },
     );
     final resp =

@@ -88,9 +88,9 @@ class _CajeroRendicionScreenState extends State<CajeroRendicionScreen> {
         title: Text('Rendición de ${r.nombre}'),
         content: Text(
           '${r.pedidos.length} pedido(s) entregado(s).\n\n'
-          'Efectivo a recibir: Bs ${r.efectivo.toStringAsFixed(2)}\n'
-          'Pagos por QR/transferencia: Bs ${r.digital.toStringAsFixed(2)}\n'
-          '${r.propinas > 0 ? 'Propinas (se las queda el repartidor): Bs ${r.propinas.toStringAsFixed(2)}\n' : ''}'
+          'Efectivo a recibir: ${dinero(r.efectivo)}\n'
+          'Pagos por QR/transferencia: ${dinero(r.digital)}\n'
+          '${r.propinas > 0 ? 'Propinas (se las queda el repartidor): ${dinero(r.propinas)}\n' : ''}'
           '\nCuenta el efectivo antes de confirmar.',
         ),
         actions: [
@@ -109,7 +109,7 @@ class _CajeroRendicionScreenState extends State<CajeroRendicionScreen> {
       );
       ActividadService.instancia.registrar(
         ActividadTipo.caja,
-        'Recibió la rendición de ${r.nombre}: $n pedido(s), efectivo Bs ${r.efectivo.toStringAsFixed(2)}',
+        'Recibió la rendición de ${r.nombre}: $n pedido(s), efectivo ${dinero(r.efectivo)}',
       );
       messenger.showSnackBar(SnackBar(content: Text('Rendición de ${r.nombre} registrada en tu caja.')));
     } catch (e) {

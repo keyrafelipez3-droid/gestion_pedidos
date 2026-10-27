@@ -20,6 +20,7 @@ import '../../widgets/cancelar_pedido.dart';
 import '../../widgets/linea_estado_pedido.dart';
 import '../../widgets/mapa_seguimiento.dart';
 import '../../widgets/texto_traducido.dart';
+import 'inicio_cliente.dart';
 import 'resena_pedido_card.dart';
 import 'ticket_pedido_screen.dart';
 
@@ -215,7 +216,7 @@ class _ProductosDelPedidoState extends State<_ProductosDelPedido> {
                             ),
                         ],
                       ),
-                trailing: Text(tr('Bs {subtotal}', {'subtotal': i.subtotal.toStringAsFixed(2)})),
+                trailing: Text(dinero(i.subtotal)),
               ),
             );
           }),
@@ -241,6 +242,10 @@ class _Detalle extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
+        if (!esPersonal && pedidoEnCurso(pedido)) ...[
+          _EstadoParaCliente(pedido: pedido),
+          const SizedBox(height: AppSpacing.md),
+        ],
         if (pedido.tieneAlergias) ...[
           BandaAlergias(alergias: pedido.alergias, paraPersonal: esPersonal),
           const SizedBox(height: AppSpacing.md),
@@ -302,15 +307,15 @@ class _Detalle extends StatelessWidget {
                   ),
                 const SizedBox(height: AppSpacing.sm),
                 if (pedido.descuento > 0)
-                  Text(tr('Descuento ({codigo}): −Bs {monto}',
-                      {'codigo': pedido.codigoCupon ?? '', 'monto': pedido.descuento.toStringAsFixed(2)})),
+                  Text(tr('Descuento ({codigo}): −{monto}',
+                      {'codigo': pedido.codigoCupon ?? '', 'monto': dinero(pedido.descuento)})),
                 if (pedido.costoEnvio > 0)
-                  Text(tr('Envío a {zona}: Bs {monto}',
-                      {'zona': pedido.zonaEntrega ?? '', 'monto': pedido.costoEnvio.toStringAsFixed(2)})),
+                  Text(tr('Envío a {zona}: {monto}',
+                      {'zona': pedido.zonaEntrega ?? '', 'monto': dinero(pedido.costoEnvio)})),
                 if (pedido.propina > 0)
-                  Text(tr('Propina para el repartidor: Bs {monto}', {'monto': pedido.propina.toStringAsFixed(2)})),
+                  Text(tr('Propina para el repartidor: {monto}', {'monto': dinero(pedido.propina)})),
                 Text(
-                  tr('Total: Bs {total}', {'total': pedido.totalACobrar.toStringAsFixed(2)}),
+                  tr('Total: {total}', {'total': dinero(pedido.totalACobrar)}),
                   style: Theme.of(context)
                       .textTheme
                       .titleLarge
@@ -500,6 +505,64 @@ class _TarjetaRepartidor extends StatelessWidget {
               onPressed: () => llamarPorTelefono(context, pedido.telefonoRepartidor),
               icon: const Icon(Icons.call_outlined),
               label: Text(tr('Llamar al repartidor')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Arriba del detalle, para el cliente: en qué va su pedido, en grande.
+class _EstadoParaCliente extends StatelessWidget {
+  final PedidoModel pedido;
+
+  const _EstadoParaCliente({required this.pedido});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = pedido;
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+    final textos = Theme.of(context).textTheme;
+    final (icono, color) = switch (p.estado) {
+      PedidoEstado.pendiente => (Icons.receipt_long_outlined, scheme.primary),
+      PedidoEstado.enPreparacion => (Icons.local_fire_department_outlined, semantic.warning),
+      PedidoEstado.listo => (Icons.room_service_outlined, semantic.success),
+      PedidoEstado.enCamino => (Icons.two_wheeler_outlined, semantic.info),
+      _ => (Icons.notifications_active_outlined, semantic.success),
+    };
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg - 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: AppRadius.lgAll,
+          border: Border.all(color: color.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle),
+              child: Icon(icono, color: color, size: 30),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr(p.estado), style: textos.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                  Text(mensajeEstadoCliente(p), style: textos.bodyMedium),
+                  if (p.fechaCreacion != null)
+                    Text(
+                      tr('Lo pediste {tiempo}', {'tiempo': haceTiempo(p.fechaCreacion)}),
+                      style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                ],
+              ),
             ),
           ],
         ),

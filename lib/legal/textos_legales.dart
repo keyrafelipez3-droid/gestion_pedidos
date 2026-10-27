@@ -1,5 +1,6 @@
 import '../config/app_config.dart';
 import '../models/negocio_model.dart';
+import '../models/pais.dart';
 import '../models/usuario_model.dart';
 
 /// Un apartado de un texto legal: título, uno o más párrafos y, arriba,
@@ -12,8 +13,9 @@ class SeccionLegal {
 }
 
 /// Textos legales de la plataforma. Son una base redactada a partir de lo
-/// que la app realmente hace; NO sustituyen la revisión de un abogado en
-/// Bolivia. Si cambia el funcionamiento de la app (por ejemplo, se agrega
+/// que la app realmente hace; NO sustituyen la revisión de un abogado del
+/// país donde opera cada restaurante. Las leyes, la moneda y las
+/// autoridades se toman del país del restaurante (ver `Pais`). Si cambia el funcionamiento de la app (por ejemplo, se agrega
 /// la ubicación del repartidor), hay que actualizar este archivo y subir
 /// `AppConfig.versionTerminos`.
 ///
@@ -37,15 +39,18 @@ class TextosLegales {
         'Si algo cambia, te pedimos aceptar de nuevo.',
       ];
 
-  static List<String> resumenTerminos() => const [
+  static List<String> resumenTerminos() => [
         'La plataforma es la herramienta; el restaurante prepara y entrega tu pedido.',
         'Antes de confirmar ves el total exacto: no hay cobros escondidos.',
         'Le pagas directamente al restaurante.',
         'Marca tus alergias; si son graves, confirma con el local.',
-        'Si tienes un problema, reclama primero al restaurante; si no se resuelve, a Defensa del Consumidor.',
+        'Si tienes un problema, reclama primero al restaurante; si no se resuelve, a '
+            '${Paises.actual.autoridadConsumidor}.',
       ];
 
-  static List<SeccionLegal> politicaPrivacidad() => [
+  static List<SeccionLegal> politicaPrivacidad() {
+    final p = Paises.actual;
+    return [
         SeccionLegal('1. Quién es responsable', enSimple: 'La plataforma es la herramienta; el restaurante atiende tu pedido. Si tienes dudas sobre tus datos, escríbenos.', [
           '${AppConfig.nombrePlataforma} es una plataforma ofrecida por '
               '${AppConfig.titularPlataforma} para que distintos negocios '
@@ -55,10 +60,9 @@ class TextosLegales {
               '${AppConfig.titularPlataforma}, con domicilio en '
               '${AppConfig.ciudadPais}. Para consultas sobre tus datos escribe a '
               '${AppConfig.correoPrivacidad}.',
-          'Esta política cumple lo que exigen la Constitución Política del '
-              'Estado (arts. 21 y 130) y el Reglamento de la Ley 164 '
-              '(DS 1793, art. 56): pedir tu consentimiento, decirte para qué '
-              'usamos tus datos y respetar tus derechos sobre ellos.',
+          'Esta política sigue lo que exige ${p.leyDatos}, en ${p.nombre}: '
+              'pedir tu consentimiento, decirte para qué usamos tus datos y '
+              'respetar tus derechos sobre ellos.',
         ]),
         SeccionLegal('2. Qué datos recopilamos', enSimple: 'Guardamos solo lo necesario para atender tus pedidos: tus datos de contacto, tus direcciones y tus pedidos.', [
           'Datos de tu cuenta: nombre, correo electrónico y teléfono. Tu '
@@ -85,10 +89,11 @@ class TextosLegales {
               'tu cuenta y en el pedido para que la cocina las vea. Es un dato '
               'de salud: solo lo usamos para preparar tu pedido con seguridad y '
               'puedes quitarlo cuando quieras en "Mi cuenta".',
-          'Datos para factura: si pides factura, el NIT o CI y la razón social '
+          'Datos para factura: si pides factura, tu número tributario o documento y la razón social '
               'se guardan en el pedido para el negocio y, para no volver a '
               'escribirlos, en tu dispositivo.',
-          'Idioma, tamaño de letra y avisos: se guardan solo en tu dispositivo.',
+          'Idioma, tamaño de letra, avisos y si ya viste el aviso de almacenamiento: se guardan '
+              'solo en tu dispositivo (ver "Cookies y almacenamiento").',
           'Copia para usar sin internet: en la app del celular se guarda en tu '
               'teléfono una copia de los datos ya cargados, para que la app '
               'funcione si se corta la conexión. En la versión web no se guarda '
@@ -117,14 +122,22 @@ class TextosLegales {
               'mientras tu pedido va en camino. No compartimos tus datos con '
               'los demás negocios de la plataforma.',
           'Con proveedores técnicos que guardan o procesan la información por '
-              'nosotros: Google Firebase (cuentas, base de datos y alojamiento '
-              'de la web) y Cloudinary (imágenes). Para buscar direcciones y '
-              'mostrar el mapa se usan los servicios de OpenStreetMap, que '
-              'reciben el texto de la dirección que buscas.',
-          'Estos proveedores tienen sus servidores fuera de Bolivia (por '
-              'ejemplo, en Estados Unidos). Al aceptar esta política aceptas '
-              'que tus datos se guarden allí, con las medidas de seguridad de '
-              'esos proveedores.',
+              'nosotros (servicios de terceros):',
+          '• Google Firebase (Google LLC): cuentas, base de datos, verificación '
+              'de que la app es auténtica (App Check) y alojamiento de la web.',
+          '• Cloudinary: guarda las imágenes (fotos de productos, de perfil y '
+              'comprobantes).',
+          '• OpenStreetMap y su buscador Nominatim: muestran el mapa y buscan '
+              'direcciones; reciben el texto de la dirección que buscas y tu '
+              'dirección IP.',
+          '• MyMemory (Translated): traduce notas cuando usas la app en otro '
+              'idioma (ver más abajo).',
+          '• Google Fonts: algunas tipografías de los restaurantes se descargan '
+              'de los servidores de Google, que reciben tu dirección IP.',
+          'Estos proveedores pueden tener sus servidores fuera de tu país (por '
+              'ejemplo, en Estados Unidos o Europa). Al aceptar esta política '
+              'aceptas que tus datos se guarden allí, con las medidas de '
+              'seguridad de esos proveedores.',
           'Traducción: si usas la app en otro idioma, el texto de tus notas y '
               'de la referencia de tu dirección se envía al servicio de '
               'traducción automática MyMemory para que el personal lo lea en '
@@ -146,9 +159,8 @@ class TextosLegales {
               'las eliminemos, escríbenos a ${AppConfig.correoPrivacidad}.',
         ]),
         SeccionLegal('6. Tus derechos', enSimple: 'Puedes ver, corregir o borrar tus datos cuando quieras.', [
-          'La Constitución Política del Estado reconoce tu derecho a la '
-              'privacidad y a conocer, corregir y eliminar tus datos '
-              'personales.',
+          'En ${p.nombre}, ${p.leyDatos} reconoce tu derecho a la privacidad y '
+              'a conocer, corregir y eliminar tus datos personales.',
           'Tienes derecho a: conocer qué datos tuyos tenemos (acceso), '
               'corregirlos (rectificación), pedir que los borremos '
               '(cancelación), oponerte a un uso concreto (oposición) y retirar '
@@ -158,9 +170,14 @@ class TextosLegales {
               'eliminar tu cuenta en "Mi cuenta > Eliminar mi cuenta". Para '
               'cualquier otra solicitud escribe a ${AppConfig.correoPrivacidad}: '
               'te responderemos en un plazo máximo de 10 días hábiles.',
-          'Si consideras que tus datos se usan de forma indebida, también '
-              'puedes presentar una Acción de Protección de Privacidad ante un '
-              'juez (Constitución, arts. 130 y 131).',
+          if (p.codigo == 'BO')
+            'Si consideras que tus datos se usan de forma indebida, también '
+                'puedes presentar una Acción de Protección de Privacidad ante un '
+                'juez (Constitución, arts. 130 y 131).'
+          else if (p.autoridadDatos.isNotEmpty)
+            'Si consideras que tus datos se usan de forma indebida, también '
+                'puedes presentar una queja ante ${p.autoridadDatos}.',
+          ...p.notas.where((n) => !n.contains('menú') && !n.contains('impuestos')),
         ]),
         SeccionLegal('7. Seguridad', enSimple: 'Cada persona ve solo lo que le corresponde.', [
           'Los datos se guardan en servicios de Google Firebase con reglas '
@@ -168,27 +185,45 @@ class TextosLegales {
               'negocio solo ve los pedidos de ese negocio. Ningún sistema es '
               'infalible, por eso te recomendamos usar una contraseña única.',
         ]),
-        SeccionLegal('8. Menores de edad', enSimple: 'Necesitas 18 años, o el permiso de tu madre, padre o tutor.', [
+        SeccionLegal('8. Menores de edad', enSimple: 'Necesitas 18 años, o el permiso de tu madre, padre o tutor. Menores de 13, no.', [
           'Para crear una cuenta debes tener 18 años o más. Si eres menor de '
               'edad, solo puedes usar la plataforma con la autorización y '
               'supervisión de tu madre, padre o tutor, que es responsable de '
               'los pedidos que hagas.',
+          'La plataforma no está dirigida a menores de 13 años y no recopila '
+              'a sabiendas sus datos. Si descubrimos una cuenta de un menor de 13 '
+              'años, la eliminamos.',
         ]),
-        SeccionLegal('9. Tu consentimiento', enSimple: 'Al aceptar, nos autorizas a usar tus datos como dice esta política.', [
+        const SeccionLegal('9. Cookies y almacenamiento',
+            enSimple: 'Solo guardamos en tu dispositivo lo necesario para que la app funcione. Nada de publicidad.', [
+          'La app guarda en tu navegador o en tu teléfono solo lo necesario para '
+              'funcionar: tu sesión (para no pedirte la contraseña cada vez), tu '
+              'idioma, el tamaño de letra, tus datos de factura si los recuerdas y '
+              'si ya viste el aviso de almacenamiento.',
+          'No usamos cookies de publicidad ni de seguimiento, ni herramientas de '
+              'analítica de terceros. Por eso no te pedimos elegir cookies: solo te '
+              'avisamos.',
+          'Puedes borrar estos datos cuando quieras desde la configuración de tu '
+              'navegador o cerrando sesión; la app volverá a pedirte entrar.',
+        ]),
+        SeccionLegal('10. Tu consentimiento', enSimple: 'Al aceptar, nos autorizas a usar tus datos como dice esta política.', [
           'Al marcar la casilla de aceptación al crear tu cuenta das tu '
               'consentimiento previo, expreso e informado para que tratemos '
               'tus datos como explica esta política. Tus alergias (dato de '
               'salud) solo se guardan si tú las marcas, y solo para preparar '
               'tus pedidos con seguridad.',
         ]),
-        SeccionLegal('10. Cambios en esta política', enSimple: 'Si algo cambia, te avisamos y te pedimos aceptar de nuevo.', [
+        SeccionLegal('11. Cambios en esta política', enSimple: 'Si algo cambia, te avisamos y te pedimos aceptar de nuevo.', [
           'Si cambiamos esta política, te pediremos aceptar la nueva versión '
               'antes de seguir usando la app. Versión: '
               '${AppConfig.versionTerminos}.',
         ]),
       ];
+  }
 
-  static List<SeccionLegal> terminos() => [
+  static List<SeccionLegal> terminos() {
+    final p = Paises.actual;
+    return [
         SeccionLegal('1. El servicio', enSimple: 'La plataforma te conecta con el restaurante; el restaurante prepara y entrega tu pedido.', [
           '${AppConfig.nombrePlataforma} permite hacer pedidos a negocios '
               'de comida. La plataforma conecta al cliente con el negocio; '
@@ -203,10 +238,12 @@ class TextosLegales {
               'supervisión de tu madre, padre o tutor.',
         ]),
         SeccionLegal('3. Precios y pedidos', enSimple: 'El total que ves antes de confirmar es lo que pagas. Sin cobros escondidos.', [
-          'Los precios se muestran en bolivianos (Bs) e incluyen los impuestos. '
+          'Los precios se muestran en ${p.nombreMoneda} (${p.simbolo}) '
+              '${p.impuestosIncluidos ? 'e incluyen los impuestos' : 'sin los impuestos de venta, que se suman al cobrar según tu zona'}. '
               'Antes de confirmar ves el detalle completo: productos, descuento, '
               'costo de envío según tu zona y propina. El total que ves es el '
-              'que corresponde pagar; no hay cobros ocultos (Ley 453, art. 14).',
+              'que corresponde pagar; no hay cobros ocultos, como exige '
+              '${p.leyConsumidor}.',
           'El negocio puede rechazar o cancelar un pedido si no puede '
               'atenderlo; si ocurre, verás el motivo en el detalle del pedido.',
           'Puedes programar un pedido para más tarde, dentro del horario de '
@@ -234,15 +271,20 @@ class TextosLegales {
               'dinero.',
         ]),
         SeccionLegal('6. Facturas', enSimple: 'La factura la emite el restaurante, si la pides.', [
-          'La plataforma no emite facturas fiscales. Si necesitas factura, '
-              'marca "Quiero factura" al confirmar y escribe tu NIT o CI: esos '
-              'datos llegan al negocio, que es quien emite la factura y '
-              'responde por sus obligaciones tributarias.',
+          p.idFactura.isEmpty
+              ? 'La plataforma no emite facturas ni recibos fiscales. El negocio '
+                  'te entrega el comprobante de compra que corresponda y responde '
+                  'por sus obligaciones tributarias.'
+              : 'La plataforma no emite facturas fiscales. Si necesitas factura, '
+                  'marca "Quiero factura" al confirmar y escribe tu ${p.idFactura}: '
+                  'esos datos llegan al negocio, que es quien emite la factura y '
+                  'responde por sus obligaciones tributarias.',
         ]),
         SeccionLegal('7. Uso adecuado', enSimple: 'Trata con respeto al personal y no hagas pedidos falsos.', [
           'No está permitido hacer pedidos falsos, ofender o amenazar al '
               'personal de un negocio, publicar reseñas con insultos, datos de '
-              'otras personas o contenido racista o discriminatorio (Ley 045), '
+              'otras personas o contenido racista o discriminatorio'
+              '${p.codigo == 'BO' ? ' (Ley 045)' : ''}, '
               'ni usar la plataforma para fines ilegales. El Administrador de un negocio puede bloquear tu '
               'cuenta en ese negocio si lo incumples; el bloqueo no afecta '
               'a los demás negocios.',
@@ -253,26 +295,30 @@ class TextosLegales {
               'servicio esté disponible, pero no puede garantizar que no '
               'haya interrupciones.',
         ]),
-        SeccionLegal('9. Reclamos', enSimple: 'Primero reclama al restaurante; si no se resuelve, puedes acudir a Defensa del Consumidor.', [
+        SeccionLegal('9. Reclamos', enSimple: 'Primero reclama al restaurante; si no se resuelve, puedes acudir a ${p.autoridadConsumidor}.', [
           'Puedes presentar tu reclamo directamente al negocio, de forma '
               'verbal o escrita y sin formalidades. Los datos de contacto '
               'de cada negocio están en su ficha, en el menú del negocio. '
               'Para reclamos sobre la plataforma escribe a '
               '${AppConfig.correoPrivacidad}: te responderemos en un plazo '
               'máximo de 10 días hábiles.',
-          'Si tu reclamo no se resuelve, puedes acudir al Viceministerio de '
-              'Defensa de los Derechos del Usuario y del Consumidor (Ministerio '
-              'de Justicia), conforme a la Ley 453. Presentar un reclamo es '
-              'gratuito y no necesita abogado.',
+          'Si tu reclamo no se resuelve, puedes acudir a ${p.autoridadConsumidor}, '
+              'conforme a ${p.leyConsumidor}. Presentar un reclamo ante la autoridad '
+              'de consumo suele ser gratuito y no necesita abogado.',
+          if (p.codigo == 'PE')
+            'En Perú, el restaurante debe tener un Libro de Reclamaciones a tu '
+                'disposición, también en versión virtual.',
         ]),
         SeccionLegal('10. Eliminar tu cuenta', enSimple: 'Puedes borrar tu cuenta cuando quieras.', [
           'Puedes eliminar tu cuenta en cualquier momento desde "Mi cuenta". '
               'Lo que se borra y lo que se conserva está explicado en la '
               'Política de privacidad.',
         ]),
-        SeccionLegal('11. Ley aplicable', enSimple: 'Aplican las leyes de Bolivia.', [
-          'Estos términos se rigen por las leyes del Estado Plurinacional '
-              'de Bolivia. Ciudad de referencia: ${AppConfig.ciudadPais}.',
+        SeccionLegal('11. Ley aplicable', enSimple: 'Aplican las leyes de ${p.nombre}, donde está tu restaurante.', [
+          'Tus pedidos se rigen por las leyes de ${p.nombre}, el país del '
+              'restaurante donde pides, sin quitarte los derechos que te den las '
+              'leyes de tu país como consumidor.',
+          'La plataforma tiene su domicilio en ${AppConfig.ciudadPais}.',
         ]),
         SeccionLegal('12. Cambios', enSimple: 'Ningún cambio vale sin que lo aceptes.', [
           'Si cambiamos estos términos, te pediremos aceptar la nueva versión '
@@ -280,6 +326,7 @@ class TextosLegales {
               'aceptación. Versión: ${AppConfig.versionTerminos}.',
         ]),
       ];
+  }
   // ------------------------------------------------- condiciones del restaurante
 
   /// Contacto para reclamos: el que configuró el restaurante o, si no, su
@@ -311,13 +358,14 @@ class TextosLegales {
   /// datos del restaurante con lo que la app realmente permite hacer.
   static List<SeccionLegal> condicionesRestaurante(NegocioModel n) {
     final c = n.condiciones;
+    final p = n.datosPais;
     final nit = n.nit.trim();
     final direccion = [n.direccion.trim(), n.ciudad.trim()].where((e) => e.isNotEmpty).join(', ');
     final secciones = <SeccionLegal>[
       SeccionLegal('Quién te vende', enSimple: 'Le compras a ${n.nombre}, no a la plataforma.', [
         'El restaurante que prepara y entrega tu pedido es ${_vendedor(n)}'
-            '${nit.isEmpty ? '' : ' (NIT $nit)'}'
-            '${direccion.isEmpty ? '' : ', con dirección en $direccion'}.',
+            '${nit.isEmpty ? '' : ' (${p.idFiscal} $nit)'}'
+            '${direccion.isEmpty ? '' : ', con dirección en $direccion'}, en ${p.nombre}.',
         if (n.telefono.trim().isNotEmpty || n.correoContacto.trim().isNotEmpty)
           'Contacto: ${[n.telefono.trim(), n.correoContacto.trim()].where((e) => e.isNotEmpty).join(' · ')}.',
         '${AppConfig.nombrePlataforma} es la herramienta con la que ${n.nombre} recibe tus '
@@ -332,10 +380,11 @@ class TextosLegales {
             'y entregado.',
       ]),
       SeccionLegal('Precios y pagos', enSimple: 'Pagas lo que ves al confirmar, directo al restaurante.', [
-        'Los precios están en bolivianos (Bs) e incluyen los impuestos. Si un producto está en '
-            'promoción, se te cobra el precio de promoción mientras esté vigente.',
+        'Los precios están en ${p.nombreMoneda} (${p.simbolo}) '
+            '${p.impuestosIncluidos ? 'e incluyen los impuestos' : 'sin los impuestos de venta, que se suman al cobrar'}. '
+            'Si un producto está en promoción, se te cobra el precio de promoción mientras esté vigente.',
         'Antes de confirmar ves el detalle completo: productos, descuentos, costo de envío y '
-            'propina. Ese total es lo que pagas; no hay cobros ocultos (Ley 453, art. 14).',
+            'propina. Ese total es lo que pagas; no hay cobros ocultos, como exige ${p.leyConsumidor}.',
         'Puedes pagar ${_metodosPago(n)}. El pago es directo al restaurante.',
       ]),
       SeccionLegal('Entrega a domicilio',
@@ -366,15 +415,17 @@ class TextosLegales {
             'preparar tu pedido sin esos ingredientes. Si tu alergia es grave, confirma con el '
             'restaurante antes de comer: no se puede garantizar que no haya contacto cruzado.',
       ]),
-      const SeccionLegal('Facturas', enSimple: 'Si quieres factura, pídela al confirmar.', [
-        'Si necesitas factura, marca "Quiero factura" al confirmar y escribe tu NIT o CI. La '
-            'factura la emite el restaurante.',
-      ]),
+      if (p.idFactura.isNotEmpty)
+        SeccionLegal('Facturas', enSimple: 'Si quieres factura, pídela al confirmar.', [
+          'Si necesitas factura, marca "Quiero factura" al confirmar y escribe tu ${p.idFactura}. '
+              'La factura la emite el restaurante.',
+        ]),
       SeccionLegal('Reclamos', enSimple: 'Reclama a ${contactoReclamos(n)}.', [
         'Presenta tu reclamo a ${contactoReclamos(n)}, de forma verbal o escrita y sin '
             'formalidades. El restaurante debe responderte en un plazo máximo de 10 días hábiles.',
-        'Si no se resuelve, puedes acudir al Viceministerio de Defensa de los Derechos del '
-            'Usuario y del Consumidor (Ley 453). Es gratuito y no necesitas abogado.',
+        'Si no se resuelve, puedes acudir a ${p.autoridadConsumidor} (${Pais.sinArticulo(p.leyConsumidor)}).',
+        if (p.codigo == 'PE')
+          'También puedes dejar tu reclamo en el Libro de Reclamaciones del restaurante.',
       ]),
       if (c.notas.trim().isNotEmpty)
         SeccionLegal('Reglas propias de ${n.nombre}',
@@ -400,6 +451,14 @@ class TextosLegales {
     return reglas.isEmpty
         ? AppConfig.versionAcuerdoPersonal
         : '${AppConfig.versionAcuerdoPersonal}+$reglas';
+  }
+
+  /// true si la versión firmada es la vigente. Si todavía no se sabe el
+  /// restaurante, alcanza con la versión de la plataforma.
+  static bool acuerdoAlDia(String? firmada, NegocioModel? negocio) {
+    if (firmada == null) return false;
+    if (negocio == null) return firmada.split('+').first == AppConfig.versionAcuerdoPersonal;
+    return firmada == versionAcuerdo(negocio);
   }
 
   static String _nombreRestaurante(NegocioModel? n) => n == null
@@ -437,23 +496,24 @@ class TextosLegales {
   }) {
     final restaurante = _nombreRestaurante(negocio);
     final nit = (negocio?.nit ?? '').trim();
+    final p = negocio?.datosPais ?? Paises.actual;
     final rol = usuario.rol;
     final reglas = negocio?.reglasPersonal.reglas ?? const <String>[];
     final secciones = <SeccionLegal>[
       SeccionLegal('Datos de este acuerdo', enSimple: 'Quién firma y para qué restaurante.', [
-        'Restaurante: $restaurante${nit.isEmpty ? '' : ' (NIT $nit)'}.',
-        'Persona: ${usuario.nombre}. Su nombre completo y su carnet de identidad se registran '
+        'Restaurante: $restaurante${nit.isEmpty ? '' : ' (${p.idFiscal} $nit)'}, en ${p.nombre}.',
+        'Persona: ${usuario.nombre}. Su nombre completo y su ${p.docIdentidad} se registran '
             'al firmar.',
         'Cargo: $rol${sucursal.trim().isEmpty ? '' : ', en la sucursal ${sucursal.trim()}'}.',
         if (usuario.fechaRegistro != null)
           'Usa la plataforma desde el ${_fecha(usuario.fechaRegistro!)}.',
       ]),
-      const SeccionLegal('Qué regula este acuerdo',
+      SeccionLegal('Qué regula este acuerdo',
           enSimple: 'Cómo usar tu cuenta y cuidar los datos de los clientes. No es tu contrato de trabajo.', [
         'Regula el uso de tu cuenta en la plataforma y el cuidado de la información a la que '
             'accedes por tu trabajo.',
         'No reemplaza tu contrato de trabajo ni modifica tu sueldo, horario o beneficios: esos '
-            'los acuerdas con el restaurante por separado, conforme a la Ley General del Trabajo.',
+            'los acuerdas con el restaurante por separado, conforme a ${p.leyTrabajo}.',
         'La plataforma, ofrecida por ${AppConfig.titularPlataforma}, es la herramienta con la '
             'que el restaurante gestiona sus pedidos.',
       ]),
@@ -478,10 +538,10 @@ class TextosLegales {
       if (reglas.isNotEmpty)
         SeccionLegal('Reglas internas de ${negocio?.nombre ?? 'tu restaurante'}',
             enSimple: 'Reglas que agregó tu restaurante.', reglas),
-      const SeccionLegal('Tus datos como parte del personal',
+      SeccionLegal('Tus datos como parte del personal',
           enSimple: 'Se guarda solo lo necesario para tu trabajo y lo ve tu Administrador.', [
         'Para este acuerdo y tu trabajo en la plataforma se guardan tu nombre, correo, teléfono, '
-            'carnet de identidad (en la firma), el registro de tus acciones y, si eres '
+            '${p.docIdentidad} (en la firma), el registro de tus acciones y, si eres '
             'repartidor, tu ubicación solo mientras tienes entregas en curso. Los ve el '
             'Administrador del restaurante y se usan para operar y para resolver diferencias de '
             'caja o reclamos. Puedes pedir acceso o corrección a tu Administrador.',
@@ -492,11 +552,11 @@ class TextosLegales {
             'ya no podrás entrar. La obligación de confidencialidad se mantiene.',
       ]),
       SeccionLegal('Firma electrónica',
-          enSimple: 'Firmas escribiendo tu nombre y carnet; queda registrado con fecha y hora.', [
-        'Al escribir tu nombre completo y tu carnet de identidad y pulsar "Firmar y continuar", '
+          enSimple: 'Firmas escribiendo tu nombre y documento; queda registrado con fecha y hora.', [
+        'Al escribir tu nombre completo y tu ${p.docIdentidad} y pulsar "Firmar y continuar", '
             'aceptas este acuerdo. Queda registrado con la fecha y hora del servidor y la versión '
-            '${versionAcuerdo(negocio)}. Esta aceptación electrónica es válida conforme a la '
-            'Ley 164; el restaurante puede pedirte además una firma en papel.',
+            '${versionAcuerdo(negocio)}. Esta aceptación electrónica es válida conforme a '
+            '${p.leyFirma}; el restaurante puede pedirte además una firma en papel.',
         'Puedes descargar una copia de tu acuerdo firmado en "Mi cuenta". Si el acuerdo o las '
             'reglas del restaurante cambian, se te pedirá firmar la nueva versión.',
       ]),

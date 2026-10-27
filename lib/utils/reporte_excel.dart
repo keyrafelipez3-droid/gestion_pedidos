@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/pedido_models.dart';
+import '../models/pais.dart';
 import 'descarga.dart';
+import 'formato.dart';
 import 'reporte_csv.dart';
 
 /// Reporte de ventas como archivo de Excel de verdad (.xlsx): columnas
@@ -36,9 +38,10 @@ Uint8List excelVentas(
     ),
   ]);
   hoja.fila(const []);
-  const encabezados = [
+  final m = simboloMoneda();
+  final encabezados = [
     'Fecha', 'Hora', 'Pedido', 'Sucursal', 'Modalidad', 'Método de pago', 'Estado',
-    'Cupón', 'Descuento (Bs)', 'Total (Bs)', 'Propina (Bs)', 'Envío (Bs)', 'NIT / CI', 'Razón social',
+    'Cupón', 'Descuento ($m)', 'Total ($m)', 'Propina ($m)', 'Envío ($m)', Paises.actual.idFactura.isEmpty ? 'ID fiscal' : Paises.actual.idFactura, 'Razón social',
   ];
   final filaEncabezado = hoja.fila([for (final e in encabezados) _texto(e, _E.encabezado)]);
   final primeraDato = filaEncabezado + 1;
@@ -83,15 +86,15 @@ Uint8List excelVentas(
   resumen.fila([_texto(periodo.isEmpty ? '${ordenados.length} pedidos' : periodo, _E.nota)]);
   resumen.fila(const []);
   resumen.fila([_texto('Indicador', _E.encabezado), _texto('Valor', _E.encabezado)]);
-  resumen.fila([_texto('Ventas (Bs)'), _numero(total, _E.dinero)]);
+  resumen.fila([_texto('Ventas (${simboloMoneda()})'), _numero(total, _E.dinero)]);
   resumen.fila([_texto('Pedidos'), _numero(ordenados.length.toDouble(), _E.entero)]);
   resumen.fila([
-    _texto('Ticket promedio (Bs)'),
+    _texto('Ticket promedio (${simboloMoneda()})'),
     _numero(ordenados.isEmpty ? 0 : total / ordenados.length, _E.dinero),
   ]);
-  resumen.fila([_texto('Descuentos con cupón (Bs)'), _numero(suma((p) => p.descuento), _E.dinero)]);
-  resumen.fila([_texto('Costos de envío cobrados (Bs)'), _numero(suma((p) => p.costoEnvio), _E.dinero)]);
-  resumen.fila([_texto('Propinas para repartidores (Bs)'), _numero(suma((p) => p.propina), _E.dinero)]);
+  resumen.fila([_texto('Descuentos con cupón (${simboloMoneda()})'), _numero(suma((p) => p.descuento), _E.dinero)]);
+  resumen.fila([_texto('Costos de envío cobrados (${simboloMoneda()})'), _numero(suma((p) => p.costoEnvio), _E.dinero)]);
+  resumen.fila([_texto('Propinas para repartidores (${simboloMoneda()})'), _numero(suma((p) => p.propina), _E.dinero)]);
   resumen.fila([
     _texto('Pedidos con factura'),
     _numero(ordenados.where((p) => p.pideFactura).length.toDouble(), _E.entero),
@@ -109,7 +112,7 @@ Uint8List excelVentas(
     resumen.fila([
       _texto(titulo, _E.encabezado),
       _texto('Pedidos', _E.encabezado),
-      _texto('Ventas (Bs)', _E.encabezado),
+      _texto('Ventas (${simboloMoneda()})', _E.encabezado),
       _texto('% de las ventas', _E.encabezado),
     ]);
     for (final e in lista) {
