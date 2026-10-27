@@ -3,17 +3,14 @@ import 'package:latlong2/latlong.dart';
 
 import '../../l10n/idioma.dart';
 import '../../models/alergenos.dart';
-import '../../models/caja_models.dart';
 import '../../models/catalogo_models.dart';
 import '../../models/pedido_models.dart';
-import '../../models/usuario_model.dart';
-import '../../services/caja_service.dart';
 import '../../services/catalogo_service.dart';
 import '../../services/pedido_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/acciones_pedido.dart';
 import '../../utils/contacto.dart';
-import '../../utils/errores.dart';
 import '../../utils/formato.dart';
 import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
@@ -227,30 +224,6 @@ class _ProductosDelPedidoState extends State<_ProductosDelPedido> {
   }
 }
 
-/// Quién registra el cobro de un pedido de la app al entregarlo: el Cajero,
-/// salvo un delivery que tomó un repartidor (ese lo cobra el repartidor y
-/// lo entrega en caja en la rendición). Un delivery que el local entrega
-/// sin repartidor de la app lo cobra el Cajero, para que no quede sin
-/// registrar en ninguna caja.
-bool _loCobraLaCaja(PedidoModel p) => p.modalidad != PedidoModalidad.delivery || p.idRepartidor == null;
-
-String? _siguienteEstado(String actual) {
-  // Delivery: si el pedido ya salió con un repartidor, el personal solo
-  // puede cerrarlo como entregado (el avance normal lo hace el repartidor).
-  if (actual == PedidoEstado.enCamino || actual == PedidoEstado.llego) {
-    return PedidoEstado.entregado;
-  }
-  const flujo = [
-    PedidoEstado.pendiente,
-    PedidoEstado.enPreparacion,
-    PedidoEstado.listo,
-    PedidoEstado.entregado,
-  ];
-  final i = flujo.indexOf(actual);
-  if (i == -1 || i == flujo.length - 1) return null;
-  return flujo[i + 1];
-}
-
 class _Detalle extends StatelessWidget {
   final PedidoModel pedido;
   final bool esPersonal;
@@ -259,16 +232,10 @@ class _Detalle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final siguienteFlujo = _siguienteEstado(pedido.estado);
     // Un pedido de la app (Recoger o Mesa) se cobra al entregarlo, en la
-    // caja del Cajero. Si lo marcara "Entregado" otro rol (Cocina o
-    // Administrador), el pedido quedaría entregado SIN cobro en ninguna caja.
-    final requiereCobroCajero = siguienteFlujo == PedidoEstado.entregado &&
-        pedido.origen == PedidoOrigen.cliente &&
-        _loCobraLaCaja(pedido) &&
-        !pedido.cobrado;
-    final soloCajeroPuede = requiereCobroCajero && !SesionActual.instancia.esCajero;
-    final siguiente = soloCajeroPuede ? null : siguienteFlujo;
+    // caja del Cajero: si lo marcara "Entregado" otro rol, quedaría sin cobro.
+    final soloCajeroPuede = soloElCajeroLoEntrega(pedido);
+    final siguiente = siguienteParaPersonal(pedido);
 
     final referencia = (pedido.direccionEntrega?['referencia'] as String?)?.trim() ?? '';
     return ListView(
@@ -420,60 +387,8 @@ class _Detalle extends StatelessWidget {
             width: double.infinity,
             child: BotonAccion(
               expandido: true,
-              texto: tr('Marcar como "{siguiente}"', {'siguiente': siguiente}),
-              onPressed: () async {
-                try {
-                  // Antes de cobrar, confirma que el pedido sigue en el
-                  // estado que ve esta pantalla (evita cobrar y luego fallar).
-                  await PedidoService.instancia.verificarCambio(pedido.id, siguiente);
-                  // HU-46: el Cajero que entrega un pedido de un cliente lo
-                  // cobra en SU caja. Delivery lo cobra el repartidor, y los
-                  // pedidos de mesa se cobran al cerrar la mesa.
-                  final cajero =
-                      SesionActual.instancia.esCajero ? SesionActual.instancia.actual : null;
-                  CajaModel? cajaCobro;
-                  if (cajero != null &&
-                      siguiente == PedidoEstado.entregado &&
-                      pedido.origen == PedidoOrigen.cliente &&
-                      _loCobraLaCaja(pedido) &&
-                      !pedido.cobrado) {
-                    cajaCobro = await CajaService.instancia.cajaAbiertaActual(cajero.idUsuario);
-                    if (cajaCobro == null || cajaCobro.contada) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            cajaCobro == null
-                                ? tr('Abre tu caja (Caja, en el inicio) antes de entregar este pedido.')
-                                : tr('Tu caja está en cierre: ya no puedes registrar cobros.'),
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    await CajaService.instancia.cobrarPedido(
-                      caja: cajaCobro,
-                      pedido: pedido,
-                      idUsuario: cajero.idUsuario,
-                    );
-                  }
-                  await PedidoService.instancia.cambiarEstado(
-                    idPedido: pedido.id,
-                    nuevoEstado: siguiente,
-                    idUsuarioQueCambio: SesionActual.instancia.actual?.idUsuario ?? '',
-                    limpiarUbicacion: pedido.enReparto,
-                  );
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(tr('Estado actualizado a "{siguiente}".', {'siguiente': siguiente}))),
-                  );
-                } catch (e) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(textoError(e))),
-                  );
-                }
-              },
+              texto: textoAccion(pedido, siguiente),
+              onPressed: () => avanzarPedido(context, pedido, siguiente),
             ),
           ),
         ],
@@ -487,7 +402,7 @@ class _Detalle extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _elegirRepartidor(context, pedido),
+              onPressed: () => elegirRepartidor(context, pedido),
               icon: const Icon(Icons.assignment_ind_outlined),
               label: Text(pedido.idRepartidor == null
                   ? tr('Asignar repartidor')
@@ -518,76 +433,6 @@ class _Detalle extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-/// HU-39: elegir a qué repartidor se le asigna el pedido.
-Future<void> _elegirRepartidor(BuildContext context, PedidoModel pedido) async {
-  final idNegocio = SesionActual.instancia.idNegocio;
-  final yo = SesionActual.instancia.actual;
-  if (idNegocio == null || yo == null) return;
-  final messenger = ScaffoldMessenger.of(context);
-  final elegido = await showModalBottomSheet<UsuarioModel>(
-    context: context,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: StreamBuilder<List<UsuarioModel>>(
-        stream: PedidoService.instancia.streamRepartidores(idNegocio),
-        builder: (ctx, s) {
-          if (s.hasError) {
-            return Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(tr('No se pudo cargar la lista de repartidores.')),
-            );
-          }
-          if (!s.hasData) {
-            return const Padding(
-              padding: EdgeInsets.all(AppSpacing.lg),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          final lista = s.data!;
-          return ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-            children: [
-              Text(tr('Asignar repartidor'), style: Theme.of(ctx).textTheme.titleLarge),
-              const SizedBox(height: AppSpacing.sm),
-              if (lista.isEmpty)
-                Text(tr('Este negocio todavía no tiene repartidores activos.'))
-              else
-                for (final r in lista)
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.two_wheeler_outlined),
-                      title: Text(r.nombre),
-                      subtitle: r.telefono.isEmpty ? null : Text(r.telefono),
-                      trailing: r.idUsuario == pedido.idRepartidor
-                          ? const Icon(Icons.check_circle)
-                          : null,
-                      onTap: () => Navigator.pop(ctx, r),
-                    ),
-                  ),
-            ],
-          );
-        },
-      ),
-    ),
-  );
-  if (elegido == null || elegido.idUsuario == pedido.idRepartidor) return;
-  try {
-    await PedidoService.instancia.asignarRepartidor(
-      idPedido: pedido.id,
-      idRepartidor: elegido.idUsuario,
-      nombreRepartidor: elegido.nombre,
-      telefonoRepartidor: elegido.telefono,
-      idUsuario: yo.idUsuario,
-    );
-    messenger.showSnackBar(SnackBar(
-      content: Text(tr('Pedido asignado a {nombre}.', {'nombre': elegido.nombre})),
-    ));
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(textoError(e))));
   }
 }
 
