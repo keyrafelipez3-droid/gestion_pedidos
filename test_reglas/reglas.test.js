@@ -628,10 +628,23 @@ describe('Pausa de pedidos (HU-47)', () => {
     await assertSucceeds(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
   });
 
-  test('solo el Administrador pausa su sucursal', async () => {
+  test('el Administrador pausa su sucursal, no la de otro negocio', async () => {
     await assertSucceeds(updateDoc(doc(como('admin1'), 'sucursales', 's1'), { pedidosPausados: true }));
-    await assertFails(updateDoc(doc(como('cajero1'), 'sucursales', 's1'), { pedidosPausados: true }));
     await assertFails(updateDoc(doc(como('admin1'), 'sucursales', 's2'), { pedidosPausados: true }));
+  });
+
+  test('la Cocina y el Cajero pausan y reanudan, pero no cambian nada más', async () => {
+    await assertSucceeds(updateDoc(doc(como('cocina1'), 'sucursales', 's1'),
+      { pedidosPausados: true, motivoPausa: 'Cocina llena' }));
+    await assertSucceeds(updateDoc(doc(como('cajero1'), 'sucursales', 's1'),
+      { pedidosPausados: false, motivoPausa: '' }));
+    await assertFails(updateDoc(doc(como('cocina1'), 'sucursales', 's1'), { nombre: 'Otra' }));
+    await assertFails(updateDoc(doc(como('cocina1'), 'sucursales', 's1'),
+      { pedidosPausados: true, motivoPausa: 'x'.repeat(200) }));
+    await assertFails(updateDoc(doc(como('cocinaB'), 'sucursales', 's1'),
+      { pedidosPausados: true, motivoPausa: '' }));
+    await assertFails(updateDoc(doc(como('repa1'), 'sucursales', 's1'),
+      { pedidosPausados: true, motivoPausa: '' }));
   });
 });
 

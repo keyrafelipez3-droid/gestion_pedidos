@@ -25,10 +25,7 @@ import '../widgets/avisos_cliente.dart';
 import '../widgets/codigo_restaurante.dart';
 import '../widgets/logo_caro.dart';
 import 'admin/admin_home_screen.dart';
-import 'cajero/cajero_caja_screen.dart';
-import 'cajero/cajero_mesas_screen.dart';
-import 'cajero/cajero_pedidos_screen.dart';
-import 'cajero/cajero_rendicion_screen.dart';
+import 'cajero/panel_cajero.dart';
 import 'cliente/condiciones_restaurante_screen.dart';
 import 'cliente/cliente_negocios_screen.dart';
 import 'cliente/mis_pedidos_screen.dart';
@@ -399,25 +396,25 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
           destacada: true,
           contador: _contador,
           textoContador: _textoContador,
-          onTap: () => _ir(const CajeroPedidosScreen()),
+          onTap: () => _ir(const PanelCajero(seccion: PanelCajero.pedidos)),
         ),
         _AccionHome(
           icono: Icons.table_restaurant_outlined,
           titulo: tr('Mesas'),
           descripcion: 'Tomar pedidos en el local',
-          onTap: () => _ir(const CajeroMesasScreen()),
+          onTap: () => _ir(const PanelCajero(seccion: PanelCajero.mesas)),
         ),
         _AccionHome(
           icono: Icons.point_of_sale_outlined,
           titulo: tr('Caja'),
           descripcion: 'Abrir, registrar y cerrar caja',
-          onTap: () => _ir(const CajeroCajaScreen()),
+          onTap: () => _ir(const PanelCajero(seccion: PanelCajero.caja)),
         ),
         _AccionHome(
           icono: Icons.two_wheeler_outlined,
           titulo: tr('Rendición de repartidores'),
           descripcion: 'Recibir el efectivo de las entregas',
-          onTap: () => _ir(const CajeroRendicionScreen()),
+          onTap: () => _ir(const PanelCajero(seccion: PanelCajero.rendicion)),
         ),
       ],
       if (u.rol == Rol.cocina)
