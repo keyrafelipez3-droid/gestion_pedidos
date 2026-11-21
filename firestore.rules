@@ -376,14 +376,27 @@ service cloud.firestore {
 
     // ----------------------------------------------------------- negocios
     match /negocios/{documentId} {
-      allow read: if signedIn();
+      // Cada negocio se lee por su id (el cliente solo conoce los de los
+      // restaurantes a los que entro con su codigo). Listarlos todos es
+      // solo del SuperAdmin.
+      allow get: if signedIn();
+      allow list: if isSuperAdmin();
       // El Administrador edita los datos de SU negocio, pero no puede
-      // activarlo/desactivarlo (eso es del SuperAdmin).
+      // activarlo/desactivarlo (eso es del SuperAdmin). El codigo de acceso
+      // ya no se guarda aqui (ver privado/acceso).
       allow update: if isSuperAdmin()
         || (isAdmin()
             && idNegocioActual() == documentId
-            && !cambios().hasAny(['estado']));
+            && !cambios().hasAny(['estado', 'codigoAcceso']));
       allow create, delete: if isSuperAdmin();
+
+      // Codigo de acceso del restaurante (documento "acceso"). Lo ven solo
+      // el SuperAdmin y el Administrador de este negocio; lo cambia solo el
+      // SuperAdmin.
+      match /privado/{idDoc} {
+        allow read: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
+        allow write: if isSuperAdmin();
+      }
 
       // Cupones de descuento: los lee cualquier usuario con sesion (el
       // cliente escribe el codigo al pagar) y los gestiona el

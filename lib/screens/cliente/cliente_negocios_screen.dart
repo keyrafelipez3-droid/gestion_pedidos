@@ -31,9 +31,11 @@ class ClienteNegociosScreen extends StatefulWidget {
 class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
   final _busquedaCtrl = TextEditingController();
   String _busqueda = '';
-  // Se crea una sola vez: si se creara en build(), cada letra escrita en el
-  // buscador volvería a abrir la consulta a Firestore.
-  late final Stream<List<NegocioModel>> _negocios = NegocioService.instancia.streamNegocios();
+  // Se carga una sola vez: si se cargara en build(), cada letra escrita en
+  // el buscador volvería a leer de Firestore. Solo se leen los negocios a
+  // los que el cliente entró con su código.
+  late final Future<List<NegocioModel>> _negocios =
+      NegocioService.instancia.obtenerNegociosPorIds(widget.soloIds);
 
   @override
   void dispose() {
@@ -45,8 +47,8 @@ class _ClienteNegociosScreenState extends State<ClienteNegociosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(tr('Pedir ahora'))),
-      body: StreamBuilder<List<NegocioModel>>(
-        stream: _negocios,
+      body: FutureBuilder<List<NegocioModel>>(
+        future: _negocios,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());

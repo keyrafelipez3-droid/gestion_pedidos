@@ -60,6 +60,8 @@ async function sembrar() {
     // Codigos de acceso y los clientes que ya entraron con el de n1.
     await setDoc(doc(db, 'codigosNegocio', 'POLLO1'), { idNegocio: 'n1', nombre: 'Pollos Caro' });
     await setDoc(doc(db, 'codigosNegocio', 'OTRA22'), { idNegocio: 'n2', nombre: 'Otra tienda' });
+    await setDoc(doc(db, 'negocios/n1/privado', 'acceso'), { codigo: 'POLLO1' });
+    await setDoc(doc(db, 'negocios/n2/privado', 'acceso'), { codigo: 'OTRA22' });
     await setDoc(doc(db, 'usuarios/cli1/misNegocios', 'n1'), { codigo: 'POLLO1' });
     await setDoc(doc(db, 'usuarios/cli2/misNegocios', 'n1'), { codigo: 'POLLO1' });
     await setDoc(doc(db, 'sucursales', 's1'), { idNegocio: 'n1', nombre: 'Centro' });
@@ -581,6 +583,28 @@ describe('Código de acceso de cada restaurante', () => {
     const anon = env.unauthenticatedContext().firestore();
     await assertSucceeds(getDoc(doc(anon, 'codigosNegocio', 'POLLO1')));
     await assertFails(getDocs(collection(como('cli1'), 'codigosNegocio')));
+  });
+
+  test('el código de un restaurante solo lo ven el SuperAdmin y su Administrador', async () => {
+    await assertSucceeds(getDoc(doc(como('super1'), 'negocios/n1/privado', 'acceso')));
+    await assertSucceeds(getDoc(doc(como('admin1'), 'negocios/n1/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('admin1'), 'negocios/n2/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('cli1'), 'negocios/n1/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('cajero1'), 'negocios/n1/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('cocina1'), 'negocios/n1/privado', 'acceso')));
+  });
+
+  test('solo el SuperAdmin cambia el código privado', async () => {
+    await assertSucceeds(setDoc(doc(como('super1'), 'negocios/n1/privado', 'acceso'), { codigo: 'NUEVO9' }));
+    await assertFails(setDoc(doc(como('admin1'), 'negocios/n1/privado', 'acceso'), { codigo: 'MIO123' }));
+    await assertFails(updateDoc(doc(como('admin1'), 'negocios', 'n1'), { codigoAcceso: 'MIO123' }));
+  });
+
+  test('un cliente lee un negocio por su id, pero no puede listar todos', async () => {
+    await assertSucceeds(getDoc(doc(como('cli1'), 'negocios', 'n1')));
+    await assertFails(getDocs(collection(como('cli1'), 'negocios')));
+    await assertFails(getDocs(collection(como('admin1'), 'negocios')));
+    await assertSucceeds(getDocs(collection(como('super1'), 'negocios')));
   });
 
   test('solo el SuperAdmin crea códigos', async () => {

@@ -31,15 +31,30 @@ class NegocioService {
     return NegocioModel.fromMap(idNegocio, snap.data() ?? {});
   }
 
-  /// Lista en tiempo real de TODOS los negocios — para el panel del
+  /// Lista en tiempo real de TODOS los negocios — SOLO para el panel del
   /// SuperAdmin (elegir cuál personalizar, o a cuál asignar un nuevo
-  /// Administrador).
+  /// Administrador). Las reglas no dejan listar a nadie más.
   Stream<List<NegocioModel>> streamNegocios() => _col.snapshots().map(
         (qs) => qs.docs
             .map((d) => NegocioModel.fromMap(d.id, d.data()))
             .toList()
           ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())),
       );
+
+  /// Los negocios a los que entró el cliente, leídos uno por uno por su id
+  /// (el cliente no puede listar todos los negocios). Si alguno falla o ya
+  /// no existe, simplemente no aparece.
+  Future<List<NegocioModel>> obtenerNegociosPorIds(List<String> ids) async {
+    final lista = <NegocioModel>[];
+    for (final id in ids) {
+      try {
+        final snap = await _col.doc(id).get();
+        if (snap.exists) lista.add(NegocioModel.fromMap(id, snap.data() ?? {}));
+      } catch (_) {}
+    }
+    lista.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+    return lista;
+  }
 
   /// Crea un negocio nuevo (id autogenerado por Firestore) y devuelve su
   /// id — lo necesita el SuperAdmin para luego asignarlo a un
