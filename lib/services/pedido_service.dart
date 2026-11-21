@@ -11,6 +11,7 @@ import '../models/pedido_models.dart';
 import '../models/usuario_model.dart';
 import '../utils/errores.dart';
 import 'carrito_service.dart';
+import 'catalogo_service.dart';
 import 'cupon_service.dart';
 import 'sesion_actual.dart';
 import 'sucursal_service.dart';
@@ -29,7 +30,7 @@ class PedidoService {
 
   /// HU-24/HU-26: confirma el pedido a partir de los items ya cargados
   /// del carrito (se los pasa la pantalla, que ya los tiene vía
-  /// CarritoService.streamCarrito). Crea el pedido + su detalle + el
+  /// CarritoService.streamCarrito). Crea el pedido con sus líneas + el
   /// primer renglón de historialEstados, y al final vacía el carrito de
   /// ese negocio. Devuelve el id del pedido creado.
   Future<String> confirmarPedido({
@@ -55,7 +56,10 @@ class PedidoService {
       throw Exception(tr('El carrito está vacío, no se puede confirmar el pedido.'));
     }
 
-    final subtotal = itemsCarrito.fold<double>(0, (acc, item) => acc + item.subtotal);
+    // Precios de HOY (la misma lista que revisan las reglas de Firestore).
+    // Si alguno cambió, se corrige en el carrito y se avisa al cliente.
+    final lineas = await _lineasConPrecioActual(idNegocio, itemsCarrito, uidCarrito: idCliente);
+    final subtotal = _sumaLineas(lineas);
     // El cupón se vuelve a comprobar aquí (pudo vencer o pausarse mientras
     // el cliente confirmaba).
     final cupon = codigoCupon == null
@@ -127,35 +131,15 @@ class PedidoService {
       programadoPara: programadoPara,
       facturaNit: (facturaNit ?? '').trim().isEmpty ? null : facturaNit!.trim(),
       facturaRazonSocial: (facturaNit ?? '').trim().isEmpty ? null : (facturaRazonSocial ?? '').trim(),
+      lineas: lineas,
+      subtotal: subtotal,
     );
 
-    // OJO (bug encontrado probando): el pedido se crea en un PRIMER
-    // commit, solo, y recién en un SEGUNDO commit se agregan detalle +
-    // historialEstados. No se puede hacer todo en un solo batch: las
-    // reglas de detalle/historialEstados necesitan leer (get()) el
-    // documento del pedido para confirmar que es tuyo, y esa lectura NO
-    // ve los demás escrituras del mismo batch todavía sin confirmar
-    // (Firestore evalúa las reglas de un batch contra el estado ANTES
-    // del batch) — por eso fallaba con "permission-denied" aunque la
-    // regla de creación del pedido en sí era correcta.
-    await pedidoDoc.set(pedido.toMap());
-
-    final batch = _db.batch();
-
-    for (final item in itemsCarrito) {
-      final detalle = DetallePedidoModel(
-        id: '',
-        idProducto: item.idProducto,
-        nombreProducto: item.nombreProducto,
-        precioUnitario: item.precioUnitario,
-        cantidad: item.cantidad,
-        variantes: item.variantes,
-        complementos: item.complementos,
-        notas: item.notas,
-        subtotal: item.subtotal,
-      );
-      batch.set(pedidoDoc.collection('detalle').doc(), detalle.toMap());
-    }
+    // El pedido se crea con todas sus líneas, junto con su control/total,
+    // en UN lote: las reglas comprueban los precios y la suma, y no puede
+    // quedar un pedido sin productos. El historial va después porque su
+    // regla lee el pedido.
+    await _crearConControl(pedidoDoc, pedido);
 
     final historial = HistorialEstadoModel(
       id: '',
@@ -163,22 +147,105 @@ class PedidoService {
       idUsuarioQueCambio: idCliente,
       comentario: 'Pedido creado por el cliente.',
     );
-    batch.set(pedidoDoc.collection('historialEstados').doc(), historial.toMap());
-
-    await batch.commit();
+    try {
+      await pedidoDoc.collection('historialEstados').doc().set(historial.toMap());
+    } catch (_) {
+      // El pedido ya existe; solo falta su primera línea del historial.
+    }
 
     // El carrito ya se copió al pedido, así que se vacía para que no
-    // quede duplicado si el cliente abre el carrito de nuevo.
-    await _items(idCliente).where('idNegocio', isEqualTo: idNegocio).get().then((qs) async {
+    // quede duplicado si el cliente abre el carrito de nuevo. Si falla,
+    // el pedido igual quedó hecho: no se muestra error.
+    try {
+      final qs = await _items(idCliente).where('idNegocio', isEqualTo: idNegocio).get();
       final limpiarBatch = _db.batch();
       for (final doc in qs.docs) {
         limpiarBatch.delete(doc.reference);
       }
       await limpiarBatch.commit();
-    });
+    } catch (_) {}
 
     return pedidoDoc.id;
   }
+
+  /// Arma las líneas del pedido con el precio de HOY de cada producto,
+  /// tomado de la lista de precios del negocio (la misma que revisan las
+  /// reglas). Si un producto ya no se vende, o su precio cambió, avisa y
+  /// no deja seguir; con [uidCarrito] también corrige el precio en el
+  /// carrito del cliente para que vea el total nuevo.
+  Future<List<DetallePedidoModel>> _lineasConPrecioActual(
+    String idNegocio,
+    List<CarritoItemModel> items, {
+    String? uidCarrito,
+  }) async {
+    if (items.length > PedidoModel.maxLineas) {
+      throw Exception(tr('Un pedido puede tener hasta {n} productos distintos.',
+          {'n': PedidoModel.maxLineas}));
+    }
+    final precios = await CatalogoService.instancia.preciosVigentes(idNegocio);
+    final lineas = <DetallePedidoModel>[];
+    final cambiaron = <String>[];
+    for (final item in items) {
+      final precio = precios[item.idProducto];
+      if (precio == null) {
+        throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
+            {'producto': item.nombreProducto}));
+      }
+      if (item.variantes.isNotEmpty || item.complementos.isNotEmpty) {
+        throw Exception(tr('Por ahora no se pueden pedir productos con extras.'));
+      }
+      if (item.cantidad < 1 || item.cantidad > 99) {
+        throw Exception(tr('La cantidad de cada producto debe estar entre 1 y 99.'));
+      }
+      if ((precio - item.precioUnitario).abs() > 0.009) {
+        cambiaron.add(item.nombreProducto);
+        if (uidCarrito != null && item.id.isNotEmpty) {
+          await CarritoService.instancia.actualizarPrecio(uidCarrito, item.id, precio);
+        }
+        continue;
+      }
+      lineas.add(DetallePedidoModel(
+        id: '',
+        idProducto: item.idProducto,
+        nombreProducto: _recortar(item.nombreProducto, 200),
+        precioUnitario: precio,
+        cantidad: item.cantidad,
+        notas: _recortar(item.notas, 200),
+        subtotal: precio * item.cantidad,
+      ));
+    }
+    if (cambiaron.isNotEmpty) {
+      throw Exception(tr('Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.',
+          {'productos': cambiaron.join(', ')}));
+    }
+    return lineas;
+  }
+
+  /// Escribe el pedido y `pedidos/{id}/control/total` en un solo lote. El
+  /// control es una copia de productos, cantidades, precios y subtotal: su
+  /// regla de Firestore los compara con la lista de precios del negocio.
+  Future<void> _crearConControl(
+    DocumentReference<Map<String, dynamic>> pedidoDoc,
+    PedidoModel pedido,
+  ) async {
+    final campos = DetallePedidoModel.camposDeLineas(pedido.lineas);
+    final lote = _db.batch()
+      ..set(pedidoDoc, pedido.toMap())
+      ..set(pedidoDoc.collection('control').doc('total'), {
+        'ids': campos['lineasIds'],
+        'cant': campos['lineasCant'],
+        'precios': campos['precios'],
+        'subtotal': pedido.subtotal,
+      });
+    await lote.commit();
+  }
+
+  /// Suma de las líneas en el mismo orden que la calculan las reglas.
+  double _sumaLineas(List<DetallePedidoModel> lineas) =>
+      lineas.fold<double>(0, (acc, l) => acc + l.precioUnitario * l.cantidad);
+
+  String _recortar(String texto, int max) =>
+      texto.length <= max ? texto : texto.substring(0, max);
 
   /// Deja registrado al cliente en este negocio (`negocios/{id}/clientes`)
   /// la primera vez que pide, y actualiza su nombre/teléfono y su último
@@ -250,7 +317,8 @@ class PedidoService {
       throw Exception('Agrega al menos un producto al pedido.');
     }
 
-    final total = items.fold<double>(0, (acc, item) => acc + item.subtotal);
+    final lineas = await _lineasConPrecioActual(idNegocio, items);
+    final total = _sumaLineas(lineas);
     final pedidoDoc = _pedidos.doc();
 
     final pedido = PedidoModel(
@@ -269,35 +337,23 @@ class PedidoService {
       origen: PedidoOrigen.cajero,
       creadoPor: idCajero,
       cuentaAbierta: true,
+      lineas: lineas,
+      subtotal: total,
     );
 
-    // Mismo orden en dos pasos que confirmarPedido (ver el comentario
-    // allí): primero el pedido solo, después detalle + historial.
-    await pedidoDoc.set(pedido.toMap());
+    // Igual que confirmarPedido: el pedido con sus líneas y su control en
+    // un lote, y después el historial.
+    await _crearConControl(pedidoDoc, pedido);
 
-    final batch = _db.batch();
-    for (final item in items) {
-      final detalle = DetallePedidoModel(
-        id: '',
-        idProducto: item.idProducto,
-        nombreProducto: item.nombreProducto,
-        precioUnitario: item.precioUnitario,
-        cantidad: item.cantidad,
-        variantes: item.variantes,
-        complementos: item.complementos,
-        notas: item.notas,
-        subtotal: item.subtotal,
-      );
-      batch.set(pedidoDoc.collection('detalle').doc(), detalle.toMap());
-    }
     final historial = HistorialEstadoModel(
       id: '',
       estado: PedidoEstado.pendiente,
       idUsuarioQueCambio: idCajero,
       comentario: 'Pedido registrado por el Cajero para la mesa ${mesa.numero}.',
     );
-    batch.set(pedidoDoc.collection('historialEstados').doc(), historial.toMap());
-    await batch.commit();
+    try {
+      await pedidoDoc.collection('historialEstados').doc().set(historial.toMap());
+    } catch (_) {}
 
     return pedidoDoc.id;
   }
@@ -507,11 +563,18 @@ class PedidoService {
         .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
   }
 
-  Stream<List<DetallePedidoModel>> streamDetalle(String idPedido) => _pedidos
-      .doc(idPedido)
-      .collection('detalle')
-      .snapshots()
-      .map((qs) => qs.docs.map(DetallePedidoModel.fromSnapshot).toList());
+  /// Líneas de un pedido, en vivo. Los pedidos nuevos las tienen dentro
+  /// (campo `lineas`); los anteriores, en la subcolección `detalle`.
+  Stream<List<DetallePedidoModel>> streamDetalle(String idPedido) =>
+      _pedidos.doc(idPedido).snapshots().asyncMap((d) async {
+        final lineas = DetallePedidoModel.desdePedido(d.data() ?? const {});
+        if (lineas.isNotEmpty) return lineas;
+        final qs = await _pedidos.doc(idPedido).collection('detalle').get();
+        return qs.docs.map(DetallePedidoModel.fromSnapshot).toList();
+      });
+
+  /// Líneas de un pedido, una sola vez (ver [streamDetalle]).
+  Future<List<DetallePedidoModel>> lineasDe(String idPedido) => streamDetalle(idPedido).first;
 
   Stream<List<HistorialEstadoModel>> streamHistorial(String idPedido) => _pedidos
       .doc(idPedido)
@@ -752,12 +815,11 @@ class PedidoService {
   /// Resta del stock lo que lleva el pedido (solo productos con control de
   /// stock). Si alguno llega a 0, queda "No disponible" en el menú.
   Future<void> _descontarStock(String idPedido) async {
-    final detalle = await _pedidos.doc(idPedido).collection('detalle').get();
+    final lineas = await lineasDe(idPedido);
     final cantidades = <String, int>{};
-    for (final d in detalle.docs) {
-      final id = d.data()['idProducto'] as String? ?? '';
-      if (id.isEmpty) continue;
-      cantidades[id] = (cantidades[id] ?? 0) + ((d.data()['cantidad'] as num?)?.toInt() ?? 1);
+    for (final l in lineas) {
+      if (l.idProducto.isEmpty) continue;
+      cantidades[l.idProducto] = (cantidades[l.idProducto] ?? 0) + l.cantidad;
     }
     for (final e in cantidades.entries) {
       final ref = _db.collection('productos').doc(e.key);
@@ -806,10 +868,10 @@ class PedidoService {
     required String idCliente,
     required PedidoModel pedido,
   }) async {
-    final detalle = await _pedidos.doc(pedido.id).collection('detalle').get();
+    final lineas = pedido.lineas.isNotEmpty ? pedido.lineas : await lineasDe(pedido.id);
     var agregados = 0;
     final faltan = <String>[];
-    for (final d in detalle.docs.map(DetallePedidoModel.fromSnapshot)) {
+    for (final d in lineas) {
       final prod = await _db.collection('productos').doc(d.idProducto).get();
       final data = prod.data();
       final disponible = prod.exists &&

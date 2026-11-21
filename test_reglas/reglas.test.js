@@ -32,6 +32,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 let env;
@@ -72,6 +73,14 @@ async function sembrar() {
     await setDoc(doc(db, 'productos', 'prod1'), {
       idNegocio: 'n1', nombre: 'Pollo', precio: 35, disponible: true, stock: 10,
     });
+    // Lista de precios de n1 (la usan las reglas para validar los pedidos).
+    // "uno" cuesta 1: sirve para armar pedidos de cualquier monto.
+    await setDoc(doc(db, 'negocios/n1/publico', 'precios'), {
+      normal: { prod1: 35, uno: 1, promo1: 20 },
+      promo: { promo1: 15 },
+      promoHasta: null,
+    });
+    await setDoc(doc(db, 'negocios/n2/publico', 'precios'), { normal: { ajeno1: 1 } });
     await setDoc(doc(db, 'negocios/n1/cupones', 'CARO10'), {
       tipo: 'porcentaje', valor: 10, minimo: 0, activo: true, vence: null,
     });
@@ -95,8 +104,70 @@ function como(uid, { correoVerificado = true } = {}) {
   return env.authenticatedContext(uid, { email_verified: correoVerificado }).firestore();
 }
 
-/** Pedido válido de un cliente; se puede modificar cualquier campo. */
+/**
+ * Líneas del pedido como las guarda la app: listas paralelas (producto,
+ * cantidad, nombre, notas), el precio de cada producto y el subtotal.
+ * items: [[idProducto, precio, cantidad], ...]
+ */
+function lineas(items) {
+  const precios = {};
+  for (const [id, precio] of items) precios[id] = precio;
+  return {
+    lineasIds: items.map((i) => i[0]),
+    lineasCant: items.map((i) => i[2] ?? 1),
+    lineasNombre: items.map((i) => i[0]),
+    lineasNotas: items.map(() => ''),
+    precios,
+    subtotal: items.reduce((t, i) => t + i[1] * (i[2] ?? 1), 0),
+  };
+}
+
+/** Líneas del producto "uno" (cuesta 1) que suman [monto]. */
+function lineasPorMonto(monto) {
+  const items = [];
+  let resto = monto;
+  while (resto > 0) {
+    const c = Math.min(99, resto);
+    items.push(['uno', 1, c]);
+    resto -= c;
+  }
+  return lineas(items);
+}
+
+/**
+ * Crea el pedido y su control/total en un solo lote, como la app. El
+ * control copia productos, cantidades, precios y subtotal del pedido.
+ */
+let contadorPedidos = 0;
+function crearPedido(db, idPedido, datos, { conControl = true, control = {} } = {}) {
+  // "nuevo" = un id distinto cada vez, para que dos pedidos de la misma
+  // prueba no caigan en el mismo documento.
+  const id = idPedido === 'nuevo' ? `nuevo${++contadorPedidos}` : idPedido;
+  const lote = writeBatch(db);
+  lote.set(doc(db, 'pedidos', id), datos);
+  if (conControl) {
+    lote.set(doc(db, `pedidos/${id}/control`, 'total'), {
+      ids: datos.lineasIds ?? [],
+      cant: datos.lineasCant ?? [],
+      precios: datos.precios ?? {},
+      subtotal: datos.subtotal ?? 0,
+      ...control,
+    });
+  }
+  return lote.commit();
+}
+
+/**
+ * Pedido válido de un cliente; se puede modificar cualquier campo. Si no
+ * se pasan líneas, se arman solas para que sumen total + descuento.
+ */
 function pedidoCliente(uid, cambios = {}) {
+  const p = pedidoBase(uid, cambios);
+  if (cambios.lineasIds) return p;
+  return { ...lineasPorMonto(p.total + (p.descuento ?? 0)), ...p };
+}
+
+function pedidoBase(uid, cambios) {
   return {
     idCliente: uid,
     idNegocio: 'n1',
@@ -209,7 +280,7 @@ describe('Acuerdo de confidencialidad del personal', () => {
 
 // ---------------------------------------------------------------------------
 describe('Pedidos del cliente', () => {
-  const crear = (uid, datos, opciones) => setDoc(doc(como(uid, opciones), 'pedidos', 'nuevo'), datos);
+  const crear = (uid, datos, opciones) => crearPedido(como(uid, opciones), 'nuevo', datos);
 
   test('un pedido normal se crea', async () => {
     await assertSucceeds(crear('cli1', pedidoCliente('cli1')));
@@ -358,7 +429,12 @@ describe('Catálogo y stock', () => {
   });
 
   test('el Administrador edita su catálogo, no el de otro negocio', async () => {
-    await assertSucceeds(updateDoc(doc(como('admin1'), 'productos', 'prod1'), { precio: 40 }));
+    // El precio se cambia junto con la lista de precios, en un solo lote.
+    const db = como('admin1');
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'productos', 'prod1'), { precio: 40 });
+    lote.set(doc(db, 'negocios/n1/publico', 'precios'), { normal: { prod1: 40 } }, { merge: true });
+    await assertSucceeds(lote.commit());
     await assertFails(updateDoc(doc(como('admin1'), 'productos', 'prod1'), { idNegocio: 'n2' }));
     await assertFails(setDoc(doc(como('admin1'), 'productos', 'ajeno'), { idNegocio: 'n2', nombre: 'X' }));
   });
@@ -375,6 +451,84 @@ describe('Catálogo y stock', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('Líneas y total del pedido', () => {
+  const crear = (datos, opciones) => crearPedido(como('cli1'), 'nuevo', datos, opciones);
+  const conLineas = (items, cambios = {}) => {
+    const l = lineas(items);
+    return pedidoCliente('cli1', { ...l, total: l.subtotal, ...cambios });
+  };
+
+  test('el precio de cada producto es el del catálogo', async () => {
+    await assertSucceeds(crear(conLineas([['prod1', 35, 2], ['uno', 1, 5], ['prod1', 35, 1]])));
+    await assertFails(crear(conLineas([['prod1', 1, 2]])));
+  });
+
+  test('la promoción vigente se acepta; si venció, no', async () => {
+    await assertSucceeds(crear(conLineas([['promo1', 15]])));
+    await assertSucceeds(crear(conLineas([['promo1', 20]])));
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios/n1/publico', 'precios'),
+        { promoHasta: Timestamp.fromDate(new Date('2020-01-01')) }));
+    await assertFails(crear(conLineas([['promo1', 15]])));
+  });
+
+  test('cantidad de 1 a 99 y entera', async () => {
+    await assertFails(crear(conLineas([['uno', 1, 0]], { subtotal: 0, total: 0.01 })));
+    await assertFails(crear(conLineas([['uno', 1, 100]])));
+    await assertFails(crear(conLineas([['uno', 1, 1.5]])));
+  });
+
+  test('no se puede pedir un producto de otro negocio o que no existe', async () => {
+    await assertFails(crear(conLineas([['ajeno1', 1]])));
+    await assertFails(crear(conLineas([['inventado', 1]])));
+  });
+
+  test('el subtotal es la suma de las líneas y el total no se puede cambiar', async () => {
+    await assertFails(crear(conLineas([['prod1', 35]], { subtotal: 1, total: 1 })));
+    await assertFails(crear(conLineas([['prod1', 35]], { total: 1 })));
+  });
+
+  test('sin el control/total, o con un control distinto al pedido, no se crea', async () => {
+    await assertFails(crear(conLineas([['prod1', 35]]), { conControl: false }));
+    await assertFails(crear(conLineas([['prod1', 35]]), { control: { cant: [2], subtotal: 70 } }));
+  });
+
+  test('sin líneas o con más de 30, no se crea', async () => {
+    await assertFails(crear(pedidoCliente('cli1', { ...lineas([]), total: 1 })));
+    await assertFails(crear(conLineas(Array.from({ length: 31 }, () => ['uno', 1]))));
+  });
+
+  test('un pedido de 30 líneas con 99 unidades cada una cabe en el límite de las reglas', async () => {
+    await assertSucceeds(crear(conLineas(Array.from({ length: 30 }, () => ['uno', 1, 99]))));
+  });
+
+  test('el control/total no se cambia ni se crea para un pedido que ya existe', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'p1', conLineas([['prod1', 35]])));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/p1/control', 'total'),
+      { ids: ['uno'], cant: [1], precios: { uno: 1 }, subtotal: 1 }));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/ped1/control', 'total'),
+      { ids: ['uno'], cant: [1], precios: { uno: 1 }, subtotal: 1 }));
+  });
+
+  test('las líneas viejas (detalle) ya no las crea nadie salvo el SuperAdmin', async () => {
+    const linea1 = { idProducto: 'prod1', precioUnitario: 1, cantidad: 1 };
+    await assertFails(addDoc(collection(como('cli1'), 'pedidos/ped1/detalle'), linea1));
+    await assertFails(addDoc(collection(como('cajero1'), 'pedidos/ped1/detalle'), linea1));
+  });
+
+  test('la lista de precios la leen todos y solo la cambia su Administrador', async () => {
+    const precios = (uid) => doc(como(uid), 'negocios/n1/publico', 'precios');
+    await assertSucceeds(getDoc(precios('cli1')));
+    await assertFails(setDoc(precios('cli1'), { normal: { prod1: 1 } }, { merge: true }));
+    await assertFails(setDoc(precios('cajero1'), { normal: { prod1: 1 } }, { merge: true }));
+    await assertSucceeds(setDoc(precios('admin1'), { normal: { prod1: 36 } }, { merge: true }));
+  });
+
+  test('el Administrador no puede cambiar un precio sin actualizar la lista', async () => {
+    await assertFails(updateDoc(doc(como('admin1'), 'productos', 'prod1'), { precio: 40 }));
+  });
+});
+
 describe('Registro de actividad (auditoría)', () => {
   const registro = (uid, cambios = {}) => ({
     tipo: 'pedido', descripcion: 'Cambió el estado', idUsuario: uid, nombreUsuario: 'X', rol: 'Cocina',
@@ -429,7 +583,7 @@ describe('Caja', () => {
 });
 
 describe('Delivery por zonas', () => {
-  const crear = (datos) => setDoc(doc(como('cli1'), 'pedidos', 'nuevo'), datos);
+  const crear = (datos, opciones) => crearPedido(como('cli1'), 'nuevo', datos, opciones);
   const delivery = (cambios = {}) =>
     pedidoCliente('cli1', {
       idSucursal: 's3', modalidad: 'Delivery', direccionEntrega: { texto: 'Calle 1' }, total: 40, ...cambios,
@@ -493,6 +647,7 @@ describe('Permisos ajustables por el Administrador', () => {
   const pedidoMesa = () => ({
     idNegocio: 'n1', idSucursal: 's1', modalidad: 'Mesa', metodoPago: 'Por definir', estado: 'Pendiente',
     origen: 'cajero', creadoPor: 'cajero1', cobrado: false, total: 20, alergias: [], fechaCreacion: serverTimestamp(),
+    ...lineasPorMonto(20),
   });
   const abrirCaja = () =>
     env.withSecurityRulesDisabled((ctx) =>
@@ -503,7 +658,7 @@ describe('Permisos ajustables por el Administrador', () => {
     await abrirCaja();
     await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
     await assertSucceeds(addDoc(collection(como('cajero1'), 'cajas/c9/movimientos'), egreso));
-    await assertSucceeds(setDoc(doc(como('cajero1'), 'pedidos', 'mesa1'), pedidoMesa()));
+    await assertSucceeds(crearPedido(como('cajero1'), 'mesa1', pedidoMesa()));
   });
 
   test('si el Administrador quita los permisos, el servidor los bloquea', async () => {
@@ -511,7 +666,7 @@ describe('Permisos ajustables por el Administrador', () => {
     await quitarPermisos();
     await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
     await assertFails(addDoc(collection(como('cajero1'), 'cajas/c9/movimientos'), egreso));
-    await assertFails(setDoc(doc(como('cajero1'), 'pedidos', 'mesa1'), pedidoMesa()));
+    await assertFails(crearPedido(como('cajero1'), 'mesa1', pedidoMesa()));
     // Lo demás sigue funcionando.
     await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'En preparación' }));
     await assertSucceeds(updateDoc(doc(como('admin1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
@@ -563,14 +718,14 @@ describe('Código de acceso de cada restaurante', () => {
   test('un cliente no puede pedir en un restaurante al que no entró con su código', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       setDoc(doc(ctx.firestore(), 'usuarios', 'cli3'), { rol: 'Cliente', estado: true, email: 'c3@x.com' }));
-    await assertFails(addDoc(collection(como('cli3'), 'pedidos'), pedidoCliente('cli3')));
+    await assertFails(crearPedido(como('cli3'), 'nuevo', pedidoCliente('cli3')));
   });
 
   test('con el código correcto entra y ya puede pedir', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       setDoc(doc(ctx.firestore(), 'usuarios', 'cli3'), { rol: 'Cliente', estado: true, email: 'c3@x.com' }));
     await assertSucceeds(unirse('cli3', 'n1', 'POLLO1'));
-    await assertSucceeds(addDoc(collection(como('cli3'), 'pedidos'), pedidoCliente('cli3')));
+    await assertSucceeds(crearPedido(como('cli3'), 'nuevo', pedidoCliente('cli3')));
   });
 
   test('no puede entrar con un código de otro restaurante o inventado', async () => {
@@ -618,11 +773,11 @@ describe('Condiciones de cada restaurante', () => {
   test('si el restaurante cambia sus condiciones, el cliente debe aceptarlas antes de pedir', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), { condiciones: { version: '2026-10-25 20:00' } }));
-    await assertFails(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
     await assertSucceeds(updateDoc(doc(como('cli1'), 'usuarios/cli1/misNegocios', 'n1'), {
       condicionesVersion: '2026-10-25 20:00', condicionesAceptadasEn: serverTimestamp(),
     }));
-    await assertSucceeds(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
   });
 
   test('al aceptar, el cliente no puede cambiar a qué restaurante entró', async () => {
@@ -643,13 +798,13 @@ describe('Pausa de pedidos (HU-47)', () => {
   test('con la sucursal en pausa nadie puede hacer un pedido ahí', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { pedidosPausados: true, motivoPausa: 'Cocina llena' }));
-    await assertFails(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
   });
 
   test('al reanudar, se vuelve a poder pedir', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { pedidosPausados: false }));
-    await assertSucceeds(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
   });
 
   test('el Administrador pausa su sucursal, no la de otro negocio', async () => {
