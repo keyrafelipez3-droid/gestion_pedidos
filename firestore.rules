@@ -252,6 +252,14 @@ service cloud.firestore {
         || (isCocina() && p.get('cocinaCancelaPedidos', false) == true);
     }
 
+    // Caja abierta (y todavia sin contar) del cajero que esta cobrando.
+    function cajaAbiertaDelCajero(idCaja) {
+      let caja = get(/databases/$(database)/documents/cajas/$(idCaja)).data;
+      return caja.idCajero == request.auth.uid
+        && caja.estado == 'Abierta'
+        && !('montoContado' in caja);
+    }
+
     // El cliente fue bloqueado por el Administrador de ese negocio.
     function clienteBloqueado(idNegocio, uid) {
       let ref = /databases/$(database)/documents/negocios/$(idNegocio)/clientes/$(uid);
@@ -750,13 +758,23 @@ service cloud.firestore {
                      .data.get('idNegocio', null) == idNegocioActual()
                 && get(/databases/$(database)/documents/usuarios/$(request.resource.data.idRepartidor))
                      .data.get('estado', false) == true)
-              // Cobro (solo Cajero): no se puede "des-cobrar" un pedido.
+              // Cobro (solo Cajero): un pedido se cobra UNA vez, en una caja
+              // abierta del propio cajero, y no se puede "des-cobrar".
               || (isCajero()
                 && cambios().hasOnly(['cuentaAbierta', 'cobrado', 'idCaja', 'metodoPago'])
-                && (request.resource.data.get('cobrado', false) == true
-                    || resource.data.get('cobrado', false) == false)
+                && (!cambios().hasAny(['cobrado', 'idCaja'])
+                    || (resource.data.get('cobrado', false) == false
+                        && request.resource.data.cobrado == true
+                        && cajaAbiertaDelCajero(request.resource.data.idCaja)))
                 && (!cambios().hasAny(['metodoPago'])
                     || request.resource.data.metodoPago in ['Efectivo', 'Transferencia', 'QR']))
+              // Entregar y cobrar a la vez (Cajero, pedido sin cobrar).
+              || (isCajero()
+                && cambios().hasOnly(['estado', 'cobrado', 'idCaja'])
+                && request.resource.data.estado == 'Entregado'
+                && resource.data.get('cobrado', false) == false
+                && request.resource.data.cobrado == true
+                && cajaAbiertaDelCajero(request.resource.data.idCaja))
             ));
 
       allow delete: if isSuperAdmin();
@@ -818,6 +836,23 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/cajas/$(id)).data;
       }
 
+      // Un cobro es de UN pedido (id del movimiento: cobro_{idPedido}). En
+      // el mismo lote el pedido pasa de sin cobrar a cobrado en ESTA caja, y
+      // el monto es el del pedido (productos + envio). Asi el mismo pedido
+      // no se puede cobrar dos veces, ni en dos cajas.
+      function cobroValido(cajaId, movId) {
+        let id = request.resource.data.get('idPedido', '');
+        let antes = get(/databases/$(database)/documents/pedidos/$(id)).data;
+        let despues = getAfter(/databases/$(database)/documents/pedidos/$(id)).data;
+        return id is string && id != ''
+          && movId == 'cobro_' + id
+          && antes.get('cobrado', false) == false
+          && despues.get('cobrado', false) == true
+          && despues.get('idCaja', null) == cajaId
+          && math.abs(request.resource.data.monto
+               - (despues.total + despues.get('costoEnvio', 0))) < 0.01;
+      }
+
       function cajaOperable(id) {
         return cajaDe(id).idCajero == request.auth.uid
           && cajaDe(id).estado == 'Abierta'
@@ -870,7 +905,8 @@ service cloud.firestore {
           && (request.resource.data.tipo == 'Cobro'
               || request.resource.data.metodoPago == 'Efectivo')
           && (request.resource.data.tipo != 'Egreso'
-              || permisosDe(idNegocioActual()).get('cajeroRegistraEgresos', true) == true);
+              || permisosDe(idNegocioActual()).get('cajeroRegistraEgresos', true) == true)
+          && (request.resource.data.tipo != 'Cobro' || cobroValido(cajaId, movId));
 
         allow update, delete: if false;
       }

@@ -4,6 +4,7 @@ import '../models/caja_models.dart';
 import '../models/mesa_model.dart';
 import '../models/pedido_models.dart';
 import '../models/usuario_model.dart';
+import '../utils/errores.dart';
 
 /// HU-46: apertura, movimientos y cierre de caja del Cajero.
 ///
@@ -143,10 +144,39 @@ class CajaService {
     });
   }
 
-  /// Cobra la cuenta abierta de una mesa: un solo movimiento con el total
-  /// de los pedidos no cancelados, y deja esos pedidos como cobrados y
-  /// fuera de la cuenta abierta. Un pedido ya cobrado nunca se suma dos
-  /// veces. Liberar la mesa en sí lo hace MesaService.liberarMesa.
+  /// Pedidos que se cobran en un mismo lote. Las reglas de Firestore leen
+  /// cada pedido antes y después del cobro, y un lote admite pocas lecturas.
+  static const _pedidosPorLote = 8;
+
+  /// Movimiento de cobro de UN pedido. Su id es fijo (`cobro_{idPedido}`):
+  /// las reglas exigen que en el mismo lote el pedido pase a cobrado en
+  /// esta caja, así un pedido no se cobra dos veces ni en dos cajas.
+  void _agregarCobro(
+    WriteBatch lote,
+    CajaModel caja,
+    PedidoModel pedido, {
+    required String concepto,
+    required String metodoPago,
+    required String idUsuario,
+    String? idMesa,
+  }) {
+    lote.set(_movimientos(caja.id).doc('cobro_${pedido.id}'), {
+      'tipo': MovimientoTipo.cobro,
+      'concepto': concepto,
+      // Productos + envío (la propina es del repartidor, no de la caja).
+      'monto': redondearDinero(pedido.montoNegocio),
+      'metodoPago': metodoPago,
+      'idPedido': pedido.id,
+      if (idMesa != null) 'idMesa': idMesa,
+      'idUsuario': idUsuario,
+      'fecha': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Cobra la cuenta abierta de una mesa: un movimiento por cada pedido no
+  /// cancelado, y esos pedidos quedan cobrados y fuera de la cuenta
+  /// abierta. Un pedido ya cobrado nunca se suma dos veces. Liberar la mesa
+  /// en sí lo hace MesaService.liberarMesa.
   Future<void> cobrarMesa({
     required CajaModel caja,
     required MesaModel mesa,
@@ -159,70 +189,90 @@ class CajaService {
         .where('idMesa', isEqualTo: mesa.id)
         .where('cuentaAbierta', isEqualTo: true)
         .get();
-    if (qs.docs.isEmpty) return;
-
-    final batch = _db.batch();
-    double total = 0;
-    final idsCobrados = <String>[];
-    for (final doc in qs.docs) {
-      final data = doc.data();
-      final cancelado = data['estado'] == PedidoEstado.cancelado;
-      final yaCobrado = data['cobrado'] == true;
-      if (cancelado || yaCobrado) {
-        batch.update(doc.reference, {'cuentaAbierta': false});
-        continue;
+    final pedidos = qs.docs.map(PedidoModel.fromSnapshot).toList();
+    for (var i = 0; i < pedidos.length; i += _pedidosPorLote) {
+      final lote = _db.batch();
+      for (final pedido in pedidos.skip(i).take(_pedidosPorLote)) {
+        final ref = _db.collection('pedidos').doc(pedido.id);
+        if (pedido.estado == PedidoEstado.cancelado || pedido.cobrado) {
+          lote.update(ref, {'cuentaAbierta': false});
+          continue;
+        }
+        lote.update(ref, {
+          'cuentaAbierta': false,
+          'cobrado': true,
+          'idCaja': caja.id,
+          'metodoPago': metodoPago,
+        });
+        _agregarCobro(lote, caja, pedido,
+            concepto: 'Mesa ${mesa.numero} · #${pedido.id.substring(0, 6)}',
+            metodoPago: metodoPago,
+            idUsuario: idUsuario,
+            idMesa: mesa.id);
       }
-      total += (data['total'] as num?)?.toDouble() ?? 0;
-      idsCobrados.add(doc.id);
-      batch.update(doc.reference, {
-        'cuentaAbierta': false,
-        'cobrado': true,
-        'idCaja': caja.id,
-        'metodoPago': metodoPago,
-      });
+      await lote.commit();
     }
-    total = redondearDinero(total);
-    if (total > 0) {
-      batch.set(_movimientos(caja.id).doc(), {
-        'tipo': MovimientoTipo.cobro,
-        'concepto': 'Mesa ${mesa.numero}',
-        'monto': total,
-        'metodoPago': metodoPago,
-        'idMesa': mesa.id,
-        'idsPedidos': idsCobrados,
-        'idUsuario': idUsuario,
-        'fecha': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
   }
 
-  /// Cobra un pedido de un cliente (Recoger o Mesa elegido en la app)
-  /// cuando el Cajero lo entrega. El id del movimiento es fijo
-  /// (`cobro_{idPedido}`), así que un doble clic o un reintento no lo
-  /// registra dos veces.
-  Future<void> cobrarPedido({
+  /// El Cajero entrega un pedido y lo cobra en SU caja, en UNA sola
+  /// transacción: lee el pedido y la caja, comprueba que el pedido siga
+  /// sin cobrar y que la caja esté abierta y sin contar, y escribe el
+  /// pedido (Entregado y cobrado), el movimiento y el historial juntos. Si
+  /// otra persona lo cobró o lo cambió al mismo tiempo, no se cobra dos
+  /// veces: la transacción lo detecta.
+  Future<void> entregarYCobrar({
     required CajaModel caja,
     required PedidoModel pedido,
     required String idUsuario,
   }) async {
-    if (pedido.cobrado) return;
-    final batch = _db.batch();
-    batch.set(_movimientos(caja.id).doc('cobro_${pedido.id}'), {
-      'tipo': MovimientoTipo.cobro,
-      'concepto': 'Pedido #${pedido.id.substring(0, 6)}',
-      // Productos + envío (la propina es del repartidor, no de la caja).
-      'monto': redondearDinero(pedido.montoNegocio),
-      'metodoPago': pedido.metodoPago,
-      'idPedido': pedido.id,
-      'idUsuario': idUsuario,
-      'fecha': FieldValue.serverTimestamp(),
+    final ref = _db.collection('pedidos').doc(pedido.id);
+    final refCaja = _cajas.doc(caja.id);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final snapCaja = await tx.get(refCaja);
+      if (!snap.exists) {
+        throw const PedidoEstadoException('El pedido ya no existe.');
+      }
+      final actual = PedidoModel.fromSnapshot(snap);
+      if (actual.cobrado) {
+        throw const PedidoEstadoException('Este pedido ya se cobró.');
+      }
+      if (!PedidoEstado.puedePasar(actual.estado, PedidoEstado.entregado)) {
+        throw PedidoEstadoException(
+          'No se puede pasar de "${actual.estado}" a "${PedidoEstado.entregado}". '
+          'Es posible que otra persona lo haya cambiado.',
+        );
+      }
+      final datosCaja = snapCaja.data();
+      if (datosCaja == null ||
+          datosCaja['estado'] != CajaEstado.abierta ||
+          datosCaja['montoContado'] != null) {
+        throw const PedidoEstadoException('Tu caja ya no está abierta para cobrar.');
+      }
+      tx.update(ref, {
+        'estado': PedidoEstado.entregado,
+        'cobrado': true,
+        'idCaja': caja.id,
+      });
+      tx.set(_movimientos(caja.id).doc('cobro_${actual.id}'), {
+        'tipo': MovimientoTipo.cobro,
+        'concepto': 'Pedido #${actual.id.substring(0, 6)}',
+        'monto': redondearDinero(actual.montoNegocio),
+        'metodoPago': actual.metodoPago,
+        'idPedido': actual.id,
+        'idUsuario': idUsuario,
+        'fecha': FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        ref.collection('historialEstados').doc(),
+        HistorialEstadoModel(
+          id: '',
+          estado: PedidoEstado.entregado,
+          idUsuarioQueCambio: idUsuario,
+          comentario: 'Entregado y cobrado en caja.',
+        ).toMap(),
+      );
     });
-    batch.update(_db.collection('pedidos').doc(pedido.id), {
-      'cobrado': true,
-      'idCaja': caja.id,
-    });
-    await batch.commit();
   }
 
   /// Rendición del repartidor: registra en la caja los pedidos de delivery
@@ -235,25 +285,19 @@ class CajaService {
     required String idUsuario,
   }) async {
     final pendientes = pedidos.where((p) => !p.cobrado).toList();
-    // Cada pedido son 2 escrituras; un lote de Firestore admite 500.
-    for (var i = 0; i < pendientes.length; i += 200) {
-      final batch = _db.batch();
-      for (final pedido in pendientes.skip(i).take(200)) {
-        batch.set(_movimientos(caja.id).doc('cobro_${pedido.id}'), {
-          'tipo': MovimientoTipo.cobro,
-          'concepto': 'Delivery #${pedido.id.substring(0, 6)} · ${pedido.nombreRepartidor ?? 'Repartidor'}',
-          'monto': redondearDinero(pedido.montoNegocio),
-          'metodoPago': pedido.metodoPago,
-          'idPedido': pedido.id,
-          'idUsuario': idUsuario,
-          'fecha': FieldValue.serverTimestamp(),
-        });
-        batch.update(_db.collection('pedidos').doc(pedido.id), {
+    for (var i = 0; i < pendientes.length; i += _pedidosPorLote) {
+      final lote = _db.batch();
+      for (final pedido in pendientes.skip(i).take(_pedidosPorLote)) {
+        _agregarCobro(lote, caja, pedido,
+            concepto: 'Delivery #${pedido.id.substring(0, 6)} · ${pedido.nombreRepartidor ?? 'Repartidor'}',
+            metodoPago: pedido.metodoPago,
+            idUsuario: idUsuario);
+        lote.update(_db.collection('pedidos').doc(pedido.id), {
           'cobrado': true,
           'idCaja': caja.id,
         });
       }
-      await batch.commit();
+      await lote.commit();
     }
     return pendientes.length;
   }

@@ -388,8 +388,10 @@ describe('Pedidos en el local (cocina, caja, reparto)', () => {
   });
 
   test('solo el cajero registra el cobro, y no se puede des-cobrar', async () => {
-    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { cobrado: true }));
-    await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { cobrado: true }));
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'cajas', 'c1'), { idCajero: 'cajero1', idNegocio: 'n1', estado: 'Abierta' }));
+    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { cobrado: true, idCaja: 'c1' }));
+    await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { cobrado: true, idCaja: 'c1' }));
     await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { cobrado: false }));
   });
 
@@ -579,6 +581,59 @@ describe('Caja', () => {
     );
     await assertFails(deleteDoc(doc(como('cajero1'), 'cajas', 'c3')));
     await assertFails(deleteDoc(doc(como('super1'), 'cajas', 'c3')));
+  });
+});
+
+describe('Cobro en caja: un pedido se cobra una sola vez', () => {
+  const abrirCajas = () =>
+    env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'usuarios', 'cajero2'),
+        { rol: 'Cajero', estado: true, idNegocio: 'n1', idSucursal: 's1', email: 'c2@n1.bo' });
+      await setDoc(doc(db, 'cajas', 'c1'), { idCajero: 'cajero1', idNegocio: 'n1', estado: 'Abierta' });
+      await setDoc(doc(db, 'cajas', 'c2'), { idCajero: 'cajero2', idNegocio: 'n1', estado: 'Abierta' });
+      await setDoc(doc(db, 'cajas', 'cContada'),
+        { idCajero: 'cajero1', idNegocio: 'n1', estado: 'Abierta', montoContado: 10 });
+      await updateDoc(doc(db, 'pedidos', 'ped1'), { estado: 'Listo', costoEnvio: 0 });
+    });
+  /** Entrega y cobra ped1 (total 35) en un lote, como entregarYCobrar. */
+  const entregarYCobrar = (uid, idCaja, { monto = 35, conPedido = true } = {}) => {
+    const db = como(uid);
+    const lote = writeBatch(db);
+    lote.set(doc(db, `cajas/${idCaja}/movimientos`, 'cobro_ped1'), {
+      tipo: 'Cobro', concepto: 'Pedido', monto, metodoPago: 'Efectivo',
+      idPedido: 'ped1', idUsuario: uid, fecha: serverTimestamp(),
+    });
+    if (conPedido) lote.update(doc(db, 'pedidos', 'ped1'), { estado: 'Entregado', cobrado: true, idCaja });
+    return lote.commit();
+  };
+
+  test('el cajero entrega y cobra en su caja, en un solo paso', async () => {
+    await abrirCajas();
+    await assertSucceeds(entregarYCobrar('cajero1', 'c1'));
+  });
+
+  test('el mismo pedido no se cobra dos veces, ni en otra caja', async () => {
+    await abrirCajas();
+    await assertSucceeds(entregarYCobrar('cajero1', 'c1'));
+    await assertFails(entregarYCobrar('cajero1', 'c1'));
+    await assertFails(entregarYCobrar('cajero2', 'c2'));
+  });
+
+  test('no hay movimiento de cobro sin que el pedido quede cobrado', async () => {
+    await abrirCajas();
+    await assertFails(entregarYCobrar('cajero1', 'c1', { conPedido: false }));
+  });
+
+  test('el monto del cobro es el del pedido', async () => {
+    await abrirCajas();
+    await assertFails(entregarYCobrar('cajero1', 'c1', { monto: 1 }));
+  });
+
+  test('no se cobra en la caja de otro cajero ni en una caja ya contada', async () => {
+    await abrirCajas();
+    await assertFails(entregarYCobrar('cajero1', 'c2'));
+    await assertFails(entregarYCobrar('cajero1', 'cContada'));
   });
 });
 
