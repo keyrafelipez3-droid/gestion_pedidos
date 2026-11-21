@@ -637,6 +637,34 @@ describe('Cobro en caja: un pedido se cobra una sola vez', () => {
   });
 });
 
+describe('Cada sucursal ve solo sus pedidos', () => {
+  const pedidoOtraSucursal = () =>
+    env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'pedidos', 'pedSur'), {
+        idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's3', modalidad: 'Recoger',
+        metodoPago: 'Efectivo', estado: 'Pendiente', total: 35, cobrado: false,
+      }));
+
+  test('el cajero de una sucursal no ve ni cambia pedidos de otra', async () => {
+    await pedidoOtraSucursal();
+    await assertSucceeds(getDoc(doc(como('cajero1'), 'pedidos', 'ped1')));
+    await assertFails(getDoc(doc(como('cajero1'), 'pedidos', 'pedSur')));
+    await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'pedSur'), { estado: 'En preparación' }));
+  });
+
+  test('su consulta tiene que pedir solo su sucursal', async () => {
+    const pedidos = collection(como('cajero1'), 'pedidos');
+    await assertSucceeds(getDocs(query(pedidos, where('idNegocio', '==', 'n1'), where('idSucursal', '==', 's1'))));
+    await assertFails(getDocs(query(pedidos, where('idNegocio', '==', 'n1'))));
+  });
+
+  test('el personal sin sucursal asignada ve todo el negocio', async () => {
+    await pedidoOtraSucursal();
+    await assertSucceeds(getDoc(doc(como('cocina1'), 'pedidos', 'pedSur')));
+    await assertSucceeds(getDocs(query(collection(como('cocina1'), 'pedidos'), where('idNegocio', '==', 'n1'))));
+  });
+});
+
 describe('Delivery por zonas', () => {
   const crear = (datos, opciones) => crearPedido(como('cli1'), 'nuevo', datos, opciones);
   const delivery = (cambios = {}) =>

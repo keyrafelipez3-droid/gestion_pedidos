@@ -75,6 +75,15 @@ service cloud.firestore {
         && tieneNegocio();
     }
 
+    // El Cajero y la Cocina con sucursal asignada solo trabajan con los
+    // pedidos de SU sucursal. Sin sucursal asignada (y el Administrador)
+    // ven todo el negocio.
+    function sucursalPermitida(idSucursal) {
+      return isAdmin()
+        || datosUsuarioActual().get('idSucursal', null) == null
+        || datosUsuarioActual().idSucursal == idSucursal;
+    }
+
     function esPersonalDelNegocio() {
       return isAdmin() || isCajero() || isCocina();
     }
@@ -612,7 +621,9 @@ service cloud.firestore {
     match /pedidos/{pedidoId} {
       allow read: if isSuperAdmin()
         || (signedIn() && resource.data.idCliente == request.auth.uid)
-        || (esPersonalDelNegocio() && resource.data.get('idNegocio', null) == idNegocioActual())
+        || (esPersonalDelNegocio()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && sucursalPermitida(resource.data.get('idSucursal', null)))
         // Repartidor: solo pedidos de delivery de su negocio que estan
         // listos para tomar o que el mismo tomo.
         || (isRepartidor()
@@ -669,6 +680,7 @@ service cloud.firestore {
         || ((isAdmin()
               || (isCajero() && permisosDe(idNegocioActual()).get('cajeroTomaPedidosMesa', true) == true))
             && request.resource.data.get('idNegocio', null) == idNegocioActual()
+            && sucursalPermitida(request.resource.data.get('idSucursal', null))
             && request.resource.data.get('origen', null) == 'cajero'
             && request.resource.data.estado == 'Pendiente'
             && request.resource.data.get('cobrado', false) == false
@@ -730,6 +742,7 @@ service cloud.firestore {
             ))
         || (esPersonalDelNegocio()
             && resource.data.get('idNegocio', null) == idNegocioActual()
+            && sucursalPermitida(resource.data.get('idSucursal', null))
             && (
               // Cambio de estado (Cocina, Cajero o Administrador).
               (cambios().hasOnly(['estado'])
@@ -800,7 +813,8 @@ service cloud.firestore {
           || (signedIn()
               && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
           || (esPersonalDelNegocio()
-              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
+              && sucursalPermitida(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idSucursal', null)));
 
         allow create, update, delete: if isSuperAdmin();
       }
@@ -812,7 +826,8 @@ service cloud.firestore {
           || (signedIn()
               && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
           || (esPersonalDelNegocio()
-              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
+              && sucursalPermitida(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idSucursal', null)));
 
         allow create: if isSuperAdmin()
           || (request.resource.data.idUsuarioQueCambio == request.auth.uid
@@ -821,7 +836,8 @@ service cloud.firestore {
                 (signedIn()
                   && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
                 || (esPersonalDelNegocio()
-                  && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual())
+                  && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
+                  && sucursalPermitida(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idSucursal', null)))
                 || (isRepartidor()
                   && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idRepartidor', null) == request.auth.uid)
               ));

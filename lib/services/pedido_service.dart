@@ -28,6 +28,19 @@ class PedidoService {
 
   CollectionReference<Map<String, dynamic>> get _pedidos => _db.collection('pedidos');
 
+  /// Pedidos de un negocio. El Cajero y la Cocina con sucursal asignada
+  /// solo ven los de SU sucursal (las reglas de Firestore también lo
+  /// exigen, así que la consulta tiene que pedirlo).
+  Query<Map<String, dynamic>> _delNegocio(String idNegocio) {
+    Query<Map<String, dynamic>> consulta = _pedidos.where('idNegocio', isEqualTo: idNegocio);
+    final sesion = SesionActual.instancia;
+    final idSucursal = sesion.idSucursal;
+    if ((sesion.esCajero || sesion.esCocina) && idSucursal != null && idSucursal.isNotEmpty) {
+      consulta = consulta.where('idSucursal', isEqualTo: idSucursal);
+    }
+    return consulta;
+  }
+
   /// HU-24/HU-26: confirma el pedido a partir de los items ya cargados
   /// del carrito (se los pasa la pantalla, que ya los tiene vía
   /// CarritoService.streamCarrito). Crea el pedido con sus líneas + el
@@ -358,8 +371,8 @@ class PedidoService {
     return pedidoDoc.id;
   }
 
-  Query<Map<String, dynamic>> _consultaCuentaMesa(String idNegocio, String idMesa) => _pedidos
-      .where('idNegocio', isEqualTo: idNegocio)
+  Query<Map<String, dynamic>> _consultaCuentaMesa(String idNegocio, String idMesa) =>
+      _delNegocio(idNegocio)
       .where('idMesa', isEqualTo: idMesa)
       .where('cuentaAbierta', isEqualTo: true);
 
@@ -428,7 +441,7 @@ class PedidoService {
   /// HU-29: el Cajero registra y consulta los pedidos recibidos de su
   /// negocio. `filtroEstado` es opcional (ej. para una pestaña "activos").
   Stream<List<PedidoModel>> streamPedidosNegocio(String idNegocio, {String? filtroEstado}) {
-    Query<Map<String, dynamic>> query = _pedidos.where('idNegocio', isEqualTo: idNegocio);
+    Query<Map<String, dynamic>> query = _delNegocio(idNegocio);
     if (filtroEstado != null) {
       query = query.where('estado', isEqualTo: filtroEstado);
     }
@@ -450,8 +463,7 @@ class PedidoService {
     required DateTime desde,
     required DateTime hasta,
   }) =>
-      _pedidos
-          .where('idNegocio', isEqualTo: idNegocio)
+      _delNegocio(idNegocio)
           .where('estado', isEqualTo: PedidoEstado.entregado)
           .where('fechaCreacion', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
           .where('fechaCreacion', isLessThan: Timestamp.fromDate(hasta))
@@ -485,8 +497,7 @@ class PedidoService {
           recibidos[i] = false;
         }
         for (var i = 0; i < estados.length; i++) {
-          subs.add(_pedidos
-              .where('idNegocio', isEqualTo: idNegocio)
+          subs.add(_delNegocio(idNegocio)
               .where('estado', isEqualTo: estados[i])
               .snapshots()
               .listen((qs) {
@@ -520,8 +531,7 @@ class PedidoService {
 
   /// Pedidos Pendientes del negocio (para avisar al personal cuando entra
   /// uno nuevo). Solo una igualdad por campo: no necesita índice.
-  Stream<List<PedidoModel>> streamPendientes(String idNegocio) => _pedidos
-      .where('idNegocio', isEqualTo: idNegocio)
+  Stream<List<PedidoModel>> streamPendientes(String idNegocio) => _delNegocio(idNegocio)
       .where('estado', isEqualTo: PedidoEstado.pendiente)
       .snapshots()
       .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
@@ -553,8 +563,7 @@ class PedidoService {
   }) {
     final hoy = DateTime.now();
     final desde = DateTime(hoy.year, hoy.month, hoy.day).subtract(Duration(days: dias - 1));
-    return _pedidos
-        .where('idNegocio', isEqualTo: idNegocio)
+    return _delNegocio(idNegocio)
         .where('estado', isEqualTo: estado)
         .where('fechaCreacion', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
         .orderBy('fechaCreacion', descending: true)

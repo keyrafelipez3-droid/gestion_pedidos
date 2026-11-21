@@ -186,6 +186,8 @@ class CajaService {
     final qs = await _db
         .collection('pedidos')
         .where('idNegocio', isEqualTo: caja.idNegocio)
+        // La caja es de la sucursal del cajero (las reglas lo exigen).
+        .where('idSucursal', isEqualTo: caja.idSucursal)
         .where('idMesa', isEqualTo: mesa.id)
         .where('cuentaAbierta', isEqualTo: true)
         .get();
