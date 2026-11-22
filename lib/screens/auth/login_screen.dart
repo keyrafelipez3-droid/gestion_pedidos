@@ -63,15 +63,31 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _bienvenidaVista = true;
   }
 
+  bool _arranco = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Si el teléfono pide menos animaciones, todo aparece de una vez.
     if (MediaQuery.disableAnimationsOf(context)) {
       _entrada.value = 1;
-    } else if (_entrada.value < 1 && !_entrada.isAnimating) {
-      _entrada.forward();
+    } else if (!_arranco) {
+      _arranco = true;
+      _empezarBienvenida();
     }
+  }
+
+  /// En la web la imagen del logo tarda en cargar: se espera a que esté
+  /// lista y a que se dibuje la primera pantalla, para que la animación se
+  /// vea completa y no empiece con la pantalla todavía en blanco.
+  Future<void> _empezarBienvenida() async {
+    try {
+      await precacheImage(const AssetImage(AppBrand.logoAsset), context);
+    } catch (_) {
+      // Si el logo no carga, igual se muestra la animación.
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (mounted && _entrada.value < 1) _entrada.forward();
   }
 
   /// Tocar la bienvenida la adelanta hasta el formulario.
