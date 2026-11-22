@@ -82,6 +82,9 @@ class AppConfig {
   /// datos".
   static const String urlEliminacionCuenta = '$urlWeb/eliminar-cuenta.html';
 
+  /// Política de privacidad pública (sin iniciar sesión), para Play Store.
+  static const String urlPrivacidad = '$urlWeb/privacidad';
+
   /// Dirección de la versión web publicada en Firebase Hosting.
   static const String urlWeb = 'https://gestion-pedidos-univalle.web.app';
 
