@@ -145,6 +145,22 @@ class CatalogoService {
     await lote.commit();
   }
 
+  /// La lista de precios guarda la fecha de la promoción que vence primero
+  /// (`promoHasta`): pasada esa fecha, las reglas ya no aceptan NINGUNA
+  /// promoción, aunque otras sigan vigentes. Si eso pasó, el Administrador
+  /// la vuelve a escribir sin las promociones vencidas (se llama al abrir
+  /// su panel). Si no venció nada, no escribe.
+  Future<void> limpiarPromosVencidas(String idNegocio) async {
+    try {
+      final data = (await _precios(idNegocio).get()).data();
+      final fin = (data?['promoHasta'] as Timestamp?)?.toDate();
+      if (fin == null || DateTime.now().isBefore(fin)) return;
+      await _precios(idNegocio).set(await _listaCon(idNegocio, '', null));
+    } catch (_) {
+      // Sin conexión o sin permiso: se intentará la próxima vez.
+    }
+  }
+
   Future<void> cambiarDisponibilidadProducto(String id, bool disponible) =>
       _collection('productos').doc(id).update({'disponible': disponible});
 

@@ -105,6 +105,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   void initState() {
     super.initState();
     _seccion = widget.seccionInicial;
+    final sesion = SesionActual.instancia;
+    final idNegocio = sesion.idNegocio;
+    if (sesion.esAdministrador && idNegocio != null && idNegocio.isNotEmpty) {
+      CatalogoService.instancia.limpiarPromosVencidas(idNegocio);
+    }
   }
 
   List<AppSidebarSection> _secciones(

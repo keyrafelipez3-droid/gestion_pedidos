@@ -65,7 +65,7 @@ class _CajeroRendicionScreenState extends State<CajeroRendicionScreen> {
   late final String? _idNegocio = SesionActual.instancia.idNegocio;
   late final Stream<List<PedidoModel>>? _stream = _idNegocio == null
       ? null
-      : PedidoService.instancia.streamRecientesPorEstado(_idNegocio, PedidoEstado.entregado, dias: 7);
+      : PedidoService.instancia.streamPorRendir(_idNegocio);
   String? _procesando;
 
   Future<void> _recibir(RendicionRepartidor r) async {

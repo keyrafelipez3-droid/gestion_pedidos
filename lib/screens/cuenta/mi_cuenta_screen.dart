@@ -565,6 +565,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                           const SizedBox(height: AppSpacing.md),
                           TextFormField(
                             controller: _nombreCtrl,
+                            maxLength: 80,
                             decoration: InputDecoration(
                               labelText: tr('Nombre completo *'),
                               prefixIcon: Icon(Icons.person_outline),

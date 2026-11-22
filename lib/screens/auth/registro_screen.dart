@@ -323,6 +323,7 @@ class _Formulario extends StatelessWidget {
 
           TextFormField(
             controller: nombreCtrl,
+            maxLength: 80,
             textCapitalization: TextCapitalization.words,
             decoration: InputDecoration(
               labelText: tr('Nombre completo *'),

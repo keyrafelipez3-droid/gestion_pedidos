@@ -5,6 +5,7 @@ import '../models/permisos_negocio.dart';
 import '../models/usuario_model.dart';
 import 'app_theme_controller.dart';
 import 'auth_service.dart';
+import 'pedido_service.dart';
 import 'permisos_service.dart';
 
 /// Guarda en memoria el `UsuarioModel` de quien tiene la sesión abierta,
@@ -58,7 +59,10 @@ class SesionActual {
   /// Devuelve el usuario ya cargado, o lo carga si todavía no se hizo
   /// (ej. al entrar directo a una pantalla sin pasar por HomeScreen).
   Future<UsuarioModel?> obtener() async {
-    if (usuario.value == null) {
+    // Si quedó en memoria el usuario de otra sesión (por ejemplo, la sesión
+    // se cerró sin pasar por "Cerrar sesión"), se vuelve a cargar.
+    final uid = AuthService.instancia.usuarioActualAuth?.uid;
+    if (usuario.value == null || usuario.value!.idUsuario != uid) {
       await cargar();
     }
     return usuario.value;
@@ -68,6 +72,7 @@ class SesionActual {
   /// sesión en el mismo dispositivo no vea datos ni tema de la anterior.
   void limpiar() {
     usuario.value = null;
+    PedidoService.olvidarDatosLeidos();
     permisos = PermisosNegocio.porDefecto;
     IdiomaController.instancia.soloEspanol(false);
     AppThemeController.instancia.limpiar();

@@ -915,4 +915,6 @@ const traduccionesEn = <String, String>{
   'Otro': 'Other',
   'En revisión': 'Under review',
   'Resuelto': 'Resolved',
+  'Solo quedan {n} de "{producto}". Cambia la cantidad para continuar.': 'Only {n} of "{producto}" left. Change the quantity to continue.',
+  'El enlace del comprobante es muy largo. Sube la imagen en vez de pegar el enlace.': 'The payment proof link is too long. Upload the image instead of pasting the link.',
 };

@@ -38,6 +38,7 @@ class AdminService {
     String? idNegocio,
   }) async {
     FirebaseApp? appTemporal;
+    User? cuentaCreada;
     try {
       appTemporal = await Firebase.initializeApp(
         name: 'appTemporalCrearEmpleado_${DateTime.now().microsecondsSinceEpoch}',
@@ -51,6 +52,7 @@ class AdminService {
         password: password,
       );
 
+      cuentaCreada = credencial.user;
       final uid = credencial.user!.uid;
 
       final nuevoEmpleado = UsuarioModel(
@@ -70,11 +72,18 @@ class AdminService {
       // qué app de Auth esté logueada en ese momento).
       await _db.collection('usuarios').doc(uid).set(nuevoEmpleado.toMap());
 
+      cuentaCreada = null; // quedó completa: ya no se borra
       await authTemporal.signOut();
       return null;
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);
     } catch (e) {
+      // La cuenta de acceso se creó pero no su ficha (por ejemplo, sin
+      // permiso o sin conexión): se borra para que no quede una cuenta
+      // huérfana sumando al límite de usuarios.
+      try {
+        await cuentaCreada?.delete();
+      } catch (_) {}
       return 'Ocurrió un error inesperado creando el empleado.';
     } finally {
       // Limpieza: se borra la app secundaria para no dejarla acumulada.

@@ -46,7 +46,11 @@ class PedidoService {
   }
 
   /// Datos de contacto ya leídos (no cambian después de crear el pedido).
-  final _contactos = <String, Map<String, dynamic>>{};
+  static final _contactos = <String, Map<String, dynamic>>{};
+
+  /// Se llama al cerrar sesión: la próxima persona que entre en el mismo
+  /// dispositivo no debe ver direcciones ni teléfonos ya leídos.
+  static void olvidarDatosLeidos() => _contactos.clear();
 
   /// Dirección, teléfono y factura del pedido (`privado/contacto`). Solo los
   /// pueden leer el cliente, el Administrador, el Cajero y el repartidor
@@ -112,6 +116,9 @@ class PedidoService {
     if (itemsCarrito.isEmpty) {
       throw Exception(tr('El carrito está vacío, no se puede confirmar el pedido.'));
     }
+    if ((comprobantePagoUrl ?? '').length > 500) {
+      throw Exception(tr('El enlace del comprobante es muy largo. Sube la imagen en vez de pegar el enlace.'));
+    }
 
     // Precios de HOY (la misma lista que revisan las reglas de Firestore).
     // Si alguno cambió, se corrige en el carrito y se avisa al cliente.
@@ -161,7 +168,7 @@ class PedidoService {
 
     final pedido = PedidoModel(
       id: pedidoDoc.id,
-      nombreCliente: esDelivery ? usuario?.nombre : null,
+      nombreCliente: esDelivery && usuario != null ? _recortar(usuario.nombre, 80) : null,
       telefonoCliente: esDelivery && telefonoCliente.isNotEmpty ? telefonoCliente : null,
       idCliente: idCliente,
       idNegocio: idNegocio,
@@ -276,7 +283,42 @@ class PedidoService {
       throw Exception(tr('Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.',
           {'productos': cambiaron.join(', ')}));
     }
+    await _revisarStock(items);
     return lineas;
+  }
+
+  /// Antes de crear el pedido se revisa que haya stock para lo que se pide
+  /// (solo productos con control de stock) y que el producto siga activo y
+  /// disponible. El stock se descuenta recién cuando la cocina empieza a
+  /// prepararlo, así que es una revisión de ayuda, no una reserva.
+  Future<void> _revisarStock(List<CarritoItemModel> items) async {
+    final pedidas = <String, int>{};
+    final nombres = <String, String>{};
+    for (final item in items) {
+      pedidas[item.idProducto] = (pedidas[item.idProducto] ?? 0) + item.cantidad;
+      nombres[item.idProducto] = item.nombreProducto;
+    }
+    final docs = await Future.wait([
+      for (final id in pedidas.keys) _db.collection('productos').doc(id).get(),
+    ]);
+    for (final doc in docs) {
+      final data = doc.data();
+      final nombre = nombres[doc.id] ?? '';
+      if (data == null || data['estado'] == false || data['disponible'] == false) {
+        throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
+            {'producto': nombre}));
+      }
+      final stock = (data['stock'] as num?)?.toInt();
+      final cantidad = pedidas[doc.id] ?? 0;
+      if (stock != null && cantidad > stock) {
+        if (stock <= 0) {
+          throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
+              {'producto': nombre}));
+        }
+        throw Exception(tr('Solo quedan {n} de "{producto}". Cambia la cantidad para continuar.',
+            {'n': stock, 'producto': nombre}));
+      }
+    }
   }
 
   /// Id nuevo para un pedido, para que la pantalla lo guarde y lo reuse si
@@ -378,8 +420,9 @@ class PedidoService {
           tr('Tu cuenta no puede hacer pedidos en este negocio. Comunícate con el local.'));
     }
     final usuario = SesionActual.instancia.actual;
-    final nombre = usuario?.nombre ?? '';
-    final telefono = usuario?.telefono ?? '';
+    // Mismos tamaños que aceptan las reglas para la ficha del cliente.
+    final nombre = _recortar(usuario?.nombre ?? '', 80);
+    final telefono = _recortar(usuario?.telefono ?? '', 20);
     if (!snap.exists) {
       await ref.set({
         'nombre': nombre,
@@ -681,6 +724,17 @@ class PedidoService {
         .snapshots()
         .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
   }
+
+  /// Deliverys entregados por un repartidor que todavía no pasaron por caja
+  /// (rendición). Antes se tomaban de los últimos 200 entregados de 7 días,
+  /// y en un local con mucho movimiento algunos quedaban fuera. Solo
+  /// igualdades: no necesita índice nuevo.
+  Stream<List<PedidoModel>> streamPorRendir(String idNegocio) => _delNegocio(idNegocio)
+      .where('modalidad', isEqualTo: PedidoModalidad.delivery)
+      .where('estado', isEqualTo: PedidoEstado.entregado)
+      .where('cobrado', isEqualTo: false)
+      .snapshots()
+      .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
 
   /// Líneas de un pedido, en vivo. Los pedidos nuevos las tienen dentro
   /// (campo `lineas`); los anteriores, en la subcolección `detalle`.
@@ -1057,6 +1111,28 @@ class PedidoService {
         );
       }
       _validarCambio(actual, PedidoEstado.cancelado);
+      // Si el pedido usó un cupón, el cliente lo recupera (cada cupón se usa
+      // una vez por cliente y este pedido no se va a cobrar). Las lecturas
+      // de una transacción van antes de las escrituras.
+      final cupon = data['codigoCupon'];
+      final cliente = data['idCliente'];
+      final negocio = data['idNegocio'];
+      DocumentReference<Map<String, dynamic>>? usoCupon;
+      if (cupon is String && cupon.isNotEmpty && cliente is String && cliente.isNotEmpty && negocio is String) {
+        final ref = _db
+            .collection('negocios')
+            .doc(negocio)
+            .collection('cupones')
+            .doc(cupon)
+            .collection('usos')
+            .doc(cliente);
+        try {
+          final uso = await tx.get(ref);
+          if (uso.exists && uso.data()?['idPedido'] == idPedido) usoCupon = ref;
+        } catch (_) {
+          // Sin permiso para verlo: el pedido se cancela igual.
+        }
+      }
       final enReparto = actual == PedidoEstado.enCamino || actual == PedidoEstado.llego;
       tx.update(ref, {
         'estado': PedidoEstado.cancelado,
@@ -1072,6 +1148,7 @@ class PedidoService {
           comentario: 'Motivo: $limpio',
         ).toMap(),
       );
+      if (usoCupon != null) tx.delete(usoCupon);
     });
   }
 

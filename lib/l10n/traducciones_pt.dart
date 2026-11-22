@@ -915,4 +915,6 @@ const traduccionesPt = <String, String>{
   'Otro': 'Outro',
   'En revisión': 'Em análise',
   'Resuelto': 'Resolvido',
+  'Solo quedan {n} de "{producto}". Cambia la cantidad para continuar.': 'Restam apenas {n} de "{producto}". Mude a quantidade para continuar.',
+  'El enlace del comprobante es muy largo. Sube la imagen en vez de pegar el enlace.': 'O link do comprovante é muito longo. Envie a imagem em vez de colar o link.',
 };
