@@ -6,6 +6,7 @@ import '../../../legal/textos_legales.dart';
 import '../../../models/cliente_negocio_model.dart';
 import '../../../models/cupon_model.dart';
 import '../../../models/pedido_models.dart';
+import '../../../models/reclamo_model.dart';
 import '../../../models/resena_model.dart';
 import '../../../models/sucursal_model.dart';
 import '../../../models/usuario_model.dart';
@@ -15,7 +16,9 @@ import '../../../services/catalogo_service.dart';
 import '../../../services/cupon_service.dart';
 import '../../../services/dashboard_service.dart';
 import '../../../services/pedido_service.dart';
+import '../../../services/reclamo_service.dart';
 import '../../../services/resena_service.dart';
+import '../../../services/sesion_actual.dart';
 import '../../../services/sucursal_service.dart';
 import '../../../theme/design_tokens.dart';
 import '../../../utils/errores.dart';
@@ -130,7 +133,10 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
     final ventasAnt = todas == null ? null : pedidosEntre(todas, desdeAnt, hastaAnt);
     final cancelados = sCanc.data == null ? null : pedidosEntre(sCanc.data!, desde, hasta);
     final canceladosAnt = sCanc.data == null ? null : pedidosEntre(sCanc.data!, desdeAnt, hastaAnt);
-    final enCurso = sCurso.data;
+    // Los pedidos olvidados (más de un día sin terminar) no se cuentan como
+    // "en curso": se muestran aparte en Atención para cerrarlos.
+    final enCurso = sCurso.data?.where((p) => !p.abandonado).toList();
+    final abandonados = sCurso.data?.where((p) => p.abandonado).toList();
     final cajas = sCajas.data;
     final nombresSucursal = {for (final s in sSuc.data ?? const <SucursalModel>[]) s.id: s.nombre};
 
@@ -280,7 +286,7 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
         GrillaDashboard(
           children: [
             _PanelSucursalesAhora(sucursales: sSuc.data, enCurso: enCurso, error: sSuc.hasError),
-            _PanelAlertas(idNegocio: widget.idNegocio, enCurso: enCurso),
+            _PanelAlertas(idNegocio: widget.idNegocio, enCurso: enCurso, abandonados: abandonados),
             _PanelHorasPico(ventas: ventas),
             _PanelEnCurso(enCurso: enCurso, error: sCurso.hasError),
             _PanelTopProductos(entregados: ventas, periodo: _periodo, idNegocio: widget.idNegocio),
@@ -887,7 +893,8 @@ class _PanelResenasState extends State<_PanelResenas> {
 class _PanelAlertas extends StatefulWidget {
   final String idNegocio;
   final List<PedidoModel>? enCurso;
-  const _PanelAlertas({required this.idNegocio, required this.enCurso});
+  final List<PedidoModel>? abandonados;
+  const _PanelAlertas({required this.idNegocio, required this.enCurso, this.abandonados});
 
   @override
   State<_PanelAlertas> createState() => _PanelAlertasState();
@@ -902,6 +909,56 @@ class _PanelAlertasState extends State<_PanelAlertas> {
       AdminService.instancia.streamClientesDeNegocio(widget.idNegocio);
   late final Stream<List<UsuarioModel>> _empleados = AdminService.instancia.streamEmpleados(widget.idNegocio);
   late final Stream<List<CuponModel>> _cupones = CuponService.instancia.stream(widget.idNegocio);
+  late final Stream<List<ReclamoModel>> _reclamos = ReclamoService.instancia.streamTodos(widget.idNegocio);
+  bool _cerrando = false;
+
+  /// Cancela, con un motivo, los pedidos que quedaron olvidados. Los que ya
+  /// se cobraron no se tocan (eso se revisa en Caja).
+  Future<void> _cerrarAbandonados(List<PedidoModel> lista) async {
+    if (_cerrando) return;
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar pedidos abandonados'),
+        content: Text(
+          'Se cancelarán ${lista.length} pedido(s) que llevan más de un día sin terminar, '
+          'con el motivo "Pedido abandonado". Los que ya se cobraron no se tocan.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Cerrarlos')),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final idAdmin = SesionActual.instancia.actual?.idUsuario ?? '';
+    setState(() => _cerrando = true);
+    var cerrados = 0;
+    var omitidos = 0;
+    for (final p in lista) {
+      if (p.cobrado) {
+        omitidos++;
+        continue;
+      }
+      try {
+        await PedidoService.instancia.cancelarPedido(
+          idPedido: p.id,
+          motivo: 'Pedido abandonado: más de un día sin terminar.',
+          idUsuario: idAdmin,
+        );
+        cerrados++;
+      } catch (_) {
+        omitidos++;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _cerrando = false);
+    messenger.showSnackBar(SnackBar(
+      content: Text('Pedidos cerrados: $cerrados'
+          '${omitidos > 0 ? ' · sin cambiar: $omitidos (cobrados o ya cambiaron)' : ''}'),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -921,7 +978,9 @@ class _PanelAlertasState extends State<_PanelAlertas> {
               stream: _empleados,
               builder: (context, sEmp) => StreamBuilder<List<CuponModel>>(
                 stream: _cupones,
-                builder: (context, sCup) {
+                builder: (context, sCup) => StreamBuilder<List<ReclamoModel>>(
+                stream: _reclamos,
+                builder: (context, sRec) {
               if (!sProd.hasData || !sSuc.hasData || !sCli.hasData) {
                 if (sProd.hasError || sSuc.hasError || sCli.hasError) {
                   return const TextoError('No se pudieron cargar las alertas.');
@@ -951,7 +1010,36 @@ class _PanelAlertasState extends State<_PanelAlertas> {
                       minutosDesde(p.programadoPara ?? p.fechaCreacion) >= 15)
                   .length;
 
+              final abandonados = widget.abandonados ?? const <PedidoModel>[];
+              final reclamosPendientes =
+                  (sRec.data ?? const <ReclamoModel>[]).where((r) => !r.resuelto).length;
+
               final filas = <Widget>[
+                if (reclamosPendientes > 0)
+                  FilaIndicador(
+                    icono: Icons.support_agent_outlined,
+                    color: scheme.error,
+                    texto: 'Reclamos sin responder (míralos en Reclamos)',
+                    valor: '$reclamosPendientes',
+                  ),
+                if (abandonados.isNotEmpty) ...[
+                  FilaIndicador(
+                    icono: Icons.history_toggle_off,
+                    color: scheme.error,
+                    texto: 'Pedidos abandonados (más de un día sin terminar)',
+                    valor: '${abandonados.length}',
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _cerrando ? null : () => _cerrarAbandonados(abandonados),
+                      icon: _cerrando
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.cleaning_services_outlined, size: 18),
+                      label: const Text('Cerrar pedidos abandonados'),
+                    ),
+                  ),
+                ],
                 if (demorados > 0)
                   FilaIndicador(
                     icono: Icons.timer_outlined,
@@ -1022,6 +1110,7 @@ class _PanelAlertasState extends State<_PanelAlertas> {
               }
               return Column(children: filas);
                 },
+              ),
               ),
             ),
           ),
