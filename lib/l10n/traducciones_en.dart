@@ -885,6 +885,9 @@ const traduccionesEn = <String, String>{
   'Descargar mis datos': 'Download my data',
   'Tu perfil, direcciones, restaurantes y pedidos en un archivo': 'Your profile, addresses, restaurants and orders in one file',
   'Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos, tu carrito y tus reseñas. Tus pedidos pasados se conservan sin tu nombre, teléfono, dirección, factura, alergias ni notas, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).': 'This cannot be undone.\n\nYour profile, addresses, favorites, cart and reviews will be deleted. Your past orders are kept without your name, phone, address, invoice details, allergies or notes, because the restaurant needs them for its accounting and claims. Images you uploaded are only deleted if you ask by email (see the Privacy policy).',
+  // Dos pasos obligatorios para administradores
+  'Vuelve a iniciar sesión': 'Sign in again',
+  'Para terminar, cierra sesión y vuelve a entrar. Esta vez te pediremos el código de tu app autenticadora.': 'To finish, sign out and sign in again. This time we will ask for the code from your authenticator app.',
   'Preparando tu espacio…': 'Getting your space ready…',
   'Cargando': 'Loading',
 };

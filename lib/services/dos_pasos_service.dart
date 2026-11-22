@@ -40,6 +40,18 @@ class DosPasosService {
     return factores.isNotEmpty;
   }
 
+  /// ¿La sesión actual se inició con el código de la app autenticadora?
+  /// Las reglas de Firestore lo exigen al Administrador y al SuperAdmin
+  /// (`sign_in_second_factor` en el token). Si alguien activa los dos pasos
+  /// en esta misma sesión, tiene que volver a entrar para que cuente.
+  Future<bool> sesionConSegundoPaso() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    final resultado = await user.getIdTokenResult(true);
+    final firebase = resultado.claims?['firebase'];
+    return firebase is Map && firebase['sign_in_second_factor'] != null;
+  }
+
   /// Primer paso para activarla: Firebase genera una clave secreta nueva
   /// que la persona agrega a su app autenticadora (con el QR).
   Future<TotpSecret> generarSecreto() async {
