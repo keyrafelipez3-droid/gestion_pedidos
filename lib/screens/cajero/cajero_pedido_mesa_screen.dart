@@ -42,6 +42,10 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
 
   bool _enviando = false;
 
+  /// Id fijo del pedido mientras la pantalla está abierta: si se envía dos
+  /// veces seguidas, se usa el mismo y no se duplica el pedido de la mesa.
+  final String _idPedido = PedidoService.instancia.nuevoIdPedido();
+
   String get _idNegocio => SesionActual.instancia.idNegocio ?? '';
 
   @override
@@ -69,6 +73,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
   }
 
   Future<void> _enviar() async {
+    if (_enviando) return;
     final usuario = SesionActual.instancia.actual;
     if (usuario == null || _idNegocio.isEmpty || _cantidades.isEmpty) return;
 
@@ -151,6 +156,7 @@ class _CajeroPedidoMesaScreenState extends State<CajeroPedidoMesaScreen> {
     setState(() => _enviando = true);
     try {
       await PedidoService.instancia.registrarPedidoMesa(
+        idPedido: _idPedido,
         idCajero: usuario.idUsuario,
         idNegocio: _idNegocio,
         idSucursal: widget.idSucursal,

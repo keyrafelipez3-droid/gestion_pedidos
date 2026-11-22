@@ -58,6 +58,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _comprobanteCtrl = TextEditingController();
   final _notasCtrl = TextEditingController();
   bool _confirmando = false;
+
+  /// Id del pedido, fijo mientras esta pantalla está abierta. Si el envío se
+  /// repite (doble toque, o se reintenta tras un error de conexión cuando
+  /// el pedido sí llegó), se usa el mismo id y no se crea un segundo pedido.
+  final String _idPedido = PedidoService.instancia.nuevoIdPedido();
   SucursalModel? _sucursal;
   String? _zona; // zona de delivery elegida
 
@@ -754,9 +759,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _confirmar() async {
-    if (!await _aceptaConflictos() || !mounted) return;
+    // Se marca ANTES de cualquier espera: así dos toques seguidos (o un
+    // doble clic) no llegan a mandar el pedido dos veces.
+    if (_confirmando) return;
     setState(() => _confirmando = true);
     try {
+      if (!await _aceptaConflictos() || !mounted) return;
       // Comprobación final con datos frescos: el horario pudo cambiar o la
       // sucursal cerrar mientras el cliente armaba el pedido.
       final fresca = await SucursalService.instancia.obtener(widget.idSucursal);
@@ -774,6 +782,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception(tr('Para pedir, primero acepta las condiciones del restaurante.'));
       }
       final idPedido = await PedidoService.instancia.confirmarPedido(
+        idPedido: _idPedido,
         idCliente: _uid,
         idNegocio: widget.negocio.idNegocio,
         idSucursal: widget.idSucursal,

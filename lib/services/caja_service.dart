@@ -78,31 +78,49 @@ class CajaService {
     );
   }
 
+  /// Operaciones de caja que están en curso en este dispositivo. Si el
+  /// Cajero toca dos veces el mismo botón, la segunda vez no se ejecuta
+  /// (así no se abren dos cajas ni se registra dos veces un movimiento).
+  final Set<String> _enCurso = {};
+
+  Future<T> _unaVez<T>(String clave, Future<T> Function() accion) async {
+    if (!_enCurso.add(clave)) {
+      throw Exception('Ya se está registrando, espera un momento.');
+    }
+    try {
+      return await accion();
+    } finally {
+      _enCurso.remove(clave);
+    }
+  }
+
   // --------------------------------------------------------------- apertura
 
   Future<void> abrirCaja({
     required UsuarioModel cajero,
     required double montoInicial,
   }) async {
-    final idNegocio = cajero.idNegocio;
-    final idSucursal = cajero.idSucursal;
-    if (idNegocio == null || idSucursal == null) {
-      throw Exception('Tu usuario no tiene sucursal asignada. Pídele al Administrador que te la asigne.');
-    }
-    if (montoInicial < 0) {
-      throw Exception('El monto inicial no puede ser negativo.');
-    }
-    if (await cajaAbiertaActual(cajero.idUsuario) != null) {
-      throw Exception('Ya tienes una caja abierta.');
-    }
-    await _cajas.add({
-      'idNegocio': idNegocio,
-      'idSucursal': idSucursal,
-      'idCajero': cajero.idUsuario,
-      'nombreCajero': cajero.nombre,
-      'estado': CajaEstado.abierta,
-      'montoInicial': redondearDinero(montoInicial),
-      'fechaApertura': FieldValue.serverTimestamp(),
+    return _unaVez('abrir_${cajero.idUsuario}', () async {
+      final idNegocio = cajero.idNegocio;
+      final idSucursal = cajero.idSucursal;
+      if (idNegocio == null || idSucursal == null) {
+        throw Exception('Tu usuario no tiene sucursal asignada. Pídele al Administrador que te la asigne.');
+      }
+      if (montoInicial < 0) {
+        throw Exception('El monto inicial no puede ser negativo.');
+      }
+      if (await cajaAbiertaActual(cajero.idUsuario) != null) {
+        throw Exception('Ya tienes una caja abierta.');
+      }
+      await _cajas.add({
+        'idNegocio': idNegocio,
+        'idSucursal': idSucursal,
+        'idCajero': cajero.idUsuario,
+        'nombreCajero': cajero.nombre,
+        'estado': CajaEstado.abierta,
+        'montoInicial': redondearDinero(montoInicial),
+        'fechaApertura': FieldValue.serverTimestamp(),
+      });
     });
   }
 
@@ -117,30 +135,32 @@ class CajaService {
     required double monto,
     required String idUsuario,
   }) async {
-    if (tipo != MovimientoTipo.ingreso && tipo != MovimientoTipo.egreso) {
-      throw Exception('Tipo de movimiento no válido.');
-    }
-    final conceptoLimpio = concepto.trim();
-    if (conceptoLimpio.isEmpty) {
-      throw Exception('Escribe el concepto del movimiento.');
-    }
-    if (monto <= 0) {
-      throw Exception('El monto debe ser mayor a cero.');
-    }
-    final montoFinal = redondearDinero(monto);
-    if (tipo == MovimientoTipo.egreso) {
-      final resumen = await _resumenActual(caja);
-      if (montoFinal > resumen.esperado) {
-        throw Exception('No hay suficiente efectivo en la caja para ese egreso.');
+    return _unaVez('movimiento_${caja.id}', () async {
+      if (tipo != MovimientoTipo.ingreso && tipo != MovimientoTipo.egreso) {
+        throw Exception('Tipo de movimiento no válido.');
       }
-    }
-    await _movimientos(caja.id).add({
-      'tipo': tipo,
-      'concepto': conceptoLimpio,
-      'monto': montoFinal,
-      'metodoPago': MetodoPago.efectivo,
-      'idUsuario': idUsuario,
-      'fecha': FieldValue.serverTimestamp(),
+      final conceptoLimpio = concepto.trim();
+      if (conceptoLimpio.isEmpty) {
+        throw Exception('Escribe el concepto del movimiento.');
+      }
+      if (monto <= 0) {
+        throw Exception('El monto debe ser mayor a cero.');
+      }
+      final montoFinal = redondearDinero(monto);
+      if (tipo == MovimientoTipo.egreso) {
+        final resumen = await _resumenActual(caja);
+        if (montoFinal > resumen.esperado) {
+          throw Exception('No hay suficiente efectivo en la caja para ese egreso.');
+        }
+      }
+      await _movimientos(caja.id).add({
+        'tipo': tipo,
+        'concepto': conceptoLimpio,
+        'monto': montoFinal,
+        'metodoPago': MetodoPago.efectivo,
+        'idUsuario': idUsuario,
+        'fecha': FieldValue.serverTimestamp(),
+      });
     });
   }
 
@@ -183,37 +203,39 @@ class CajaService {
     required String metodoPago,
     required String idUsuario,
   }) async {
-    final qs = await _db
-        .collection('pedidos')
-        .where('idNegocio', isEqualTo: caja.idNegocio)
-        // La caja es de la sucursal del cajero (las reglas lo exigen).
-        .where('idSucursal', isEqualTo: caja.idSucursal)
-        .where('idMesa', isEqualTo: mesa.id)
-        .where('cuentaAbierta', isEqualTo: true)
-        .get();
-    final pedidos = qs.docs.map(PedidoModel.fromSnapshot).toList();
-    for (var i = 0; i < pedidos.length; i += _pedidosPorLote) {
-      final lote = _db.batch();
-      for (final pedido in pedidos.skip(i).take(_pedidosPorLote)) {
-        final ref = _db.collection('pedidos').doc(pedido.id);
-        if (pedido.estado == PedidoEstado.cancelado || pedido.cobrado) {
-          lote.update(ref, {'cuentaAbierta': false});
-          continue;
+    return _unaVez('mesa_${mesa.id}', () async {
+      final qs = await _db
+          .collection('pedidos')
+          .where('idNegocio', isEqualTo: caja.idNegocio)
+          // La caja es de la sucursal del cajero (las reglas lo exigen).
+          .where('idSucursal', isEqualTo: caja.idSucursal)
+          .where('idMesa', isEqualTo: mesa.id)
+          .where('cuentaAbierta', isEqualTo: true)
+          .get();
+      final pedidos = qs.docs.map(PedidoModel.fromSnapshot).toList();
+      for (var i = 0; i < pedidos.length; i += _pedidosPorLote) {
+        final lote = _db.batch();
+        for (final pedido in pedidos.skip(i).take(_pedidosPorLote)) {
+          final ref = _db.collection('pedidos').doc(pedido.id);
+          if (pedido.estado == PedidoEstado.cancelado || pedido.cobrado) {
+            lote.update(ref, {'cuentaAbierta': false});
+            continue;
+          }
+          lote.update(ref, {
+            'cuentaAbierta': false,
+            'cobrado': true,
+            'idCaja': caja.id,
+            'metodoPago': metodoPago,
+          });
+          _agregarCobro(lote, caja, pedido,
+              concepto: 'Mesa ${mesa.numero} · #${pedido.id.substring(0, 6)}',
+              metodoPago: metodoPago,
+              idUsuario: idUsuario,
+              idMesa: mesa.id);
         }
-        lote.update(ref, {
-          'cuentaAbierta': false,
-          'cobrado': true,
-          'idCaja': caja.id,
-          'metodoPago': metodoPago,
-        });
-        _agregarCobro(lote, caja, pedido,
-            concepto: 'Mesa ${mesa.numero} · #${pedido.id.substring(0, 6)}',
-            metodoPago: metodoPago,
-            idUsuario: idUsuario,
-            idMesa: mesa.id);
+        await lote.commit();
       }
-      await lote.commit();
-    }
+    });
   }
 
   /// El Cajero entrega un pedido y lo cobra en SU caja, en UNA sola
@@ -227,53 +249,55 @@ class CajaService {
     required PedidoModel pedido,
     required String idUsuario,
   }) async {
-    final ref = _db.collection('pedidos').doc(pedido.id);
-    final refCaja = _cajas.doc(caja.id);
-    await _db.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      final snapCaja = await tx.get(refCaja);
-      if (!snap.exists) {
-        throw const PedidoEstadoException('El pedido ya no existe.');
-      }
-      final actual = PedidoModel.fromSnapshot(snap);
-      if (actual.cobrado) {
-        throw const PedidoEstadoException('Este pedido ya se cobró.');
-      }
-      if (!PedidoEstado.puedePasar(actual.estado, PedidoEstado.entregado)) {
-        throw PedidoEstadoException(
-          'No se puede pasar de "${actual.estado}" a "${PedidoEstado.entregado}". '
-          'Es posible que otra persona lo haya cambiado.',
+    return _unaVez('cobro_${pedido.id}', () async {
+      final ref = _db.collection('pedidos').doc(pedido.id);
+      final refCaja = _cajas.doc(caja.id);
+      await _db.runTransaction((tx) async {
+        final snap = await tx.get(ref);
+        final snapCaja = await tx.get(refCaja);
+        if (!snap.exists) {
+          throw const PedidoEstadoException('El pedido ya no existe.');
+        }
+        final actual = PedidoModel.fromSnapshot(snap);
+        if (actual.cobrado) {
+          throw const PedidoEstadoException('Este pedido ya se cobró.');
+        }
+        if (!PedidoEstado.puedePasar(actual.estado, PedidoEstado.entregado)) {
+          throw PedidoEstadoException(
+            'No se puede pasar de "${actual.estado}" a "${PedidoEstado.entregado}". '
+            'Es posible que otra persona lo haya cambiado.',
+          );
+        }
+        final datosCaja = snapCaja.data();
+        if (datosCaja == null ||
+            datosCaja['estado'] != CajaEstado.abierta ||
+            datosCaja['montoContado'] != null) {
+          throw const PedidoEstadoException('Tu caja ya no está abierta para cobrar.');
+        }
+        tx.update(ref, {
+          'estado': PedidoEstado.entregado,
+          'cobrado': true,
+          'idCaja': caja.id,
+        });
+        tx.set(_movimientos(caja.id).doc('cobro_${actual.id}'), {
+          'tipo': MovimientoTipo.cobro,
+          'concepto': 'Pedido #${actual.id.substring(0, 6)}',
+          'monto': redondearDinero(actual.montoNegocio),
+          'metodoPago': actual.metodoPago,
+          'idPedido': actual.id,
+          'idUsuario': idUsuario,
+          'fecha': FieldValue.serverTimestamp(),
+        });
+        tx.set(
+          ref.collection('historialEstados').doc(),
+          HistorialEstadoModel(
+            id: '',
+            estado: PedidoEstado.entregado,
+            idUsuarioQueCambio: idUsuario,
+            comentario: 'Entregado y cobrado en caja.',
+          ).toMap(),
         );
-      }
-      final datosCaja = snapCaja.data();
-      if (datosCaja == null ||
-          datosCaja['estado'] != CajaEstado.abierta ||
-          datosCaja['montoContado'] != null) {
-        throw const PedidoEstadoException('Tu caja ya no está abierta para cobrar.');
-      }
-      tx.update(ref, {
-        'estado': PedidoEstado.entregado,
-        'cobrado': true,
-        'idCaja': caja.id,
       });
-      tx.set(_movimientos(caja.id).doc('cobro_${actual.id}'), {
-        'tipo': MovimientoTipo.cobro,
-        'concepto': 'Pedido #${actual.id.substring(0, 6)}',
-        'monto': redondearDinero(actual.montoNegocio),
-        'metodoPago': actual.metodoPago,
-        'idPedido': actual.id,
-        'idUsuario': idUsuario,
-        'fecha': FieldValue.serverTimestamp(),
-      });
-      tx.set(
-        ref.collection('historialEstados').doc(),
-        HistorialEstadoModel(
-          id: '',
-          estado: PedidoEstado.entregado,
-          idUsuarioQueCambio: idUsuario,
-          comentario: 'Entregado y cobrado en caja.',
-        ).toMap(),
-      );
     });
   }
 
@@ -286,22 +310,24 @@ class CajaService {
     required List<PedidoModel> pedidos,
     required String idUsuario,
   }) async {
-    final pendientes = pedidos.where((p) => !p.cobrado).toList();
-    for (var i = 0; i < pendientes.length; i += _pedidosPorLote) {
-      final lote = _db.batch();
-      for (final pedido in pendientes.skip(i).take(_pedidosPorLote)) {
-        _agregarCobro(lote, caja, pedido,
-            concepto: 'Delivery #${pedido.id.substring(0, 6)} · ${pedido.nombreRepartidor ?? 'Repartidor'}',
-            metodoPago: pedido.metodoPago,
-            idUsuario: idUsuario);
-        lote.update(_db.collection('pedidos').doc(pedido.id), {
-          'cobrado': true,
-          'idCaja': caja.id,
-        });
+    return _unaVez('rendicion_${caja.id}', () async {
+      final pendientes = pedidos.where((p) => !p.cobrado).toList();
+      for (var i = 0; i < pendientes.length; i += _pedidosPorLote) {
+        final lote = _db.batch();
+        for (final pedido in pendientes.skip(i).take(_pedidosPorLote)) {
+          _agregarCobro(lote, caja, pedido,
+              concepto: 'Delivery #${pedido.id.substring(0, 6)} · ${pedido.nombreRepartidor ?? 'Repartidor'}',
+              metodoPago: pedido.metodoPago,
+              idUsuario: idUsuario);
+          lote.update(_db.collection('pedidos').doc(pedido.id), {
+            'cobrado': true,
+            'idCaja': caja.id,
+          });
+        }
+        await lote.commit();
       }
-      await lote.commit();
-    }
-    return pendientes.length;
+      return pendientes.length;
+    });
   }
 
   // ----------------------------------------------------------------- cierre
@@ -322,29 +348,31 @@ class CajaService {
   /// desde los movimientos y los deja guardados como foto del turno.
   /// La observación es obligatoria si hay diferencia.
   Future<CajaModel> cerrarCaja(CajaModel caja, {String observacion = ''}) async {
-    final contado = caja.montoContado;
-    if (contado == null) {
-      throw Exception('Primero registra el efectivo que contaste.');
-    }
-    final resumen = await _resumenActual(caja);
-    final diferencia = redondearDinero(contado - resumen.esperado);
-    final obs = observacion.trim();
-    if (diferencia != 0 && obs.isEmpty) {
-      throw Exception('Hay diferencia en la caja: escribe una observación.');
-    }
-    await _cajas.doc(caja.id).update({
-      'estado': CajaEstado.cerrada,
-      'fechaCierre': FieldValue.serverTimestamp(),
-      'montoEsperado': resumen.esperado,
-      'diferencia': diferencia,
-      'observacionCierre': obs,
-      'totalEfectivo': resumen.cobrosEfectivo,
-      'totalTransferencia': resumen.cobrosTransferencia,
-      'totalQr': resumen.cobrosQr,
-      'totalIngresos': resumen.ingresos,
-      'totalEgresos': resumen.egresos,
+    return _unaVez('cierre_${caja.id}', () async {
+      final contado = caja.montoContado;
+      if (contado == null) {
+        throw Exception('Primero registra el efectivo que contaste.');
+      }
+      final resumen = await _resumenActual(caja);
+      final diferencia = redondearDinero(contado - resumen.esperado);
+      final obs = observacion.trim();
+      if (diferencia != 0 && obs.isEmpty) {
+        throw Exception('Hay diferencia en la caja: escribe una observación.');
+      }
+      await _cajas.doc(caja.id).update({
+        'estado': CajaEstado.cerrada,
+        'fechaCierre': FieldValue.serverTimestamp(),
+        'montoEsperado': resumen.esperado,
+        'diferencia': diferencia,
+        'observacionCierre': obs,
+        'totalEfectivo': resumen.cobrosEfectivo,
+        'totalTransferencia': resumen.cobrosTransferencia,
+        'totalQr': resumen.cobrosQr,
+        'totalIngresos': resumen.ingresos,
+        'totalEgresos': resumen.egresos,
+      });
+      return CajaModel.fromSnapshot(await _cajas.doc(caja.id).get());
     });
-    return CajaModel.fromSnapshot(await _cajas.doc(caja.id).get());
   }
 
   /// Resumen calculado para mostrar en pantalla cuando la caja ya fue

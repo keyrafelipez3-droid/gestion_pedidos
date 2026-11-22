@@ -84,6 +84,7 @@ class PedidoService {
   /// primer renglón de historialEstados, y al final vacía el carrito de
   /// ese negocio. Devuelve el id del pedido creado.
   Future<String> confirmarPedido({
+    String? idPedido,
     required String idCliente,
     required String idNegocio,
     required String idSucursal,
@@ -102,6 +103,12 @@ class PedidoService {
     String? facturaRazonSocial,
     String? zonaEntrega,
   }) async {
+    // Si este mismo envío ya se hizo (doble toque o reintento), no se crea
+    // otro pedido: se devuelve el que ya existe.
+    final pedidoDoc = idPedido == null ? _pedidos.doc() : _pedidos.doc(idPedido);
+    if (idPedido != null && await _yaCreado(pedidoDoc, 'idCliente', idCliente)) {
+      return pedidoDoc.id;
+    }
     if (itemsCarrito.isEmpty) {
       throw Exception(tr('El carrito está vacío, no se puede confirmar el pedido.'));
     }
@@ -143,7 +150,6 @@ class PedidoService {
 
     await _registrarClienteEnNegocio(idNegocio: idNegocio, idCliente: idCliente);
 
-    final pedidoDoc = _pedidos.doc();
     final numeroMesa = await _numeroDeMesa(idSucursal, idMesa);
 
     // Solo en delivery: nombre y teléfono para que el repartidor pueda
@@ -189,7 +195,9 @@ class PedidoService {
     // en UN lote: las reglas comprueban los precios y la suma, y no puede
     // quedar un pedido sin productos. El historial va después porque su
     // regla lee el pedido.
-    await _crearConControl(pedidoDoc, pedido);
+    if (!await _crearUnaVez(pedidoDoc, pedido, 'idCliente', idCliente)) {
+      return pedidoDoc.id;
+    }
 
     final historial = HistorialEstadoModel(
       id: '',
@@ -269,6 +277,45 @@ class PedidoService {
           {'productos': cambiaron.join(', ')}));
     }
     return lineas;
+  }
+
+  /// Id nuevo para un pedido, para que la pantalla lo guarde y lo reuse si
+  /// el envío se repite.
+  String nuevoIdPedido() => _pedidos.doc().id;
+
+  /// true si el pedido ya existe y es de quien lo está enviando.
+  Future<bool> _yaCreado(
+    DocumentReference<Map<String, dynamic>> pedidoDoc,
+    String campo,
+    String uid,
+  ) async {
+    try {
+      final snap = await pedidoDoc.get();
+      return snap.exists && snap.data()?[campo] == uid;
+    } catch (_) {
+      // Si no existe, las reglas no dejan leerlo: se toma como nuevo.
+      return false;
+    }
+  }
+
+  /// Crea el pedido. Si el lote se rechaza porque OTRO envío con el mismo id
+  /// ya lo creó (dos toques casi al mismo tiempo), devuelve false en vez de
+  /// mostrar un error: el pedido ya está hecho una sola vez.
+  Future<bool> _crearUnaVez(
+    DocumentReference<Map<String, dynamic>> pedidoDoc,
+    PedidoModel pedido,
+    String campo,
+    String uid,
+  ) async {
+    try {
+      await _crearConControl(pedidoDoc, pedido);
+      return true;
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied' && await _yaCreado(pedidoDoc, campo, uid)) {
+        return false;
+      }
+      rethrow;
+    }
   }
 
   /// Escribe el pedido y `pedidos/{id}/control/total` en un solo lote. El
@@ -374,6 +421,7 @@ class PedidoService {
   /// cuenta abierta de la mesa hasta que se cierre. El cobro se define al
   /// cerrar la mesa, por eso el método queda "Por definir".
   Future<String> registrarPedidoMesa({
+    String? idPedido,
     required String idCajero,
     required String idNegocio,
     required String idSucursal,
@@ -386,9 +434,12 @@ class PedidoService {
       throw Exception('Agrega al menos un producto al pedido.');
     }
 
+    final pedidoDoc = idPedido == null ? _pedidos.doc() : _pedidos.doc(idPedido);
+    if (idPedido != null && await _yaCreado(pedidoDoc, 'creadoPor', idCajero)) {
+      return pedidoDoc.id;
+    }
     final lineas = await _lineasConPrecioActual(idNegocio, items);
     final total = _sumaLineas(lineas);
-    final pedidoDoc = _pedidos.doc();
 
     final pedido = PedidoModel(
       id: pedidoDoc.id,
@@ -412,7 +463,9 @@ class PedidoService {
 
     // Igual que confirmarPedido: el pedido con sus líneas y su control en
     // un lote, y después el historial.
-    await _crearConControl(pedidoDoc, pedido);
+    if (!await _crearUnaVez(pedidoDoc, pedido, 'creadoPor', idCajero)) {
+      return pedidoDoc.id;
+    }
 
     final historial = HistorialEstadoModel(
       id: '',
