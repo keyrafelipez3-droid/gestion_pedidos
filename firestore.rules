@@ -664,6 +664,64 @@ service cloud.firestore {
         allow delete: if isSuperAdmin()
           || (signedIn() && resource.data.idCliente == request.auth.uid);
       }
+
+      // Libro de reclamos del restaurante. El cliente presenta su reclamo
+      // (solo en un restaurante al que entro, y si nombra un pedido, tiene
+      // que ser suyo y de este negocio) y lo puede seguir. El Administrador
+      // del negocio lo atiende: lo pasa a "En revision" o lo resuelve con
+      // una respuesta. Nadie lo borra (salvo el SuperAdmin). Si el cliente
+      // elimina su cuenta, solo puede quitar su nombre del reclamo.
+      match /reclamos/{reclamoId} {
+        function pedidoDelCliente(id) {
+          let pedido = get(/databases/$(database)/documents/pedidos/$(id)).data;
+          return pedido.idCliente == request.auth.uid
+            && pedido.get('idNegocio', null) == documentId;
+        }
+
+        allow read: if isSuperAdmin()
+          || (isAdmin() && idNegocioActual() == documentId)
+          || (signedIn() && resource.data.idCliente == request.auth.uid);
+
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(
+               ['idNegocio', 'idCliente', 'nombreCliente', 'idPedido',
+                'motivo', 'descripcion', 'estado', 'fecha'])
+          && request.resource.data.idCliente == request.auth.uid
+          && request.resource.data.idNegocio == documentId
+          && request.resource.data.estado == 'Abierto'
+          && request.resource.data.fecha == request.time
+          && request.resource.data.motivo in ['Pedido incompleto', 'Producto en mal estado',
+               'Demora en la entrega', 'Cobro incorrecto', 'Mala atencion', 'Otro']
+          && request.resource.data.descripcion is string
+          && request.resource.data.descripcion.size() >= 10
+          && request.resource.data.descripcion.size() <= 1000
+          && request.resource.data.nombreCliente is string
+          && request.resource.data.nombreCliente.size() <= 60
+          && request.resource.data.idPedido is string
+          && request.resource.data.idPedido.size() <= 40
+          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)/misNegocios/$(documentId))
+          && (request.resource.data.idPedido == ''
+              || pedidoDelCliente(request.resource.data.idPedido));
+
+        allow update: if isSuperAdmin()
+          || (isAdmin()
+              && idNegocioActual() == documentId
+              && cambios().hasOnly(['estado', 'respuesta', 'fechaRespuesta', 'idRespondio'])
+              && request.resource.data.estado in ['En revision', 'Resuelto']
+              && request.resource.data.get('respuesta', '') is string
+              && request.resource.data.get('respuesta', '').size() <= 1000
+              && (request.resource.data.estado != 'Resuelto'
+                  || request.resource.data.get('respuesta', '').size() >= 5)
+              && (!('fechaRespuesta' in cambios()) || request.resource.data.fechaRespuesta == request.time)
+              && (!('idRespondio' in cambios()) || request.resource.data.idRespondio == request.auth.uid))
+          || (signedIn()
+              && resource.data.idCliente == request.auth.uid
+              && cambios().hasOnly(['idCliente', 'nombreCliente'])
+              && request.resource.data.idCliente == 'cuenta-eliminada'
+              && request.resource.data.nombreCliente == '');
+
+        allow delete: if isSuperAdmin();
+      }
     }
 
     // ------------------------------------------------------------ pedidos

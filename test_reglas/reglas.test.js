@@ -1098,3 +1098,70 @@ describe('Datos personales del pedido (privado/contacto)', () => {
     await assertSucceeds(lote.commit());
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('Libro de reclamos', () => {
+  const reclamo = (cambios = {}) => ({
+    idNegocio: 'n1', idCliente: 'cli1', nombreCliente: 'Ana', idPedido: '',
+    motivo: 'Demora en la entrega', descripcion: 'Mi pedido llegó una hora tarde.',
+    estado: 'Abierto', fecha: serverTimestamp(), ...cambios,
+  });
+
+  test('el cliente presenta un reclamo, suelto o de su propio pedido', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedR', pedidoCliente('cli1')));
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r2'), reclamo({ idPedido: 'pedR' })));
+  });
+
+  test('no se puede reclamar por el pedido de otro ni a nombre de otro', async () => {
+    await assertSucceeds(crearPedido(como('cli2'), 'pedL', pedidoCliente('cli2')));
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo({ idPedido: 'pedL' })));
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r2'), reclamo({ idCliente: 'cli2' })));
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n2/reclamos', 'r3'), reclamo({ idNegocio: 'n2' })));
+  });
+
+  test('el reclamo nace abierto, con un motivo de la lista y sin respuesta', async () => {
+    const db = como('cli1');
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r1'), reclamo({ estado: 'Resuelto' })));
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r2'), reclamo({ motivo: 'Cualquier cosa' })));
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r3'), reclamo({ descripcion: 'mal' })));
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r4'), reclamo({ respuesta: 'listo' })));
+  });
+
+  test('cada cliente ve solo sus reclamos; el Administrador ve los de su negocio', async () => {
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1')));
+    await assertFails(getDoc(doc(como('cli2'), 'negocios/n1/reclamos', 'r1')));
+    await assertSucceeds(getDocs(query(collection(como('cli1'), 'negocios/n1/reclamos'), where('idCliente', '==', 'cli1'))));
+    await assertFails(getDocs(collection(como('cli1'), 'negocios/n1/reclamos')));
+    await assertSucceeds(getDocs(collection(como('admin1'), 'negocios/n1/reclamos')));
+    await assertFails(getDoc(doc(como('cocina1'), 'negocios/n1/reclamos', 'r1')));
+  });
+
+  test('solo el Administrador responde, y para resolverlo escribe una respuesta', async () => {
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    const ref = (uid) => doc(como(uid), 'negocios/n1/reclamos', 'r1');
+    await assertFails(updateDoc(ref('cli1'), { estado: 'Resuelto', respuesta: 'ya está' }));
+    await assertSucceeds(updateDoc(ref('admin1'), { estado: 'En revision' }));
+    await assertFails(updateDoc(ref('admin1'), { estado: 'Resuelto' }));
+    await assertFails(updateDoc(ref('admin1'), { descripcion: 'otra cosa distinta' }));
+    await assertSucceeds(updateDoc(ref('admin1'), {
+      estado: 'Resuelto', respuesta: 'Te devolvemos el envío.', fechaRespuesta: serverTimestamp(), idRespondio: 'admin1',
+    }));
+    await assertFails(deleteDoc(ref('admin1')));
+  });
+
+  test('al eliminar su cuenta, el cliente quita su nombre de sus reclamos', async () => {
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'),
+      { idCliente: 'cuenta-eliminada', nombreCliente: '' }));
+  });
+});
+
+describe('Un pedido enviado dos veces no se duplica', () => {
+  test('el segundo envío con el mismo id se rechaza y el pedido sigue siendo uno', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedD', pedidoCliente('cli1')));
+    await assertFails(crearPedido(como('cli1'), 'pedD', pedidoCliente('cli1')));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'pedidos', 'pedD')));
+  });
+});

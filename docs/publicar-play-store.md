@@ -53,4 +53,4 @@ Sube el número de versión en `pubspec.yaml` (`version: 1.0.0+1` → `1.0.1+2`)
 
 Revisa esta tabla con el abogado antes de enviarla (ver `revision-abogado.md`).
 
-Política de privacidad: Play pide una URL pública. Publica el texto de `lib/legal/textos_legales.dart` en una página de la web (igual que `eliminar-cuenta.html`) antes de enviar la app.
+Política de privacidad: Play pide una URL pública. Ya está publicada en https://gestion-pedidos-univalle.web.app/privacidad (abre la misma política de la app, sin iniciar sesión; los términos están en /terminos). Úsala en la ficha de Play después de desplegar la web.

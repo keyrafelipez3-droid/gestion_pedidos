@@ -241,6 +241,16 @@ class PedidoModel {
       programadoPara != null &&
       programadoPara!.isAfter(DateTime.now().add(const Duration(minutes: 45)));
 
+  /// Pedido sin terminar que quedó olvidado: pasó más de un día desde que
+  /// se hizo (o desde la hora para la que se programó). Solo se usa en el
+  /// dashboard para avisar al Administrador y dejarlo cerrar.
+  bool get abandonado {
+    if (estado == PedidoEstado.entregado || estado == PedidoEstado.cancelado) return false;
+    final desde = programadoPara ?? fechaCreacion;
+    if (desde == null || esParaMasTarde) return false;
+    return DateTime.now().difference(desde) > const Duration(hours: 24);
+  }
+
   bool get esDelivery => modalidad == PedidoModalidad.delivery;
 
   /// El pedido está en la etapa de reparto (ya lo tomó un repartidor).

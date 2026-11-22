@@ -347,6 +347,32 @@ class AuthService {
         }
       }
 
+      // 2b) Reclamos: se conservan para el negocio (libro de reclamos), pero
+      // sin el nombre ni el identificador del cliente. Se buscan en los
+      // negocios donde pidió y en los que tiene guardados.
+      try {
+        final guardados =
+            await _db.collection('usuarios').doc(uid).collection('misNegocios').get();
+        negocios.addAll(guardados.docs.map((d) => d.id));
+      } catch (_) {
+        // Sin negocios guardados, se usan solo los de sus pedidos.
+      }
+      for (final idNegocio in negocios) {
+        try {
+          final reclamos = await _db
+              .collection('negocios')
+              .doc(idNegocio)
+              .collection('reclamos')
+              .where('idCliente', isEqualTo: uid)
+              .get();
+          for (final r in reclamos.docs) {
+            await r.reference.update({'idCliente': 'cuenta-eliminada', 'nombreCliente': ''});
+          }
+        } catch (_) {
+          // Si no se puede leer o actualizar un reclamo, se sigue con el resto.
+        }
+      }
+
       // 3) Datos propios de la cuenta.
       try {
         await _db.collection('solicitudesNegocio').doc(uid).delete();
