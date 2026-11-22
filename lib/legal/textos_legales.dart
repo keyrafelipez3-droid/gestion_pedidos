@@ -609,9 +609,9 @@ class TextosLegales {
             'someterá a las autoridades competentes de ${p.nombre}.',
       ]),
       SeccionLegal('ACEPTACIÓN Y FIRMA ELECTRÓNICA',
-          enSimple: 'Firmas con tu nombre y documento; queda registrado con fecha y hora.', [
+          enSimple: 'Firmas con tu nombre, tu documento y tu firma dibujada; queda registrado con fecha y hora.', [
         'LA PERSONA FIRMANTE acepta el presente acuerdo al escribir su nombre completo y su '
-            '${p.docIdentidad} y pulsar "Firmar y continuar". La aceptación queda registrada con '
+            '${p.docIdentidad}, dibujar su firma en la pantalla y pulsar "Firmar y continuar". La aceptación queda registrada con '
             'la fecha y hora del servidor y la versión ${versionAcuerdo(negocio)}, y es válida '
             'conforme a ${p.leyFirma}. EL RESTAURANTE puede pedir además una firma en papel.',
         'LA PERSONA FIRMANTE puede descargar una copia del acuerdo firmado en "Mi cuenta". Si '

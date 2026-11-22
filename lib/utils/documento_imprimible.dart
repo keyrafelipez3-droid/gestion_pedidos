@@ -6,7 +6,13 @@ class FirmaDocumento {
   final String detalle; // por ejemplo "Firmado por Ana Pérez (CI 1234567)"
   final String fecha;
   final String version;
-  const FirmaDocumento({required this.detalle, required this.fecha, required this.version});
+  final String trazos; // firma dibujada (ver FirmaTrazos); vacío si no hay
+  const FirmaDocumento({
+    required this.detalle,
+    required this.fecha,
+    required this.version,
+    this.trazos = '',
+  });
 }
 
 /// Página lista para imprimir o "Guardar como PDF" desde el navegador.
@@ -40,7 +46,13 @@ String htmlDocumentoLegal({
     }
   }
   if (firma != null) {
-    cuerpo.write('<div class="firma"><b>${esc(firma.detalle)}</b><br>'
+    cuerpo.write('<div class="firma">');
+    if (firma.trazos.isNotEmpty) {
+      cuerpo.write('<svg viewBox="0 0 300 120" width="240" height="96"><path d="${esc(firma.trazos)}" '
+          'fill="none" stroke="#1c1915" stroke-width="2.5" stroke-linecap="round" '
+          'stroke-linejoin="round"/></svg><br>');
+    }
+    cuerpo.write('<b>${esc(firma.detalle)}</b><br>'
         'Fecha: ${esc(firma.fecha)} · Versión: ${esc(firma.version)}<br>'
         'Aceptación electrónica registrada en la plataforma (Ley 164).</div>');
   }
