@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../l10n/idioma.dart';
 import '../models/cupon_model.dart';
@@ -49,6 +50,13 @@ class CuponService {
     if (subtotal < cupon.minimo) {
       throw CuponException(tr('Este cupón es para compras desde {minimo}.',
           {'minimo': dinero(cupon.minimo)}));
+    }
+    // Cada cliente puede usar un cupón una sola vez (las reglas de
+    // Firestore también lo exigen).
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final uso = await _col(idNegocio).doc(limpio).collection('usos').doc(uid).get();
+      if (uso.exists) throw CuponException(tr('Ya usaste este cupón.'));
     }
     return cupon;
   }

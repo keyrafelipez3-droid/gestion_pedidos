@@ -351,15 +351,6 @@ async function crearPedido(w, ctx, { fecha, estado, modalidad, mesa, cobrado, id
     idSucursal: idSucursal ?? ctx.idSucursal,
     modalidad,
     idMesa: mesa?.id ?? null,
-    direccionEntrega: dir
-      ? {
-          etiqueta: dir[0],
-          direccion: dir[1],
-          referencia: dir[2],
-          latitud: -17.3935 + (azar() - 0.5) * 0.04,
-          longitud: -66.157 + (azar() - 0.5) * 0.04,
-        }
-      : null,
     metodoPago,
     comprobantePagoUrl: null,
     estado,
@@ -373,7 +364,6 @@ async function crearPedido(w, ctx, { fecha, estado, modalidad, mesa, cobrado, id
     cobrado,
     idCaja: idCaja ?? null,
     nombreCliente: cliente.nombre,
-    telefonoCliente: cliente.telefono,
     alergias: azar() < 0.06 ? ['mani'] : [],
     idiomaCliente: 'es',
     descuento,
@@ -402,6 +392,20 @@ async function crearPedido(w, ctx, { fecha, estado, modalidad, mesa, cobrado, id
     }
   }
   await w.set(ref, pedido);
+  // Dirección y teléfono van aparte, en privado/contacto (como en la app):
+  // la Cocina no los ve.
+  if (delivery) {
+    await w.set(ref.collection('privado').doc('contacto'), {
+      direccionEntrega: {
+        etiqueta: dir[0],
+        direccion: dir[1],
+        referencia: dir[2],
+        latitud: -17.3935 + (azar() - 0.5) * 0.04,
+        longitud: -66.157 + (azar() - 0.5) * 0.04,
+      },
+      telefonoCliente: cliente.telefono,
+    });
+  }
   // Igual que la app: junto al pedido va su control/total (lo revisan las reglas).
   await w.set(ref.collection('control').doc('total'), {
     ids: pedido.lineasIds,
