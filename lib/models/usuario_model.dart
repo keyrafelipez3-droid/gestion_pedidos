@@ -193,8 +193,15 @@ class AcuerdoFirmado {
   final DateTime? fecha;
   final String nombre;
   final String ci;
+  final String firma; // trazos de la firma dibujada (ver FirmaTrazos)
 
-  const AcuerdoFirmado({required this.version, this.fecha, required this.nombre, required this.ci});
+  const AcuerdoFirmado({
+    required this.version,
+    this.fecha,
+    required this.nombre,
+    required this.ci,
+    this.firma = '',
+  });
 
   static AcuerdoFirmado? desde(Object? valor) {
     if (valor is! Map) return null;
@@ -206,6 +213,7 @@ class AcuerdoFirmado {
       fecha: f is Timestamp ? f.toDate() : null,
       nombre: valor['nombre'] as String? ?? '',
       ci: valor['ci'] as String? ?? '',
+      firma: valor['firma'] as String? ?? '',
     );
   }
 }

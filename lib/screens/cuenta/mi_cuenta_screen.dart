@@ -21,6 +21,7 @@ import '../../widgets/app_status_badge.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/etiqueta_version.dart';
+import '../../widgets/firma_dibujada.dart';
 import '../../widgets/selector_imagen.dart';
 import '../cliente/condiciones_restaurante_screen.dart';
 import '../legal/legal_screen.dart';
@@ -318,6 +319,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
           detalle: 'Firmado por ${acuerdo.nombre} (CI ${acuerdo.ci})',
           fecha: acuerdo.fecha == null ? '' : formatoFechaHora(acuerdo.fecha!),
           version: acuerdo.version,
+          trazos: acuerdo.firma,
         ),
       );
       if (!ok && mounted) {
@@ -697,10 +699,17 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                             contentPadding: EdgeInsets.zero,
                             leading: const Icon(Icons.draw_outlined),
                             title: const Text('Acuerdo del personal'),
-                            subtitle: Text(
-                              'Firmado por ${usuario.acuerdo!.nombre} (CI ${usuario.acuerdo!.ci})'
-                              '${usuario.acuerdo!.fecha == null ? '' : ' el ${formatoFechaHora(usuario.acuerdo!.fecha!)}'}'
-                              ' · versión ${usuario.acuerdo!.version}',
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Firmado por ${usuario.acuerdo!.nombre} (CI ${usuario.acuerdo!.ci})'
+                                  '${usuario.acuerdo!.fecha == null ? '' : ' el ${formatoFechaHora(usuario.acuerdo!.fecha!)}'}'
+                                  ' · versión ${usuario.acuerdo!.version}',
+                                ),
+                                if (usuario.acuerdo!.firma.isNotEmpty)
+                                  VistaFirma(texto: usuario.acuerdo!.firma, ancho: 150),
+                              ],
                             ),
                             trailing: IconButton(
                               tooltip: tr('Descargar mi acuerdo firmado (PDF)'),
