@@ -69,7 +69,22 @@ void main() {
     expect(texto, contains('Centro'));
     expect(texto, contains('Usar gorro en cocina'));
     expect(texto, contains('alergia'));
-    expect(texto, isNot(contains('Abre y cierra tu caja')));
+    expect(texto, isNot(contains('OBLIGACIONES EN CAJA')));
+  });
+
+  test('el acuerdo del personal tiene formato formal con cláusulas', () {
+    const cajera = UsuarioModel(
+      idUsuario: 'u2', nombre: 'Ana Rojas', email: 'a@x.bo', telefono: '', rol: Rol.cajero);
+    final s = TextosLegales.acuerdoPersonal(negocio: pollos, usuario: cajera);
+    expect(s.first.titulo, 'PRIMERA.- (PARTES)');
+    expect(s[1].titulo, 'SEGUNDA.- (DEFINICIONES)');
+    final texto = _todo(s);
+    expect(texto, contains('"EL RESTAURANTE"'));
+    expect(texto, contains('"LA PERSONA FIRMANTE"'));
+    expect(texto, contains('OBLIGACIONES EN CAJA'));
+    for (final c in s) {
+      expect(c.enSimple, isNotNull, reason: c.titulo);
+    }
   });
 
   test('si el restaurante cambia sus reglas, cambia la versión que se firma', () {
