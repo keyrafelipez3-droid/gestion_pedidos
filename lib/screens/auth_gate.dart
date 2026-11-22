@@ -18,12 +18,22 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: AuthService.instancia.cambiosDeSesion,
       builder: (context, snapshot) {
+        final Widget pantalla;
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const PantallaCarga();
+          pantalla = const KeyedSubtree(key: ValueKey('carga'), child: PantallaCarga());
+        } else if (snapshot.data != null) {
+          pantalla = const KeyedSubtree(key: ValueKey('inicio'), child: HomeScreen());
+        } else {
+          pantalla = const KeyedSubtree(key: ValueKey('login'), child: LoginScreen());
         }
 
-        final haySesion = snapshot.data != null;
-        return haySesion ? const HomeScreen() : const LoginScreen();
+        // Cambio suave (desvanecido) al iniciar o cerrar sesión.
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: pantalla,
+        );
       },
     );
   }

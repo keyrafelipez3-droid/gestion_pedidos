@@ -30,6 +30,7 @@ import 'negocio_screen.dart';
 import 'sucursales_screen.dart';
 import 'ventas_screen.dart';
 import '../../widgets/app_cargando.dart';
+import '../../widgets/app_contenido_centrado.dart';
 
 /// Identifica qué sección del panel está activa (un valor por ítem del
 /// sidebar, para que el resaltado refleje lo que la persona tocó).
@@ -464,39 +465,42 @@ class _ContenidoDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Panel de administración',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          usuario.esSuperAdmin
-              ? _BannerBienvenida(
-                  nombre: usuario.nombre,
-                  bannerUrl: '',
-                  subtitulo: 'Supervisa todos los negocios de la plataforma.',
-                )
-              : ValueListenableBuilder<NegocioModel?>(
-                  valueListenable: AppThemeController.instancia.negocio,
-                  builder: (context, negocio, _) => _BannerBienvenida(
+      child: AppContenidoCentrado(
+        maxWidth: 1200,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Panel de administración',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            usuario.esSuperAdmin
+                ? _BannerBienvenida(
                     nombre: usuario.nombre,
-                    bannerUrl: negocio?.bannerUrl ?? '',
-                    subtitulo: 'Gestiona todo tu negocio desde un solo lugar.',
+                    bannerUrl: '',
+                    subtitulo: 'Supervisa todos los negocios de la plataforma.',
+                  )
+                : ValueListenableBuilder<NegocioModel?>(
+                    valueListenable: AppThemeController.instancia.negocio,
+                    builder: (context, negocio, _) => _BannerBienvenida(
+                      nombre: usuario.nombre,
+                      bannerUrl: negocio?.bannerUrl ?? '',
+                      subtitulo: 'Gestiona todo tu negocio desde un solo lugar.',
+                    ),
                   ),
-                ),
-          const SizedBox(height: AppSpacing.lg),
-          if (usuario.esSuperAdmin)
-            const DashboardPlataforma()
-          else ...[
-            DashboardNegocio(idNegocio: usuario.idNegocio!),
             const SizedBox(height: AppSpacing.lg),
-            Text('Tu negocio', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.md),
-            _FilaEstadisticas(idNegocio: usuario.idNegocio!),
+            if (usuario.esSuperAdmin)
+              const DashboardPlataforma()
+            else ...[
+              DashboardNegocio(idNegocio: usuario.idNegocio!),
+              const SizedBox(height: AppSpacing.lg),
+              Text('Tu negocio', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.md),
+              _FilaEstadisticas(idNegocio: usuario.idNegocio!),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

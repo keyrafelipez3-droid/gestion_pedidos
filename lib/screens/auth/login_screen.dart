@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/codigo_negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_pantalla_foto.dart';
+import '../../widgets/aparecer_suave.dart';
 import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/etiqueta_version.dart';
 import '../../widgets/logo_caro.dart';
@@ -89,16 +90,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final ancho = MediaQuery.sizeOf(context).width;
     final esAmplio = AppBreakpoints.isExpanded(ancho);
 
-    final formulario = _Formulario(
-      formKey: _formKey,
-      emailCtrl: _emailCtrl,
-      passwordCtrl: _passwordCtrl,
-      verPassword: _verPassword,
-      cargando: _cargando,
-      onTogglePassword: () => setState(() => _verPassword = !_verPassword),
-      onSubmit: _iniciarSesion,
-      onOlvide: _olvidePassword,
-      mostrarEncabezado: !esAmplio,
+    final formulario = AparecerSuave(
+      retraso: const Duration(milliseconds: 150),
+      child: _Formulario(
+        formKey: _formKey,
+        emailCtrl: _emailCtrl,
+        passwordCtrl: _passwordCtrl,
+        verPassword: _verPassword,
+        cargando: _cargando,
+        onTogglePassword: () => setState(() => _verPassword = !_verPassword),
+        onSubmit: _iniciarSesion,
+        onOlvide: _olvidePassword,
+        mostrarEncabezado: !esAmplio,
+      ),
     );
 
     if (esAmplio) {
@@ -208,7 +212,12 @@ class _PanelMarca extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.max,
               children: [
-                const LogoCaro(size: 168),
+                const AparecerSuave(
+                  escalaInicial: 0.6,
+                  desplazamiento: 0,
+                  duracion: Duration(milliseconds: 800),
+                  child: LogoCaro(size: 168),
+                ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
                   AppBrand.nombre,
@@ -286,7 +295,14 @@ class _Formulario extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (mostrarEncabezado) ...[
-            const Center(child: LogoCaro(size: 104)),
+            const Center(
+              child: AparecerSuave(
+                escalaInicial: 0.6,
+                desplazamiento: 0,
+                duracion: Duration(milliseconds: 800),
+                child: LogoCaro(size: 104),
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
             Text(
               '${AppBrand.nombre} · ${tr(AppBrand.eslogan)}',
