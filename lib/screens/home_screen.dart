@@ -75,9 +75,16 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const MiCuentaScreen()),
     );
-    // Si el usuario cambió su nombre en "Mi cuenta", refresca esta pantalla
-    // para mostrarlo actualizado.
-    _reintentar();
+    // Si el usuario cambió su nombre en "Mi cuenta", se vuelve a leer su
+    // documento (antes se mostraba el que ya estaba en memoria) y después
+    // se refresca la pantalla.
+    try {
+      await SesionActual.instancia.cargar();
+    } catch (_) {
+      // Sin conexión: se queda con los datos que ya tenía.
+    }
+    if (!mounted) return;
+    setState(() => _usuarioFuture = Future.value(SesionActual.instancia.actual));
   }
 
   @override

@@ -114,7 +114,7 @@ class _CondicionesNegocioScreenState extends State<CondicionesNegocioScreen> {
       tr('¿Guardar las condiciones?'),
       tr('Tus clientes tendrán que leerlas y aceptarlas de nuevo antes de su próximo pedido.'),
     );
-    if (!ok) return;
+    if (!ok || !mounted) return;
     setState(() => _guardando = true);
     try {
       await CondicionesService.instancia.guardarCondiciones(id, _leer());
@@ -135,7 +135,7 @@ class _CondicionesNegocioScreenState extends State<CondicionesNegocioScreen> {
       tr('¿Guardar las reglas del personal?'),
       tr('Todo tu personal (también tú) tendrá que firmar de nuevo su acuerdo al entrar a la app.'),
     );
-    if (!ok) return;
+    if (!ok || !mounted) return;
     setState(() => _guardando = true);
     try {
       await CondicionesService.instancia.guardarReglas(id, [for (final r in _reglas) r.text]);

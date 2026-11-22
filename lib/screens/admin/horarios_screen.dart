@@ -40,7 +40,7 @@ class _HorariosScreenState extends State<HorariosScreen> {
         minute: int.tryParse(partes.last) ?? 0,
       ),
     );
-    if (time == null) return;
+    if (time == null || !mounted) return;
     final value = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     setState(() {
       _horarios[dia] = apertura
