@@ -2,4 +2,6 @@
 <resources>
     <!-- Negro de la marca Nami (fondo del ícono y de la pantalla de inicio). -->
     <color name="caro_negro">#FF070605</color>
+    <!-- Verde menta del ícono de Nami (fondo del ícono adaptativo). -->
+    <color name="nami_menta">#FFE6F7EF</color>
 </resources>
