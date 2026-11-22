@@ -361,6 +361,10 @@ service cloud.firestore {
             && cambios().hasOnly(['nombre', 'telefono', 'fotoPerfil', 'notificacionesActivas', 'alergias',
                                   'acuerdoPersonal', 'terminosVersion', 'terminosAceptadosEn'])
             && alergiasValidas(request.resource.data.get('alergias', []))
+            && (!cambios().hasAny(['nombre'])
+                || (request.resource.data.nombre is string && request.resource.data.nombre.size() <= 80))
+            && (!cambios().hasAny(['telefono'])
+                || (request.resource.data.telefono is string && request.resource.data.telefono.size() <= 20))
             && (!cambios().hasAny(['acuerdoPersonal']) || acuerdoValido(request.resource.data.acuerdoPersonal))
             && (!cambios().hasAny(['terminosVersion', 'terminosAceptadosEn'])
                 || (request.resource.data.terminosVersion is string
@@ -563,7 +567,9 @@ service cloud.firestore {
         match /usos/{uidCliente} {
           allow read: if isSuperAdmin()
             || (isAdmin() && idNegocioActual() == documentId)
-            || (signedIn() && request.auth.uid == uidCliente);
+            || (signedIn() && request.auth.uid == uidCliente)
+            // Quien cancela pedidos lo consulta para devolver el cupon.
+            || (puedeCancelar() && idNegocioActual() == documentId);
           allow create: if signedIn()
             && request.auth.uid == uidCliente
             && request.resource.data.keys().hasOnly(['idPedido', 'fecha'])
@@ -573,7 +579,14 @@ service cloud.firestore {
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.get('codigoCupon', '') == codigo
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.idNegocio == documentId
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.fechaCreacion == request.time;
-          allow update, delete: if isSuperAdmin();
+          allow update: if isSuperAdmin();
+          // Si el negocio cancela el pedido que uso el cupon, en la misma
+          // operacion se borra el uso y el cliente puede volver a usarlo.
+          allow delete: if isSuperAdmin()
+            || (puedeCancelar()
+                && idNegocioActual() == documentId
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.estado == 'Cancelado'
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.idCliente == uidCliente);
         }
       }
 
@@ -762,6 +775,13 @@ service cloud.firestore {
           && lineasValidas(request.resource.data, pedidoId)
           && request.resource.data.get('notas', '') is string
           && request.resource.data.get('notas', '').size() <= 500
+          // Enlace del comprobante y nombre (delivery): de tamano normal.
+          && (request.resource.data.get('comprobantePagoUrl', null) == null
+              || (request.resource.data.comprobantePagoUrl is string
+                  && request.resource.data.comprobantePagoUrl.size() <= 500))
+          && (request.resource.data.get('nombreCliente', null) == null
+              || (request.resource.data.nombreCliente is string
+                  && request.resource.data.nombreCliente.size() <= 80))
           && request.resource.data.idNegocio is string
           && request.resource.data.fechaCreacion == request.time
           && request.resource.data.keys().hasOnly(
@@ -1121,7 +1141,11 @@ service cloud.firestore {
              ['mensaje', 'pila', 'contexto', 'plataforma', 'version', 'idUsuario', 'rol', 'idNegocio', 'fecha'])
         && request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 500
         && request.resource.data.get('pila', '') is string && request.resource.data.get('pila', '').size() <= 3000
-        && request.resource.data.get('contexto', '') is string && request.resource.data.get('contexto', '').size() <= 300;
+        && request.resource.data.get('contexto', '') is string && request.resource.data.get('contexto', '').size() <= 300
+        && request.resource.data.get('plataforma', '') is string && request.resource.data.get('plataforma', '').size() <= 20
+        && request.resource.data.get('version', '') is string && request.resource.data.get('version', '').size() <= 30
+        && request.resource.data.get('rol', '') is string && request.resource.data.get('rol', '').size() <= 30
+        && request.resource.data.get('idNegocio', '') is string && request.resource.data.get('idNegocio', '').size() <= 60;
       allow read, delete: if isSuperAdmin();
       allow update: if false;
     }

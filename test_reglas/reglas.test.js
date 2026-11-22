@@ -1165,3 +1165,47 @@ describe('Un pedido enviado dos veces no se duplica', () => {
     await assertSucceeds(getDoc(doc(como('cli1'), 'pedidos', 'pedD')));
   });
 });
+
+describe('Revisión completa (23 nov)', () => {
+  test('si el negocio cancela el pedido, el cliente recupera su cupón', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedCup',
+      pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 })));
+    const uso = (uid) => doc(como(uid), 'negocios/n1/cupones/CARO10/usos', 'cli1');
+    // Sin cancelar el pedido, nadie borra el uso.
+    await assertFails(deleteDoc(uso('cajero1')));
+    await assertFails(deleteDoc(uso('cli1')));
+    await assertSucceeds(getDoc(uso('cajero1')));
+    const db = como('cajero1');
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'pedCup'), { estado: 'Cancelado' });
+    lote.delete(doc(db, 'negocios/n1/cupones/CARO10/usos', 'cli1'));
+    await assertSucceeds(lote.commit());
+    await assertSucceeds(crearPedido(como('cli1'), 'pedCup2',
+      pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 })));
+  });
+
+  test('el enlace del comprobante y el nombre tienen tamaño normal', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedQr',
+      pedidoCliente('cli1', { metodoPago: 'QR', comprobantePagoUrl: 'https://res.cloudinary.com/x/y.jpg' })));
+    await assertFails(crearPedido(como('cli1'), 'pedQr2',
+      pedidoCliente('cli1', { metodoPago: 'QR', comprobantePagoUrl: 'https://x/' + 'a'.repeat(600) })));
+    await assertFails(crearPedido(como('cli1'), 'pedNom',
+      pedidoCliente('cli1', { nombreCliente: 'x'.repeat(100) })));
+  });
+
+  test('el nombre y el teléfono del perfil no pueden ser enormes', async () => {
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'usuarios', 'cli1'), { nombre: 'Ana Pérez' }));
+    await assertFails(updateDoc(doc(como('cli1'), 'usuarios', 'cli1'), { nombre: 'x'.repeat(100) }));
+    await assertFails(updateDoc(doc(como('cli1'), 'usuarios', 'cli1'), { telefono: '7'.repeat(30) }));
+  });
+
+  test('el registro de errores no acepta campos enormes', async () => {
+    const error = (cambios = {}) => ({
+      mensaje: 'x', pila: '', contexto: '', plataforma: 'android', version: '1.0.0', idUsuario: 'cli1',
+      rol: 'Cliente', idNegocio: '', fecha: serverTimestamp(), ...cambios,
+    });
+    await assertSucceeds(addDoc(collection(como('cli1'), 'erroresApp'), error()));
+    await assertFails(addDoc(collection(como('cli1'), 'erroresApp'), error({ plataforma: 'x'.repeat(100) })));
+    await assertFails(addDoc(collection(como('cli1'), 'erroresApp'), error({ idNegocio: 'x'.repeat(100) })));
+  });
+});
