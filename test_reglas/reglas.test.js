@@ -99,9 +99,15 @@ async function sembrar() {
   });
 }
 
-/** Firestore como lo ve una persona con sesión (correo verificado). */
-function como(uid, { correoVerificado = true } = {}) {
-  return env.authenticatedContext(uid, { email_verified: correoVerificado }).firestore();
+/**
+ * Firestore como lo ve una persona con sesión (correo verificado). Por
+ * defecto entró con el código de su app autenticadora (dos pasos), que las
+ * reglas exigen al Administrador y al SuperAdmin.
+ */
+function como(uid, { correoVerificado = true, dosPasos = true } = {}) {
+  const firebase = { sign_in_provider: 'password', identities: {} };
+  if (dosPasos) firebase.sign_in_second_factor = 'totp';
+  return env.authenticatedContext(uid, { email_verified: correoVerificado, firebase }).firestore();
 }
 
 /**
@@ -1096,5 +1102,23 @@ describe('Datos personales del pedido (privado/contacto)', () => {
     lote.delete(doc(db, 'pedidos/pedC/privado', 'contacto'));
     lote.update(doc(db, 'pedidos', 'pedC'), anonimo);
     await assertSucceeds(lote.commit());
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('Verificación en dos pasos del Administrador y el SuperAdmin', () => {
+  test('sin el código de su app autenticadora, el Administrador no usa sus permisos', async () => {
+    await assertFails(getDoc(doc(como('admin1', { dosPasos: false }), 'negocios/n1/privado', 'acceso')));
+    await assertFails(updateDoc(doc(como('admin1', { dosPasos: false }), 'negocios', 'n1'), { nombre: 'X' }));
+    await assertSucceeds(getDoc(doc(como('admin1'), 'negocios/n1/privado', 'acceso')));
+  });
+
+  test('tampoco el SuperAdmin', async () => {
+    await assertFails(getDocs(collection(como('super1', { dosPasos: false }), 'negocios')));
+    await assertSucceeds(getDocs(collection(como('super1'), 'negocios')));
+  });
+
+  test('sin el código, el Administrador sí puede leer su perfil y firmar su acuerdo', async () => {
+    await assertSucceeds(getDoc(doc(como('admin1', { dosPasos: false }), 'usuarios', 'admin1')));
   });
 });
