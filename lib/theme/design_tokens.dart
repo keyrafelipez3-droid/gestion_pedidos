@@ -21,7 +21,15 @@ class AppBrand {
   AppBrand._();
   static const String nombre = 'Nami';
   static const String eslogan = 'Pedidos de comida';
-  static const String logoAsset = 'assets/images/logo_caro.png';
+  /// Logo de día (plato verde) y de noche (cuchara sobre verde oliva).
+  static const String logoDia = 'assets/images/logo_dia.png';
+  static const String logoNoche = 'assets/images/logo_noche.png';
+
+  /// De 6:00 a 18:59 se usa el logo de día; de 19:00 a 5:59, el de noche.
+  static String get logoAsset {
+    final hora = DateTime.now().hour;
+    return (hora >= 6 && hora < 19) ? logoDia : logoNoche;
+  }
   static const String fuente = 'Poppins';
 
   static const Color negro = Color(0xFF0B0B0B);
