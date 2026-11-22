@@ -870,4 +870,11 @@ const traduccionesEn = <String, String>{
   "Logo de {restaurante}": "{restaurante} logo",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Eat healthy: choose plain water, fruits and vegetables, and limit salt, sugar and fat.',
+  // Pedido: precios y líneas, y aviso de documentos legales
+  '"{producto}" ya no está disponible. Quítalo para continuar.': '"{producto}" is no longer available. Remove it to continue.',
+  'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'The price changed for: {productos}. Check the total and confirm again.',
+  'La cantidad de cada producto debe estar entre 1 y 99.': 'The quantity of each product must be between 1 and 99.',
+  'Por ahora no se pueden pedir productos con extras.': 'Products with extras can\'t be ordered for now.',
+  'Un pedido puede tener hasta {n} productos distintos.': 'An order can have up to {n} different products.',
+  'Este documento está disponible solo en español, que es la versión válida.': 'This document is only available in Spanish, which is the valid version.',
 };

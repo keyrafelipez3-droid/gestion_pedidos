@@ -870,4 +870,11 @@ const traduccionesFr = <String, String>{
   "Logo de {restaurante}": "Logo de {restaurante}",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Mangez sain : privilégiez l’eau, les fruits et les légumes, et limitez le sel, le sucre et les graisses.',
+  // Pedido: precios y líneas, y aviso de documentos legales
+  '"{producto}" ya no está disponible. Quítalo para continuar.': '« {producto} » n\'est plus disponible. Retirez-le pour continuer.',
+  'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'Le prix a changé pour : {productos}. Vérifiez le total et confirmez à nouveau.',
+  'La cantidad de cada producto debe estar entre 1 y 99.': 'La quantité de chaque produit doit être comprise entre 1 et 99.',
+  'Por ahora no se pueden pedir productos con extras.': 'Pour l\'instant, les produits avec suppléments ne peuvent pas être commandés.',
+  'Un pedido puede tener hasta {n} productos distintos.': 'Une commande peut contenir jusqu\'à {n} produits différents.',
+  'Este documento está disponible solo en español, que es la versión válida.': 'Ce document est disponible uniquement en espagnol, qui est la version qui fait foi.',
 };
