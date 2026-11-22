@@ -915,4 +915,6 @@ const traduccionesFr = <String, String>{
   'Otro': 'Autre',
   'En revisión': 'En cours d\'examen',
   'Resuelto': 'Résolu',
+  'Solo quedan {n} de "{producto}". Cambia la cantidad para continuar.': 'Il ne reste que {n} de « {producto} ». Modifiez la quantité pour continuer.',
+  'El enlace del comprobante es muy largo. Sube la imagen en vez de pegar el enlace.': 'Le lien du justificatif est trop long. Envoyez l\'image au lieu de coller le lien.',
 };

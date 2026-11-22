@@ -18,6 +18,10 @@ class CarritoService {
 
   final _db = FirebaseFirestore.instance;
 
+  /// Máximo de unidades de un producto en una línea (lo mismo que aceptan
+  /// las reglas de Firestore al crear el pedido).
+  static const maxCantidad = 99;
+
   CollectionReference<Map<String, dynamic>> _items(String uid) =>
       _db.collection('usuarios').doc(uid).collection('carritoItems');
 
@@ -41,8 +45,9 @@ class CarritoService {
 
     if (iguales.isNotEmpty) {
       final existente = iguales.first;
+      final suma = existente.cantidad + nuevoItem.cantidad;
       await _items(uid).doc(existente.id).update({
-        'cantidad': existente.cantidad + nuevoItem.cantidad,
+        'cantidad': suma > maxCantidad ? maxCantidad : suma,
       });
       return;
     }
@@ -55,7 +60,9 @@ class CarritoService {
     if (nuevaCantidad <= 0) {
       return eliminarItem(uid, itemId);
     }
-    return _items(uid).doc(itemId).update({'cantidad': nuevaCantidad});
+    return _items(uid).doc(itemId).update({
+      'cantidad': nuevaCantidad > maxCantidad ? maxCantidad : nuevaCantidad,
+    });
   }
 
   /// Pone en el carrito el precio de hoy de un producto (si cambió desde

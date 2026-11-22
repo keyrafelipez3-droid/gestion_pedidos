@@ -59,6 +59,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _notasCtrl = TextEditingController();
   bool _confirmando = false;
 
+  /// Productos del carrito. Si al confirmar cambió un precio, el servicio
+  /// lo corrige en el carrito y aquí se vuelve a leer (antes la pantalla
+  /// seguía con el precio viejo y no dejaba confirmar nunca).
+  late List<CarritoItemModel> _items = widget.items;
+
   /// Id del pedido, fijo mientras esta pantalla está abierta. Si el envío se
   /// repite (doble toque, o se reintenta tras un error de conexión cuando
   /// el pedido sí llegó), se usa el mismo id y no se crea un segundo pedido.
@@ -172,7 +177,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } catch (_) {}
   }
 
-  double get _subtotal => CarritoService.instancia.calcularTotal(widget.items);
+  double get _subtotal => CarritoService.instancia.calcularTotal(_items);
   double get _descuento => _cupon?.descuentoPara(_subtotal) ?? 0;
   double get _propinaAplicada => _modalidad == PedidoModalidad.delivery ? _propina : 0;
   bool get _cobraEnvio => _modalidad == PedidoModalidad.delivery && (_sucursal?.cobraEnvio ?? false);
@@ -241,7 +246,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _alergenosProducto = {for (final p in productos) p.id: p.alergenos};
         final porId = {for (final p in productos) p.id: p};
         _agotados = [
-          for (final item in widget.items)
+          for (final item in _items)
             if (porId[item.idProducto] case final p? when p.agotado || !p.disponible || !p.estado)
               item.nombreProducto,
         ];
@@ -253,7 +258,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   /// Productos del carrito que contienen algo a lo que el cliente es alérgico.
   List<({String producto, List<String> conflicto})> get _conflictos => [
-        for (final item in widget.items)
+        for (final item in _items)
           if (Alergenos.enComun(_alergenosProducto[item.idProducto] ?? const [], _alergias)
               case final c when c.isNotEmpty)
             (producto: item.nombreProducto, conflicto: c),
@@ -798,7 +803,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         comprobantePagoUrl: _metodoPago == MetodoPago.efectivo || _comprobanteCtrl.text.trim().isEmpty
             ? null
             : _comprobanteCtrl.text.trim(),
-        itemsCarrito: widget.items,
+        itemsCarrito: _items,
         notas: _notasCtrl.text.trim(),
         alergias: _alergias,
         codigoCupon: _cupon?.codigo,
@@ -820,8 +825,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(textoError(e))),
       );
+      await _releerCarrito();
     } finally {
       if (mounted) setState(() => _confirmando = false);
+    }
+  }
+
+  /// Vuelve a leer el carrito (precios corregidos, productos quitados).
+  Future<void> _releerCarrito() async {
+    try {
+      final frescos =
+          await CarritoService.instancia.streamCarrito(_uid, widget.negocio.idNegocio).first;
+      if (!mounted || frescos.isEmpty) return;
+      setState(() => _items = frescos);
+    } catch (_) {
+      // Sin conexión: se queda con lo que tenía.
     }
   }
 }
