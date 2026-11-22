@@ -885,4 +885,6 @@ const traduccionesFr = <String, String>{
   'Descargar mis datos': 'Télécharger mes données',
   'Tu perfil, direcciones, restaurantes y pedidos en un archivo': 'Votre profil, vos adresses, restaurants et commandes dans un fichier',
   'Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos, tu carrito y tus reseñas. Tus pedidos pasados se conservan sin tu nombre, teléfono, dirección, factura, alergias ni notas, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).': 'Cette action est irréversible.\n\nVotre profil, vos adresses, favoris, panier et avis seront supprimés. Vos commandes passées sont conservées sans votre nom, téléphone, adresse, données de facture, allergies ni notes, car le restaurant en a besoin pour sa comptabilité et les réclamations. Les images que vous avez envoyées ne sont supprimées que si vous le demandez par e-mail (voir la Politique de confidentialité).',
+  'Preparando tu espacio…': 'Préparation de votre espace…',
+  'Cargando': 'Chargement',
 };
