@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   AppConfig._();
 
-  static const String nombrePlataforma = 'Caro';
+  static const String nombrePlataforma = 'Nami';
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.

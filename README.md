@@ -1,4 +1,4 @@
-# Caro · Pedidos de comida
+# Nami · Pedidos de comida
 
 [![CI](https://github.com/keyrafelipez3-droid/gestion_pedidos/actions/workflows/ci.yml/badge.svg)](https://github.com/keyrafelipez3-droid/gestion_pedidos/actions/workflows/ci.yml)
 

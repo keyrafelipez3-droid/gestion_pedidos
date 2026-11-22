@@ -11,7 +11,7 @@ void main() {
   AppThemeController.usarFuentesDeGoogle = false;
   final ctrl = AppThemeController.instancia;
 
-  test('sin negocio se usa la marca Caro: fondo oscuro y dorado', () {
+  test('sin negocio se usa la marca Nami: fondo oscuro y dorado', () {
     final t = ctrl.buildThemeFor(null, Brightness.light);
     expect(t.colorScheme.brightness, Brightness.dark);
     expect(t.scaffoldBackgroundColor, AppBrand.fondoOscuro);

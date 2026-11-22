@@ -14,12 +14,12 @@ class AppSpacing {
   static const double xxl = 48;
 }
 
-/// Identidad de la marca "Caro" (tomada del logo: negro, dorado y rojo).
+/// Identidad de la marca "Nami" (tomada del logo: negro, dorado y rojo).
 /// Es la paleta por defecto de la app; cada negocio la reemplaza con su
 /// propio color de marca (ver AppThemeController).
 class AppBrand {
   AppBrand._();
-  static const String nombre = 'Caro';
+  static const String nombre = 'Nami';
   static const String eslogan = 'Pedidos de comida';
   static const String logoAsset = 'assets/images/logo_caro.png';
   static const String fuente = 'Poppins';
