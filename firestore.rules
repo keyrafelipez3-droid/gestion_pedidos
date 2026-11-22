@@ -43,23 +43,14 @@ service cloud.firestore {
       return datosUsuarioActual().get('idNegocio', null) != null;
     }
 
-    // El Administrador y el SuperAdmin deben haber entrado con el codigo de
-    // su app autenticadora (verificacion en dos pasos, TOTP). Asi, aunque
-    // alguien robe su contrasena, no puede usar sus permisos.
-    function conSegundoPaso() {
-      return request.auth.token.firebase.get('sign_in_second_factor', null) != null;
-    }
-
     function isSuperAdmin() {
       return signedIn()
-        && conSegundoPaso()
         && datosUsuarioActual().rol == 'SuperAdmin'
         && datosUsuarioActual().estado == true;
     }
 
     function isAdmin() {
       return signedIn()
-        && conSegundoPaso()
         && datosUsuarioActual().rol == 'Administrador'
         && datosUsuarioActual().estado == true
         && tieneNegocio();
