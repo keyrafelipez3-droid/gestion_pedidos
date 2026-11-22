@@ -11,6 +11,7 @@
 //   node datos_demo.js LLAVE --listar               ver los restaurantes y su id
 //   node datos_demo.js LLAVE --negocio ID_NEGOCIO   llenar ese restaurante
 //   node datos_demo.js LLAVE --todos                llenar todos los restaurantes
+//   node datos_demo.js LLAVE --mover-fechas --negocio ID   correr las fechas para que el día más nuevo sea hoy
 //   node datos_demo.js LLAVE --refrescar            pedidos de hoy a la hora actual (día de la defensa)
 //   node datos_demo.js LLAVE --cliente CORREO       pedidos de ejemplo para tu cuenta de cliente
 //                                                   (en Febu Garu; otro restaurante: --negocio ID)
@@ -888,6 +889,69 @@ async function refrescar(idNegocio) {
   for (const n of (await db.collection('negocios').get()).docs) await refrescarNegocio(n.id);
 }
 
+const DIA = 24 * 60 * 60000;
+const correr = (t, dias) => ts(new Date(t.toDate().getTime() + dias * DIA));
+
+/**
+ * Corre las fechas de los datos de ejemplo de un restaurante para que el día
+ * más nuevo sea hoy: pedidos y su historial, cajas y sus movimientos,
+ * reseñas, fichas de clientes y vencimiento de cupones. Solo toca lo marcado
+ * como ejemplo. Se usa el día de la defensa, y después se corre --refrescar.
+ */
+async function moverFechas(idNegocio) {
+  const negocioRef = db.collection('negocios').doc(idNegocio);
+  const pedidos = (await db.collection('pedidos').where('idNegocio', '==', idNegocio).where('demoDatos', '==', true).get()).docs;
+  if (pedidos.length === 0) {
+    console.log('Ese restaurante no tiene pedidos de ejemplo.');
+    return;
+  }
+  const ultimo = pedidos.reduce((a, d) => Math.max(a, d.data().fechaCreacion.toMillis()), 0);
+  const dias = Math.round((inicioDia(new Date()) - inicioDia(new Date(ultimo))) / DIA);
+  if (dias <= 0) {
+    console.log('Las fechas ya están al día.');
+    return;
+  }
+  console.log(`Corriendo las fechas ${dias} días hacia adelante...`);
+  const w = new Escritor();
+
+  for (const p of pedidos) {
+    await w.update(p.ref, { fechaCreacion: correr(p.data().fechaCreacion, dias) });
+    for (const h of (await p.ref.collection('historialEstados').get()).docs) {
+      if (h.data().fecha) await w.update(h.ref, { fecha: correr(h.data().fecha, dias) });
+    }
+  }
+
+  const cajas = (await db.collection('cajas').where('idNegocio', '==', idNegocio).where('demoDatos', '==', true).get()).docs;
+  for (const c of cajas) {
+    const cambios = {};
+    for (const campo of ['fechaApertura', 'fechaConteo', 'fechaCierre']) {
+      if (c.data()[campo]) cambios[campo] = correr(c.data()[campo], dias);
+    }
+    if (Object.keys(cambios).length > 0) await w.update(c.ref, cambios);
+    for (const m of (await c.ref.collection('movimientos').get()).docs) {
+      if (m.data().fecha) await w.update(m.ref, { fecha: correr(m.data().fecha, dias) });
+    }
+  }
+
+  for (const r of (await negocioRef.collection('resenas').where('demoDatos', '==', true).get()).docs) {
+    if (r.data().fecha) await w.update(r.ref, { fecha: correr(r.data().fecha, dias) });
+  }
+  for (const c of (await negocioRef.collection('clientes').where('demoDatos', '==', true).get()).docs) {
+    const cambios = {};
+    for (const campo of ['fechaPrimerPedido', 'ultimoPedido']) {
+      if (c.data()[campo]) cambios[campo] = correr(c.data()[campo], dias);
+    }
+    if (Object.keys(cambios).length > 0) await w.update(c.ref, cambios);
+  }
+  for (const cu of (await negocioRef.collection('cupones').where('demoDatos', '==', true).get()).docs) {
+    if (cu.data().vence) await w.update(cu.ref, { vence: correr(cu.data().vence, dias) });
+  }
+
+  await w.cerrar();
+  console.log(`Listo: ${pedidos.length} pedidos y ${cajas.length} cajas corridos ${dias} días (${w.total} escrituras).`);
+  console.log('Ahora corre --refrescar con el mismo --negocio para poner los pedidos de hoy a la hora actual.');
+}
+
 // ----------------------------------------------------------------- cliente
 // Pedidos de ejemplo para TU cuenta de cliente (Mis pedidos, Pedir de
 // nuevo, seguimiento y reseñas).
@@ -1093,6 +1157,8 @@ if (args.includes('--listar')) {
   await listar();
 } else if (args.includes('--borrar')) {
   await borrarTodo();
+} else if (args.includes('--mover-fechas')) {
+  await moverFechas(opcion('--negocio') ?? 'principal');
 } else if (args.includes('--refrescar')) {
   await refrescar(opcion('--negocio'));
   console.log('\nListo. Recarga la app.');
