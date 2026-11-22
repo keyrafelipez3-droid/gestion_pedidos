@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   /// vea completa y no empiece con la pantalla todavía en blanco.
   Future<void> _empezarBienvenida() async {
     try {
-      await precacheImage(const AssetImage(AppBrand.logoAsset), context);
+      await precacheImage(AssetImage(AppBrand.logoAsset), context);
     } catch (_) {
       // Si el logo no carga, igual se muestra la animación.
     }
