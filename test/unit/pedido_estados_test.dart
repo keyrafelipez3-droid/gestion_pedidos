@@ -87,5 +87,23 @@ void main() {
       // Los datos del repartidor nunca los escribe el cliente.
       expect(m.containsKey('idRepartidor'), isFalse);
     });
+
+    test('las líneas van dentro del pedido y se leen de vuelta', () {
+      const lineas = [
+        DetallePedidoModel(
+            id: '', idProducto: 'p1', nombreProducto: 'Pollo', precioUnitario: 35, cantidad: 2, subtotal: 70),
+        DetallePedidoModel(
+            id: '', idProducto: 'p2', nombreProducto: 'Soda', precioUnitario: 8, cantidad: 1, subtotal: 8),
+      ];
+      final campos = DetallePedidoModel.camposDeLineas(lineas);
+      expect(campos['lineasIds'], ['p1', 'p2']);
+      expect(campos['lineasCant'], [2, 1]);
+      expect(campos['precios'], {'p1': 35, 'p2': 8});
+      final leidas = DetallePedidoModel.desdePedido(campos);
+      expect(leidas.length, 2);
+      expect(leidas.first.subtotal, 70);
+      expect(leidas.last.nombreProducto, 'Soda');
+      expect(DetallePedidoModel.desdePedido(const {}), isEmpty);
+    });
   });
 }

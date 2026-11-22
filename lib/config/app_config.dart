@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   AppConfig._();
 
-  static const String nombrePlataforma = 'Caro';
+  static const String nombrePlataforma = 'Nami';
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.
@@ -28,7 +28,7 @@ class AppConfig {
 
   /// Versión del "Acuerdo de uso y confidencialidad del personal". Si se
   /// sube, todo el personal debe volver a firmarlo al entrar.
-  static const String versionAcuerdoPersonal = '2026-10-25';
+  static const String versionAcuerdoPersonal = '2026-11-21';
 
   /// Quién ofrece la plataforma (persona o empresa titular).
   static const String titularPlataforma =
@@ -76,11 +76,11 @@ class AppConfig {
   /// gratuito es menor; con correo es más alto. Vacío = no se envía.
   static const String traductorCorreo = '';
 
-  /// Dirección web pública (de la versión web desplegada) donde el
-  /// usuario puede pedir la eliminación de su cuenta sin instalar la app.
+  /// Página pública (sin iniciar sesión) que explica cómo eliminar la
+  /// cuenta y permite pedirlo por correo (web/eliminar-cuenta.html).
   /// Google Play pide este enlace en el formulario "Seguridad de los
-  /// datos". Vacío hasta que la web esté publicada.
-  static const String urlEliminacionCuenta = urlWeb;
+  /// datos".
+  static const String urlEliminacionCuenta = '$urlWeb/eliminar-cuenta.html';
 
   /// Dirección de la versión web publicada en Firebase Hosting.
   static const String urlWeb = 'https://gestion-pedidos-univalle.web.app';

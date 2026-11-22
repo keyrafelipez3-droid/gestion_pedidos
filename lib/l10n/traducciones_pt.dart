@@ -869,4 +869,25 @@ const traduccionesPt = <String, String>{
   "Logo de {restaurante}": "Logo de {restaurante}",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Alimente-se bem: prefira água natural, frutas e verduras, e modere o sal, o açúcar e as gorduras.',
+  // Pedido: precios y líneas, y aviso de documentos legales
+  '"{producto}" ya no está disponible. Quítalo para continuar.': '"{producto}" não está mais disponível. Remova-o para continuar.',
+  'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'O preço mudou para: {productos}. Confira o total e confirme novamente.',
+  'La cantidad de cada producto debe estar entre 1 y 99.': 'A quantidade de cada produto deve estar entre 1 e 99.',
+  'Por ahora no se pueden pedir productos con extras.': 'Por enquanto não é possível pedir produtos com extras.',
+  'Un pedido puede tener hasta {n} productos distintos.': 'Um pedido pode ter até {n} produtos diferentes.',
+  'Este documento está disponible solo en español, que es la versión válida.': 'Este documento está disponível apenas em espanhol, que é a versão válida.',
+  'Entrar': 'Entrar',
+  // Protección de datos (22 nov)
+  'Ya usaste este cupón.': 'Você já usou este cupom.',
+  'Preparando tus datos…': 'Preparando seus dados…',
+  'Copiamos tus datos al portapapeles. Pégalos en un archivo o un correo para guardarlos.': 'Copiamos seus dados para a área de transferência. Cole-os em um arquivo ou e-mail para guardá-los.',
+  'No se pudieron preparar tus datos. Inténtalo de nuevo.': 'Não foi possível preparar seus dados. Tente novamente.',
+  'Descargar mis datos': 'Baixar meus dados',
+  'Tu perfil, direcciones, restaurantes y pedidos en un archivo': 'Seu perfil, endereços, restaurantes e pedidos em um arquivo',
+  'Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos, tu carrito y tus reseñas. Tus pedidos pasados se conservan sin tu nombre, teléfono, dirección, factura, alergias ni notas, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).': 'Esta ação não pode ser desfeita.\n\nSeu perfil, endereços, favoritos, carrinho e avaliações serão apagados. Seus pedidos anteriores são mantidos sem seu nome, telefone, endereço, dados de nota fiscal, alergias ou observações, porque o restaurante precisa deles para a contabilidade e reclamações. As imagens que você enviou só são apagadas se você pedir por e-mail (veja a Política de privacidade).',
+  // Dos pasos obligatorios para administradores
+  'Vuelve a iniciar sesión': 'Entre novamente',
+  'Para terminar, cierra sesión y vuelve a entrar. Esta vez te pediremos el código de tu app autenticadora.': 'Para terminar, saia e entre novamente. Desta vez vamos pedir o código do seu app autenticador.',
+  'Preparando tu espacio…': 'Preparando seu espaço…',
+  'Cargando': 'Carregando',
 };

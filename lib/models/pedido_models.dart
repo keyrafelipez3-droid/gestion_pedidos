@@ -155,8 +155,27 @@ class PedidoModel {
   final DateTime? programadoPara;
 
   /// Datos para la factura (NIT/CI y razón social), si el cliente los pidió.
+  /// Van en privado/contacto; en el pedido solo queda [conFactura].
   final String? facturaNit;
   final String? facturaRazonSocial;
+
+  /// El cliente pidió factura (sin el NIT: así la Cocina ve la etiqueta
+  /// "Factura" pero no el dato).
+  final bool conFactura;
+
+  /// Productos del pedido (máximo 30 líneas). Se guardan dentro del mismo
+  /// documento, en listas paralelas (`lineasIds`, `lineasCant`,
+  /// `lineasNombre`, `lineasNotas`) y un mapa `precios` {idProducto:
+  /// precio}, para que las reglas de Firestore comprueben los precios y la
+  /// suma. Los pedidos anteriores las tienen en la subcolección `detalle`
+  /// (ver PedidoService.streamDetalle).
+  final List<DetallePedidoModel> lineas;
+
+  /// Suma de las líneas, antes del descuento. `total` = subtotal − descuento.
+  final double subtotal;
+
+  /// Máximo de líneas que aceptan las reglas en un pedido.
+  static const maxLineas = 30;
 
   const PedidoModel({
     required this.id,
@@ -196,11 +215,14 @@ class PedidoModel {
     this.programadoPara,
     this.facturaNit,
     this.facturaRazonSocial,
+    this.conFactura = false,
+    this.lineas = const [],
+    this.subtotal = 0,
   });
 
   bool get tieneAlergias => alergias.isNotEmpty;
   bool get esProgramado => programadoPara != null;
-  bool get pideFactura => (facturaNit ?? '').isNotEmpty;
+  bool get pideFactura => conFactura || (facturaNit ?? '').isNotEmpty;
 
   /// Productos antes del descuento.
   double get subtotalProductos => total + descuento;
@@ -241,7 +263,6 @@ class PedidoModel {
         'idSucursal': idSucursal,
         'modalidad': modalidad,
         'idMesa': idMesa,
-        'direccionEntrega': direccionEntrega,
         'metodoPago': metodoPago,
         'comprobantePagoUrl': comprobantePagoUrl,
         'estado': estado,
@@ -255,7 +276,6 @@ class PedidoModel {
         'cobrado': cobrado,
         'idCaja': idCaja,
         'nombreCliente': nombreCliente,
-        'telefonoCliente': telefonoCliente,
         'alergias': alergias,
         'idiomaCliente': idiomaCliente,
         'descuento': descuento,
@@ -264,15 +284,33 @@ class PedidoModel {
         if (zonaEntrega != null) 'zonaEntrega': zonaEntrega,
         if (codigoCupon != null) 'codigoCupon': codigoCupon,
         if (programadoPara != null) 'programadoPara': Timestamp.fromDate(programadoPara!),
-        if (facturaNit != null) 'facturaNit': facturaNit,
-        if (facturaRazonSocial != null) 'facturaRazonSocial': facturaRazonSocial,
+        if (pideFactura) 'conFactura': true,
+        ...DetallePedidoModel.camposDeLineas(lineas),
+        'subtotal': subtotal,
         // idRepartidor / nombreRepartidor / telefonoRepartidor NO van acá a
         // propósito: los escribe el repartidor al tomar el pedido, no el
         // cliente al crearlo (las reglas de Firestore no los aceptan al crear).
+        // La dirección, el teléfono y la factura tampoco: van en
+        // privado/contacto (ver contactoMap).
       };
 
-  factory PedidoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? {};
+  /// Datos de contacto del cliente que se guardan aparte, en
+  /// `pedidos/{id}/privado/contacto`: así la Cocina no los ve, y el
+  /// repartidor solo mientras lleva el pedido (ver firestore.rules).
+  Map<String, dynamic> contactoMap() => {
+        if (direccionEntrega != null) 'direccionEntrega': direccionEntrega,
+        if ((telefonoCliente ?? '').isNotEmpty) 'telefonoCliente': telefonoCliente,
+        if (facturaNit != null) 'facturaNit': facturaNit,
+        if (facturaRazonSocial != null) 'facturaRazonSocial': facturaRazonSocial,
+      };
+
+  /// [contacto]: datos de `privado/contacto`, si se pudieron leer. Los
+  /// pedidos anteriores tienen esos datos dentro del propio pedido.
+  factory PedidoModel.fromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    Map<String, dynamic>? contacto,
+  }) {
+    final data = <String, dynamic>{...?doc.data(), ...?contacto};
     final rawTotal = data['total'];
     final ts = data['fechaCreacion'] as Timestamp?;
     final rawDireccion = data['direccionEntrega'];
@@ -317,6 +355,9 @@ class PedidoModel {
       programadoPara: (data['programadoPara'] as Timestamp?)?.toDate(),
       facturaNit: data['facturaNit'] as String?,
       facturaRazonSocial: data['facturaRazonSocial'] as String?,
+      conFactura: data['conFactura'] == true,
+      lineas: DetallePedidoModel.desdePedido(data),
+      subtotal: (data['subtotal'] as num?)?.toDouble() ?? 0,
     );
   }
 }
@@ -356,6 +397,42 @@ class DetallePedidoModel {
         'notas': notas,
         'subtotal': subtotal,
       };
+
+  /// Campos del pedido con sus líneas. Cada producto tiene un solo precio
+  /// en el pedido (el mapa `precios`); el subtotal de cada línea se calcula.
+  static Map<String, dynamic> camposDeLineas(List<DetallePedidoModel> lineas) => {
+        'lineasIds': [for (final l in lineas) l.idProducto],
+        'lineasCant': [for (final l in lineas) l.cantidad],
+        'lineasNombre': [for (final l in lineas) l.nombreProducto],
+        'lineasNotas': [for (final l in lineas) l.notas],
+        'precios': {for (final l in lineas) l.idProducto: l.precioUnitario},
+      };
+
+  /// Lee las líneas de los datos de un pedido (lista vacía si no tiene).
+  static List<DetallePedidoModel> desdePedido(Map<String, dynamic> data) {
+    final ids = data['lineasIds'];
+    if (ids is! List) return const [];
+    final cant = data['lineasCant'] is List ? data['lineasCant'] as List : const [];
+    final nombres = data['lineasNombre'] is List ? data['lineasNombre'] as List : const [];
+    final notas = data['lineasNotas'] is List ? data['lineasNotas'] as List : const [];
+    final precios = data['precios'] is Map ? data['precios'] as Map : const {};
+    final lista = <DetallePedidoModel>[];
+    for (var i = 0; i < ids.length; i++) {
+      final id = ids[i] as String? ?? '';
+      final precio = (precios[id] as num?)?.toDouble() ?? 0;
+      final cantidad = i < cant.length ? (cant[i] as num?)?.toInt() ?? 1 : 1;
+      lista.add(DetallePedidoModel(
+        id: '$i',
+        idProducto: id,
+        nombreProducto: i < nombres.length ? nombres[i] as String? ?? '' : '',
+        precioUnitario: precio,
+        cantidad: cantidad,
+        notas: i < notas.length ? notas[i] as String? ?? '' : '',
+        subtotal: precio * cantidad,
+      ));
+    }
+    return lista;
+  }
 
   factory DetallePedidoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};

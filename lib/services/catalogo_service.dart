@@ -74,20 +74,97 @@ class CatalogoService {
 
   Future<void> eliminarCategoria(String id) => _collection('categorias').doc(id).delete();
 
+  /// Lista de precios del negocio (`negocios/{id}/publico/precios`). Las
+  /// reglas de Firestore la usan para comprobar los precios de un pedido,
+  /// así que se actualiza siempre junto con el producto. Tiene:
+  /// - `normal`: {idProducto: precio}
+  /// - `promo`: {idProducto: precio de promoción} (solo promociones vigentes)
+  /// - `hasta`: {idProducto: fin de la promoción}
+  /// - `promoHasta`: la fecha de fin más cercana; desde ahí ninguna
+  ///   promoción se acepta hasta que se vuelva a guardar un producto.
+  DocumentReference<Map<String, dynamic>> _precios(String idNegocio) =>
+      _db.collection('negocios').doc(idNegocio).collection('publico').doc('precios');
+
+  /// Lista de precios con [producto] actualizado (o quitado, si
+  /// [producto] es null). Las promociones vencidas se limpian.
+  Future<Map<String, dynamic>> _listaCon(String idNegocio, String id, ProductoModel? producto) async {
+    final data = (await _precios(idNegocio).get()).data() ?? {};
+    final normal = Map<String, dynamic>.from(data['normal'] as Map? ?? {});
+    final promo = Map<String, dynamic>.from(data['promo'] as Map? ?? {});
+    final hasta = Map<String, dynamic>.from(data['hasta'] as Map? ?? {});
+    normal.remove(id);
+    promo.remove(id);
+    hasta.remove(id);
+    if (producto != null) {
+      normal[id] = producto.precio;
+      if (producto.promoActiva()) {
+        promo[id] = producto.precioPromo;
+        if (producto.promoHasta != null) hasta[id] = Timestamp.fromDate(producto.promoHasta!);
+      }
+    }
+    // Se quitan las promociones que ya vencieron.
+    final ahora = DateTime.now();
+    for (final pid in hasta.keys.toList()) {
+      final fin = (hasta[pid] as Timestamp).toDate();
+      if (!ahora.isBefore(fin)) {
+        promo.remove(pid);
+        hasta.remove(pid);
+      }
+    }
+    Timestamp? primera;
+    for (final t in hasta.values) {
+      final ts = t as Timestamp;
+      if (primera == null || ts.compareTo(primera) < 0) primera = ts;
+    }
+    return {'normal': normal, 'promo': promo, 'hasta': hasta, 'promoHasta': primera};
+  }
+
   Future<void> guardarProducto(ProductoModel item) async {
     final doc = item.id.isEmpty
         ? _collection('productos').doc()
         : _collection('productos').doc(item.id);
-    await doc.set(item.toMap(), SetOptions(merge: true));
+    final lote = _db.batch()..set(doc, item.toMap(), SetOptions(merge: true));
+    final idNegocio = item.idNegocio;
+    if (idNegocio != null && idNegocio.isNotEmpty) {
+      lote.set(_precios(idNegocio), await _listaCon(idNegocio, doc.id, item));
+    }
+    await lote.commit();
   }
 
   Future<void> cambiarEstadoProducto(String id, bool estado) =>
       _collection('productos').doc(id).update({'estado': estado});
 
-  Future<void> eliminarProducto(String id) => _collection('productos').doc(id).delete();
+  /// Borra el producto y lo saca de la lista de precios (ya no se puede pedir).
+  Future<void> eliminarProducto(String id) async {
+    final doc = _collection('productos').doc(id);
+    final idNegocio = (await doc.get()).data()?['idNegocio'] as String?;
+    final lote = _db.batch()..delete(doc);
+    if (idNegocio != null && idNegocio.isNotEmpty) {
+      lote.set(_precios(idNegocio), await _listaCon(idNegocio, id, null));
+    }
+    await lote.commit();
+  }
 
   Future<void> cambiarDisponibilidadProducto(String id, bool disponible) =>
       _collection('productos').doc(id).update({'disponible': disponible});
+
+  /// Precio que se puede cobrar hoy por cada producto del negocio, leído de
+  /// la lista de precios (lo mismo que comprueban las reglas). Un producto
+  /// que no está en la lista no se puede pedir.
+  Future<Map<String, double>> preciosVigentes(String idNegocio) async {
+    final data = (await _precios(idNegocio).get()).data() ?? {};
+    final normal = data['normal'] as Map? ?? {};
+    final promo = data['promo'] as Map? ?? {};
+    final fin = (data['promoHasta'] as Timestamp?)?.toDate();
+    final promosVigentes = fin == null || DateTime.now().isBefore(fin);
+    final precios = <String, double>{};
+    normal.forEach((id, precio) {
+      if (precio is! num) return;
+      final p = promo[id];
+      precios[id as String] = promosVigentes && p is num ? p.toDouble() : precio.toDouble();
+    });
+    return precios;
+  }
 
   Future<void> guardarComplemento(ComplementoModel item) async {
     final doc = item.id.isEmpty

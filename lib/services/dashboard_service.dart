@@ -79,14 +79,17 @@ class DashboardService {
     final recientes = List.of(pedidos)
       ..sort((a, b) => (b.fechaCreacion ?? DateTime(0)).compareTo(a.fechaCreacion ?? DateTime(0)));
     final elegidos = recientes.take(maxPedidos).toList();
-    final detalles = await Future.wait(elegidos.map(
-      (p) => _db.collection('pedidos').doc(p.id).collection('detalle').get(),
-    ));
+    // Los pedidos nuevos traen sus líneas; solo los anteriores necesitan
+    // leer la subcolección detalle.
+    final detalles = await Future.wait(elegidos.map((p) async {
+      if (p.lineas.isNotEmpty) return p.lineas;
+      final qs = await _db.collection('pedidos').doc(p.id).collection('detalle').get();
+      return qs.docs.map(DetallePedidoModel.fromSnapshot).toList();
+    }));
     final cantidades = <String, int>{};
     final totales = <String, double>{};
-    for (final qs in detalles) {
-      for (final doc in qs.docs) {
-        final d = DetallePedidoModel.fromSnapshot(doc);
+    for (final lista in detalles) {
+      for (final d in lista) {
         final nombre = d.nombreProducto.trim().isEmpty ? 'Producto' : d.nombreProducto.trim();
         cantidades[nombre] = (cantidades[nombre] ?? 0) + d.cantidad;
         totales[nombre] = (totales[nombre] ?? 0) + d.subtotal;

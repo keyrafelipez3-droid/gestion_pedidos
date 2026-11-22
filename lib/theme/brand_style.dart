@@ -14,7 +14,7 @@ class BrandOpciones {
   BrandOpciones._();
 
   static const estilos = <EstiloOpcion>[
-    EstiloOpcion('caro', 'Caro', 'Tarjetas finas con borde y títulos grandes'),
+    EstiloOpcion('caro', 'Nami', 'Tarjetas finas con borde y títulos grandes'),
     EstiloOpcion('moderno', 'Moderno', 'Tarjetas con sombra suave'),
     EstiloOpcion('minimal', 'Minimal', 'Líneas finas, sin sombras'),
     EstiloOpcion('premium', 'Premium', 'Sobrio, con espaciado en títulos'),

@@ -11,6 +11,7 @@ import '../../models/actividad_model.dart';
 import '../../services/actividad_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/dos_pasos_service.dart';
+import '../../services/registro_errores.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 
@@ -138,7 +139,16 @@ class AsistenteDosPasos extends StatefulWidget {
   /// porque el servidor todavía no la permite.
   final ValueChanged<bool> onListo;
 
-  const AsistenteDosPasos({super.key, this.obligatoria = false, required this.onListo});
+  /// El Administrador y el SuperAdmin no pueden seguir sin activarla: las
+  /// reglas de Firestore se la exigen.
+  final bool permitirOmitir;
+
+  const AsistenteDosPasos({
+    super.key,
+    this.obligatoria = false,
+    this.permitirOmitir = true,
+    required this.onListo,
+  });
 
   @override
   State<AsistenteDosPasos> createState() => _AsistenteDosPasosState();
@@ -194,11 +204,21 @@ class _AsistenteDosPasosState extends State<AsistenteDosPasos> {
             _detalle = e.code;
           });
       }
-    } catch (e) {
-      if (mounted) setState(() => _error = tr('Ocurrió un error inesperado. Intenta de nuevo.'));
+    } catch (e, pila) {
+      _errorDesconocido(e, pila, 'Dos pasos: Empezar');
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
+  }
+
+  /// Error que no es de Firebase Auth (en Android a veces llega como
+  /// PlatformException). Se guarda en "Errores de la app" para el SuperAdmin
+  /// y se muestra su código, así se puede saber qué pasó.
+  void _errorDesconocido(Object e, StackTrace pila, String donde) {
+    RegistroErrores.registrar(e, pila, contexto: donde);
+    if (!mounted) return;
+    final codigo = e is PlatformException ? e.code : e.runtimeType.toString();
+    setState(() => _error = '${tr('Ocurrió un error inesperado. Intenta de nuevo.')} ($codigo)');
   }
 
   /// Firebase pide haber iniciado sesión hace poco: se vuelve a pedir la
@@ -261,6 +281,8 @@ class _AsistenteDosPasosState extends State<AsistenteDosPasos> {
       if (!mounted) return;
       _codigoCtrl.clear();
       setState(() => _error = AuthService.instancia.mensajeError(e.code));
+    } catch (e, pila) {
+      _errorDesconocido(e, pila, 'Dos pasos: Activar');
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
@@ -479,11 +501,13 @@ class _AsistenteDosPasosState extends State<AsistenteDosPasos> {
                 style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: AppSpacing.md),
           OutlinedButton(onPressed: _empezar, child: Text(tr('Reintentar'))),
-          const SizedBox(height: AppSpacing.sm),
-          TextButton(
-            onPressed: () => widget.onListo(false),
-            child: Text(widget.obligatoria ? tr('Continuar sin activarla por ahora') : tr('Volver')),
-          ),
+          if (!widget.obligatoria || widget.permitirOmitir) ...[
+            const SizedBox(height: AppSpacing.sm),
+            TextButton(
+              onPressed: () => widget.onListo(false),
+              child: Text(widget.obligatoria ? tr('Continuar sin activarla por ahora') : tr('Volver')),
+            ),
+          ],
         ];
     }
   }
@@ -536,6 +560,11 @@ class PuertaDosPasos extends StatefulWidget {
 
 class _PuertaDosPasosState extends State<PuertaDosPasos> {
   late Future<bool> _activa = DosPasosService.instancia.estaActiva();
+  late Future<bool> _sesionConCodigo = DosPasosService.instancia.sesionConSegundoPaso();
+
+  /// Al Administrador y al SuperAdmin las reglas de Firestore les exigen
+  /// haber entrado con el código: no pueden omitirla.
+  bool get _esAdmin => widget.usuario.esAdministrador || widget.usuario.esSuperAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -548,15 +577,69 @@ class _PuertaDosPasosState extends State<PuertaDosPasos> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.data == true) return widget.child;
+        if (snapshot.data == true) {
+          if (!_esAdmin) return widget.child;
+          return FutureBuilder<bool>(
+            future: _sesionConCodigo,
+            builder: (context, sesion) {
+              if (sesion.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (sesion.data == true) return widget.child;
+              return const _VolverAEntrarConCodigo();
+            },
+          );
+        }
         return AsistenteDosPasos(
           obligatoria: true,
+          permitirOmitir: !_esAdmin,
           onListo: (activada) => setState(() {
             if (!activada) PuertaDosPasos.omitidaPara = widget.usuario.idUsuario;
             _activa = DosPasosService.instancia.estaActiva();
+            _sesionConCodigo = DosPasosService.instancia.sesionConSegundoPaso();
           }),
         );
       },
+    );
+  }
+}
+
+/// Se muestra al Administrador o SuperAdmin que acaba de activar los dos
+/// pasos: para que cuente, tiene que volver a entrar con el código.
+class _VolverAEntrarConCodigo extends StatelessWidget {
+  const _VolverAEntrarConCodigo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_clock_outlined, size: 48),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                tr('Vuelve a iniciar sesión'),
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                tr('Para terminar, cierra sesión y vuelve a entrar. Esta vez te pediremos el código de tu app autenticadora.'),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton(
+                onPressed: () => ActividadService.instancia.cerrarSesion(),
+                child: Text(tr('Cerrar sesión')),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -485,9 +485,12 @@ class TextosLegales {
 
   /// Acuerdo que firma cada persona del personal (Administrador, Cajero,
   /// Cocina, Repartidor) al entrar por primera vez. NO reemplaza el
-  /// contrato de trabajo, que el restaurante firma aparte según la Ley
-  /// General del Trabajo: regula el uso de la cuenta y la confidencialidad
-  /// de los datos de los clientes. Está personalizado con los datos de la
+  /// contrato de trabajo, que el restaurante firma aparte según la ley
+  /// laboral del país: regula el uso de la cuenta y la confidencialidad.
+  ///
+  /// Está escrito como un acuerdo formal (en tercera persona y con
+  /// cláusulas PRIMERA.-, SEGUNDA.-…). Cada cláusula tiene su "En simple"
+  /// para que se entienda fácil. Se personaliza con los datos de la
   /// persona, su cargo, su sucursal y las reglas internas del restaurante.
   static List<SeccionLegal> acuerdoPersonal({
     required NegocioModel? negocio,
@@ -499,113 +502,179 @@ class TextosLegales {
     final p = negocio?.datosPais ?? Paises.actual;
     final rol = usuario.rol;
     final reglas = negocio?.reglasPersonal.reglas ?? const <String>[];
-    final secciones = <SeccionLegal>[
-      SeccionLegal('Datos de este acuerdo', enSimple: 'Quién firma y para qué restaurante.', [
-        'Restaurante: $restaurante${nit.isEmpty ? '' : ' (${p.idFiscal} $nit)'}, en ${p.nombre}.',
-        'Persona: ${usuario.nombre}. Su nombre completo y su ${p.docIdentidad} se registran '
-            'al firmar.',
-        'Cargo: $rol${sucursal.trim().isEmpty ? '' : ', en la sucursal ${sucursal.trim()}'}.',
+    final firma = usuario.acuerdo;
+    final nombre = firma != null && firma.nombre.trim().isNotEmpty ? firma.nombre.trim() : usuario.nombre;
+    final documento = firma != null && firma.ci.trim().isNotEmpty
+        ? 'con ${p.docIdentidad} ${firma.ci.trim()}'
+        : 'cuyo ${p.docIdentidad} se registra al momento de firmar';
+    final enSucursal = sucursal.trim().isEmpty ? '' : ', en la sucursal ${sucursal.trim()}';
+
+    final clausulas = <SeccionLegal>[
+      SeccionLegal('PARTES', enSimple: 'Quién firma, con qué restaurante y qué papel tiene la plataforma.', [
+        'Intervienen en el presente acuerdo:',
+        '1. $restaurante${nit.isEmpty ? '' : ', con ${p.idFiscal} $nit'}, con domicilio en ${p.nombre}, '
+            'en adelante "EL RESTAURANTE".',
+        '2. $nombre, $documento, que desempeña el cargo de $rol$enSucursal, en adelante '
+            '"LA PERSONA FIRMANTE".',
+        'La plataforma ${AppConfig.nombrePlataforma}, cuyos titulares son ${AppConfig.titularPlataforma}, '
+            'en adelante "LA PLATAFORMA", es la herramienta tecnológica con la que EL RESTAURANTE '
+            'gestiona sus pedidos. LA PLATAFORMA no es empleadora de LA PERSONA FIRMANTE.',
         if (usuario.fechaRegistro != null)
-          'Usa la plataforma desde el ${_fecha(usuario.fechaRegistro!)}.',
+          'LA PERSONA FIRMANTE usa LA PLATAFORMA desde el ${_fecha(usuario.fechaRegistro!)}.',
       ]),
-      SeccionLegal('Qué regula este acuerdo',
-          enSimple: 'Cómo usar tu cuenta y cuidar los datos de los clientes. No es tu contrato de trabajo.', [
-        'Regula el uso de tu cuenta en la plataforma y el cuidado de la información a la que '
-            'accedes por tu trabajo.',
-        'No reemplaza tu contrato de trabajo ni modifica tu sueldo, horario o beneficios: esos '
-            'los acuerdas con el restaurante por separado, conforme a ${p.leyTrabajo}.',
-        'La plataforma, ofrecida por ${AppConfig.titularPlataforma}, es la herramienta con la '
-            'que el restaurante gestiona sus pedidos.',
+      const SeccionLegal('DEFINICIONES', enSimple: 'Qué significa cada palabra importante de este acuerdo.', [
+        'Para efectos del presente acuerdo se entiende por:',
+        'a) Cuenta: el usuario personal con el que LA PERSONA FIRMANTE ingresa a LA PLATAFORMA, '
+            'protegido con contraseña y, cuando corresponda, verificación en dos pasos.',
+        'b) Datos de los clientes: nombres, teléfonos, direcciones, alergias, notas, datos de '
+            'factura y cualquier otra información de las personas que hacen pedidos.',
+        'c) Información confidencial: los datos de los clientes y la información interna de EL '
+            'RESTAURANTE, como ventas, precios de costo, recetas, proveedores, movimientos de caja '
+            'y reportes.',
+        'd) Incidente de seguridad: cualquier pérdida, robo, acceso no autorizado o uso indebido '
+            'de una cuenta o de información confidencial.',
       ]),
-      const SeccionLegal('Tu cuenta',
-          enSimple: 'Tu cuenta es solo tuya; lo que se hace con ella queda a tu nombre.', [
-        'Tu cuenta es personal e intransferible. No compartas tu contraseña ni el código de tu '
-            'app autenticadora (verificación en dos pasos).',
-        'Todo lo que se hace con tu cuenta queda registrado a tu nombre: cambios de estado de '
-            'los pedidos, cobros, movimientos de caja y cancelaciones con su motivo.',
-        'Si pierdes tu teléfono o crees que alguien usó tu cuenta, avisa de inmediato al '
-            'Administrador del restaurante.',
+      SeccionLegal('OBJETO', enSimple: 'Este acuerdo regula tu cuenta y la confidencialidad. No es tu contrato de trabajo.', [
+        'El presente acuerdo tiene por objeto regular el uso de la cuenta de LA PERSONA FIRMANTE '
+            'en LA PLATAFORMA y el tratamiento de la información confidencial a la que accede por '
+            'su trabajo.',
+        'Este acuerdo no reemplaza ni modifica el contrato de trabajo de LA PERSONA FIRMANTE. '
+            'Sueldo, horario y beneficios se rigen por lo que acuerde con EL RESTAURANTE, conforme '
+            'a ${p.leyTrabajo}.',
       ]),
-      const SeccionLegal('Confidencialidad de los datos de los clientes',
+      const SeccionLegal('USO DE LA CUENTA', enSimple: 'Tu cuenta es solo tuya y todo lo que se hace con ella queda a tu nombre.', [
+        'La cuenta es personal e intransferible. LA PERSONA FIRMANTE se compromete a no '
+            'compartir su contraseña ni el código de su app autenticadora, y a cerrar sesión en '
+            'equipos que usen otras personas.',
+        'Todas las acciones realizadas con la cuenta quedan registradas a nombre de LA PERSONA '
+            'FIRMANTE: cambios de estado de los pedidos, cobros, movimientos de caja y '
+            'cancelaciones con su motivo. Estos registros no se pueden borrar.',
+        'LA PERSONA FIRMANTE usará LA PLATAFORMA solo para las tareas de su cargo y no intentará '
+            'acceder a funciones o información que no le correspondan.',
+      ]),
+      const SeccionLegal('CONFIDENCIALIDAD DE LOS DATOS DE LOS CLIENTES',
           enSimple: 'Los datos de los clientes son solo para atender sus pedidos.', [
-        'Por tu trabajo puedes ver nombres, teléfonos, direcciones, alergias, notas y datos de '
-            'factura de los clientes. Solo puedes usarlos para atender sus pedidos.',
-        'Está prohibido copiarlos, guardarlos fuera de la plataforma, compartirlos con otras '
-            'personas o usarlos para contactar a los clientes por motivos que no sean su pedido.',
-        'Esta obligación sigue vigente aunque dejes de trabajar en el restaurante.',
+        'LA PERSONA FIRMANTE usará los datos de los clientes únicamente para atender sus pedidos.',
+        'Queda prohibido copiarlos, fotografiarlos, guardarlos fuera de LA PLATAFORMA, '
+            'compartirlos con terceros o usarlos para contactar a los clientes por motivos ajenos '
+            'a su pedido.',
+      ]),
+      const SeccionLegal('INFORMACIÓN CONFIDENCIAL DEL RESTAURANTE',
+          enSimple: 'Lo interno del restaurante (ventas, precios, recetas) no se comparte.', [
+        'LA PERSONA FIRMANTE mantendrá en reserva la información interna de EL RESTAURANTE a la '
+            'que acceda, como ventas, precios de costo, recetas, proveedores, movimientos de caja '
+            'y reportes, y no la divulgará a terceros sin autorización escrita de EL RESTAURANTE.',
       ]),
       _tareasDelRol(rol),
       if (reglas.isNotEmpty)
-        SeccionLegal('Reglas internas de ${negocio?.nombre ?? 'tu restaurante'}',
-            enSimple: 'Reglas que agregó tu restaurante.', reglas),
-      SeccionLegal('Tus datos como parte del personal',
+        SeccionLegal('REGLAS INTERNAS DE ${(negocio?.nombre ?? 'EL RESTAURANTE').toUpperCase()}',
+            enSimple: 'Reglas que agregó tu restaurante.', [
+          'LA PERSONA FIRMANTE cumplirá además las siguientes reglas internas de EL RESTAURANTE:',
+          for (var i = 0; i < reglas.length; i++) '${i + 1}. ${reglas[i]}',
+        ]),
+      const SeccionLegal('INCIDENTES DE SEGURIDAD',
+          enSimple: 'Si pierdes tu teléfono o alguien usó tu cuenta, avisa enseguida.', [
+        'LA PERSONA FIRMANTE informará al Administrador de EL RESTAURANTE de inmediato, y como '
+            'máximo dentro de las 24 horas, cualquier incidente de seguridad: pérdida o robo de '
+            'su teléfono, sospecha de que otra persona conoce su contraseña o uso indebido de '
+            'información confidencial.',
+      ]),
+      SeccionLegal('DATOS PERSONALES DE LA PERSONA FIRMANTE',
           enSimple: 'Se guarda solo lo necesario para tu trabajo y lo ve tu Administrador.', [
-        'Para este acuerdo y tu trabajo en la plataforma se guardan tu nombre, correo, teléfono, '
-            '${p.docIdentidad} (en la firma), el registro de tus acciones y, si eres '
-            'repartidor, tu ubicación solo mientras tienes entregas en curso. Los ve el '
-            'Administrador del restaurante y se usan para operar y para resolver diferencias de '
-            'caja o reclamos. Puedes pedir acceso o corrección a tu Administrador.',
+        'Para este acuerdo y su trabajo en LA PLATAFORMA se registran el nombre, correo, '
+            'teléfono y ${p.docIdentidad} de LA PERSONA FIRMANTE, el historial de sus acciones y, '
+            'en el caso del cargo de Repartidor, su ubicación solo mientras tiene entregas en curso.',
+        'Estos datos los ve el Administrador de EL RESTAURANTE y se usan para operar y para '
+            'resolver diferencias de caja o reclamos, conforme a ${p.leyDatos}. LA PERSONA '
+            'FIRMANTE puede pedir acceso o corrección de sus datos a su Administrador.',
       ]),
-      const SeccionLegal('Fin del acuerdo',
-          enSimple: 'Si dejas de trabajar aquí, tu cuenta se desactiva; la confidencialidad sigue.', [
-        'Cuando termina tu relación con el restaurante, el Administrador desactiva tu cuenta y '
-            'ya no podrás entrar. La obligación de confidencialidad se mantiene.',
+      SeccionLegal('INCUMPLIMIENTO', enSimple: 'Si no cumples este acuerdo, tu cuenta puede suspenderse.', [
+        'Ante el incumplimiento de este acuerdo, EL RESTAURANTE podrá suspender o desactivar la '
+            'cuenta de LA PERSONA FIRMANTE y aplicar las medidas previstas en su reglamento '
+            'interno y en el contrato de trabajo, conforme a ${p.leyTrabajo}.',
+        'Lo anterior no excluye las acciones legales que correspondan por los daños causados, '
+            'conforme a las leyes de ${p.nombre}.',
       ]),
-      SeccionLegal('Firma electrónica',
-          enSimple: 'Firmas escribiendo tu nombre y documento; queda registrado con fecha y hora.', [
-        'Al escribir tu nombre completo y tu ${p.docIdentidad} y pulsar "Firmar y continuar", '
-            'aceptas este acuerdo. Queda registrado con la fecha y hora del servidor y la versión '
-            '${versionAcuerdo(negocio)}. Esta aceptación electrónica es válida conforme a '
-            '${p.leyFirma}; el restaurante puede pedirte además una firma en papel.',
-        'Puedes descargar una copia de tu acuerdo firmado en "Mi cuenta". Si el acuerdo o las '
-            'reglas del restaurante cambian, se te pedirá firmar la nueva versión.',
+      const SeccionLegal('VIGENCIA Y TERMINACIÓN',
+          enSimple: 'Vale desde que firmas. Si dejas de trabajar aquí, la confidencialidad sigue.', [
+        'El presente acuerdo entra en vigencia en la fecha de su firma y se mantiene mientras LA '
+            'PERSONA FIRMANTE tenga una cuenta activa en EL RESTAURANTE.',
+        'Al terminar la relación con EL RESTAURANTE, el Administrador desactivará la cuenta. Las '
+            'obligaciones de confidencialidad se mantienen vigentes después de la terminación.',
+      ]),
+      SeccionLegal('LEY APLICABLE Y CONTROVERSIAS',
+          enSimple: 'Se aplican las leyes del país del restaurante.', [
+        'El presente acuerdo se rige por las leyes de ${p.nombre}. Cualquier controversia se '
+            'intentará resolver primero de buena fe entre las partes y, de no lograrse, se '
+            'someterá a las autoridades competentes de ${p.nombre}.',
+      ]),
+      SeccionLegal('ACEPTACIÓN Y FIRMA ELECTRÓNICA',
+          enSimple: 'Firmas con tu nombre, tu documento y tu firma dibujada; queda registrado con fecha y hora.', [
+        'LA PERSONA FIRMANTE acepta el presente acuerdo al escribir su nombre completo y su '
+            '${p.docIdentidad}, dibujar su firma en la pantalla y pulsar "Firmar y continuar". La aceptación queda registrada con '
+            'la fecha y hora del servidor y la versión ${versionAcuerdo(negocio)}, y es válida '
+            'conforme a ${p.leyFirma}. EL RESTAURANTE puede pedir además una firma en papel.',
+        'LA PERSONA FIRMANTE puede descargar una copia del acuerdo firmado en "Mi cuenta". Si '
+            'el acuerdo o las reglas internas cambian, se le pedirá firmar la nueva versión.',
       ]),
     ];
-    return _numerar(secciones);
+    return _numerarClausulas(clausulas);
   }
 
-  /// Lo que le toca a cada rol (solo lo suyo: el cajero no lee las reglas
-  /// del repartidor).
+  /// Obligaciones de cada cargo (solo las suyas: el cajero no lee las del
+  /// repartidor).
   static SeccionLegal _tareasDelRol(String rol) {
-    const comun = 'Registra en la plataforma lo que realmente ocurre con cada pedido y no '
-        'canceles pedidos sin un motivo verdadero.';
+    const comun = 'LA PERSONA FIRMANTE registrará en LA PLATAFORMA lo que realmente ocurre con '
+        'cada pedido y no cancelará pedidos sin un motivo verdadero.';
     return switch (rol) {
-      Rol.cocina => const SeccionLegal('Lo que te toca en cocina',
+      Rol.cocina => const SeccionLegal('OBLIGACIONES EN COCINA',
             enSimple: 'Prepara respetando las alergias y marca cada pedido a tiempo.', [
           comun,
-          'Respeta siempre las alergias marcadas en los pedidos. Si un ingrediente no se puede '
-              'quitar, avisa antes de preparar.',
-          'Marca "En preparación" cuando empiezas y "Listo" cuando termina, para que el cliente '
-              'y el resto del personal sepan en qué va cada pedido.',
+          'Respetará siempre las alergias indicadas en los pedidos. Si un ingrediente no se '
+              'puede quitar, avisará antes de preparar.',
+          'Marcará "En preparación" al empezar y "Listo" al terminar cada pedido, para que el '
+              'cliente y el resto del personal conozcan su avance.',
         ]),
-      Rol.cajero => const SeccionLegal('Lo que te toca en caja',
+      Rol.cajero => const SeccionLegal('OBLIGACIONES EN CAJA',
             enSimple: 'Abre y cierra tu caja en la app y registra cada cobro con honestidad.', [
           comun,
-          'Abre y cierra tu caja en la plataforma, registra cada cobro, ingreso y egreso, y '
-              'cuenta el efectivo con honestidad. Los movimientos no se pueden borrar.',
-          'Recibe y registra el efectivo que te entregan los repartidores, y asigna los pedidos '
-              'de delivery solo a repartidores disponibles.',
+          'Abrirá y cerrará su caja en LA PLATAFORMA, registrará cada cobro, ingreso y egreso, y '
+              'contará el efectivo con honestidad. Los movimientos registrados no se pueden borrar.',
+          'Recibirá y registrará el efectivo que entreguen los repartidores, y asignará los '
+              'pedidos de delivery solo a repartidores disponibles.',
         ]),
-      Rol.repartidor => const SeccionLegal('Lo que te toca en reparto',
+      Rol.repartidor => const SeccionLegal('OBLIGACIONES EN REPARTO',
             enSimple: 'Entrega con cuidado, cobra lo que dice la app y rinde el efectivo en caja.', [
           comun,
-          'Mientras tienes entregas en curso, tu ubicación se comparte con el cliente de ese '
-              'pedido y se borra al entregarlo.',
-          'Cobra exactamente el monto que muestra la app y entrega el efectivo en caja el mismo '
-              'día, según las normas del restaurante.',
-          'Trata con respeto a los clientes y no uses su teléfono ni su dirección para nada más '
-              'que la entrega.',
+          'Acepta que, mientras tenga entregas en curso, su ubicación se comparta con el cliente '
+              'de ese pedido. La ubicación deja de compartirse al entregarlo.',
+          'Cobrará exactamente el monto que muestra LA PLATAFORMA y entregará el efectivo en caja '
+              'el mismo día, según las normas de EL RESTAURANTE.',
+          'Tratará con respeto a los clientes y no usará su teléfono ni su dirección para nada '
+              'distinto de la entrega.',
         ]),
-      _ => const SeccionLegal('Lo que te toca como administrador',
+      _ => const SeccionLegal('OBLIGACIONES DEL ADMINISTRADOR',
             enSimple: 'Cuidas el acceso de tu personal y que los datos del restaurante sean correctos.', [
           comun,
-          'Gestionas al personal y sus permisos. Desactiva de inmediato la cuenta de quien deje '
-              'de trabajar en el restaurante.',
-          'Mantén correctos los precios, las promociones, los horarios y las condiciones que ven '
-              'los clientes.',
+          'Gestionará al personal y sus permisos, y desactivará de inmediato la cuenta de quien '
+              'deje de trabajar en EL RESTAURANTE.',
+          'Mantendrá correctos los precios, las promociones, los horarios y las condiciones que '
+              'ven los clientes.',
         ]),
     };
   }
+
+  static const _ordinales = [
+    'PRIMERA', 'SEGUNDA', 'TERCERA', 'CUARTA', 'QUINTA', 'SEXTA', 'SÉPTIMA', 'OCTAVA', 'NOVENA',
+    'DÉCIMA', 'DÉCIMA PRIMERA', 'DÉCIMA SEGUNDA', 'DÉCIMA TERCERA', 'DÉCIMA CUARTA',
+    'DÉCIMA QUINTA', 'DÉCIMA SEXTA',
+  ];
+
+  /// Pone "PRIMERA.- (…)", "SEGUNDA.- (…)"… como en los acuerdos formales.
+  static List<SeccionLegal> _numerarClausulas(List<SeccionLegal> s) => [
+        for (var i = 0; i < s.length; i++)
+          SeccionLegal('${_ordinales[i]}.- (${s[i].titulo})', s[i].parrafos, enSimple: s[i].enSimple),
+      ];
 
   /// Pone "1. ", "2. "… delante de cada título, en orden.
   static List<SeccionLegal> _numerar(List<SeccionLegal> s) => [

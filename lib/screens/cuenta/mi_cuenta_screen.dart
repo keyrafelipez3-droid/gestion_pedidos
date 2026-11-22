@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../l10n/idioma.dart';
 import '../../l10n/tamano_texto.dart';
@@ -8,11 +9,13 @@ import '../../models/usuario_model.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../services/codigo_negocio_service.dart';
+import '../../services/mis_datos_service.dart';
 import '../../services/negocio_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../services/sucursal_service.dart';
 import '../../utils/documento_imprimible.dart';
 import '../../utils/contrasena.dart';
+import '../../utils/descarga.dart';
 import '../../utils/formato.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/alergias.dart';
@@ -21,6 +24,7 @@ import '../../widgets/app_status_badge.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/etiqueta_version.dart';
+import '../../widgets/firma_dibujada.dart';
 import '../../widgets/selector_imagen.dart';
 import '../cliente/condiciones_restaurante_screen.dart';
 import '../legal/legal_screen.dart';
@@ -318,6 +322,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
           detalle: 'Firmado por ${acuerdo.nombre} (CI ${acuerdo.ci})',
           fecha: acuerdo.fecha == null ? '' : formatoFechaHora(acuerdo.fecha!),
           version: acuerdo.version,
+          trazos: acuerdo.firma,
         ),
       );
       if (!ok && mounted) {
@@ -369,6 +374,26 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
     }
   }
 
+  /// Descargar mis datos (derecho de acceso): un archivo JSON con el perfil,
+  /// las direcciones, los restaurantes y los pedidos. En el celular, donde
+  /// no hay descarga directa, se copia al portapapeles.
+  Future<void> _descargarMisDatos(UsuarioModel usuario) async {
+    _aviso(tr('Preparando tus datos…'));
+    try {
+      final json = await MisDatosService.instancia.generarJson(usuario.idUsuario);
+      final ok = await descargarTexto('mis-datos-nami.json', json,
+          tipo: 'application/json;charset=utf-8');
+      if (!ok) {
+        await Clipboard.setData(ClipboardData(text: json));
+        if (mounted) {
+          _aviso(tr('Copiamos tus datos al portapapeles. Pégalos en un archivo o un correo para guardarlos.'));
+        }
+      }
+    } catch (_) {
+      if (mounted) _aviso(tr('No se pudieron preparar tus datos. Inténtalo de nuevo.'));
+    }
+  }
+
   /// Eliminar la cuenta (solo Clientes). Pide la contraseña y explica qué
   /// se borra y qué se conserva.
   Future<void> _abrirDialogoEliminarCuenta() async {
@@ -383,7 +408,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                tr('Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos y tu carrito. Tus pedidos pasados se conservan sin tu nombre ni tu dirección, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).'),
+                tr('Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos, tu carrito y tus reseñas. Tus pedidos pasados se conservan sin tu nombre, teléfono, dirección, factura, alergias ni notas, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).'),
               ),
               const SizedBox(height: AppSpacing.md),
               TextField(
@@ -697,10 +722,17 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                             contentPadding: EdgeInsets.zero,
                             leading: const Icon(Icons.draw_outlined),
                             title: const Text('Acuerdo del personal'),
-                            subtitle: Text(
-                              'Firmado por ${usuario.acuerdo!.nombre} (CI ${usuario.acuerdo!.ci})'
-                              '${usuario.acuerdo!.fecha == null ? '' : ' el ${formatoFechaHora(usuario.acuerdo!.fecha!)}'}'
-                              ' · versión ${usuario.acuerdo!.version}',
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Firmado por ${usuario.acuerdo!.nombre} (CI ${usuario.acuerdo!.ci})'
+                                  '${usuario.acuerdo!.fecha == null ? '' : ' el ${formatoFechaHora(usuario.acuerdo!.fecha!)}'}'
+                                  ' · versión ${usuario.acuerdo!.version}',
+                                ),
+                                if (usuario.acuerdo!.firma.isNotEmpty)
+                                  VistaFirma(texto: usuario.acuerdo!.firma, ancho: 150),
+                              ],
                             ),
                             trailing: IconButton(
                               tooltip: tr('Descargar mi acuerdo firmado (PDF)'),
@@ -743,6 +775,13 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                               ),
                             ),
                           ),
+                        ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.download_outlined),
+                          title: Text(tr('Descargar mis datos')),
+                          subtitle: Text(tr('Tu perfil, direcciones, restaurantes y pedidos en un archivo')),
+                          onTap: () => _descargarMisDatos(usuario),
                         ),
                         if (usuario.esCliente)
                           ListTile(

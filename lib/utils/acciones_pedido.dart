@@ -101,11 +101,17 @@ Future<bool> avanzarPedido(BuildContext context, PedidoModel pedido, String sigu
         );
         return false;
       }
-      await CajaService.instancia.cobrarPedido(
+      // Entregar y cobrar en UNA transacción: no puede quedar cobrado sin
+      // entregar, ni cobrarse dos veces.
+      await CajaService.instancia.entregarYCobrar(
         caja: caja,
         pedido: pedido,
         idUsuario: cajero.idUsuario,
       );
+      messenger.showSnackBar(
+        SnackBar(content: Text(tr('Estado actualizado a "{siguiente}".', {'siguiente': tr(siguiente)}))),
+      );
+      return true;
     }
     await PedidoService.instancia.cambiarEstado(
       idPedido: pedido.id,

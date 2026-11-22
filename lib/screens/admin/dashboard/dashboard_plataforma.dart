@@ -123,9 +123,7 @@ class _DashboardPlataformaState extends State<DashboardPlataforma> {
         const SizedBox(height: AppSpacing.md),
         if (sPed.hasError)
           const TextoError('No se pudieron cargar los pedidos de la plataforma.'),
-        Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
+        GrillaKpi(
           children: [
             KpiCard(
               icono: Icons.payments_outlined,

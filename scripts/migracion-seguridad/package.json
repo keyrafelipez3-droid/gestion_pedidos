@@ -1,0 +1,12 @@
+{
+  "name": "nami-migracion-seguridad",
+  "private": true,
+  "description": "Migración única de la rama fix/seguridad-lanzamiento (códigos de acceso y lista de precios).",
+  "type": "module",
+  "scripts": {
+    "migrar": "node migrar.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

@@ -870,4 +870,24 @@ const traduccionesFr = <String, String>{
   "Logo de {restaurante}": "Logo de {restaurante}",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Mangez sain : privilégiez l’eau, les fruits et les légumes, et limitez le sel, le sucre et les graisses.',
+  // Pedido: precios y líneas, y aviso de documentos legales
+  '"{producto}" ya no está disponible. Quítalo para continuar.': '« {producto} » n\'est plus disponible. Retirez-le pour continuer.',
+  'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'Le prix a changé pour : {productos}. Vérifiez le total et confirmez à nouveau.',
+  'La cantidad de cada producto debe estar entre 1 y 99.': 'La quantité de chaque produit doit être comprise entre 1 et 99.',
+  'Por ahora no se pueden pedir productos con extras.': 'Pour l\'instant, les produits avec suppléments ne peuvent pas être commandés.',
+  'Un pedido puede tener hasta {n} productos distintos.': 'Une commande peut contenir jusqu\'à {n} produits différents.',
+  'Este documento está disponible solo en español, que es la versión válida.': 'Ce document est disponible uniquement en espagnol, qui est la version qui fait foi.',
+  // Protección de datos (22 nov)
+  'Ya usaste este cupón.': 'Vous avez déjà utilisé ce coupon.',
+  'Preparando tus datos…': 'Préparation de vos données…',
+  'Copiamos tus datos al portapapeles. Pégalos en un archivo o un correo para guardarlos.': 'Nous avons copié vos données dans le presse-papiers. Collez-les dans un fichier ou un e-mail pour les conserver.',
+  'No se pudieron preparar tus datos. Inténtalo de nuevo.': 'Impossible de préparer vos données. Réessayez.',
+  'Descargar mis datos': 'Télécharger mes données',
+  'Tu perfil, direcciones, restaurantes y pedidos en un archivo': 'Votre profil, vos adresses, restaurants et commandes dans un fichier',
+  'Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos, tu carrito y tus reseñas. Tus pedidos pasados se conservan sin tu nombre, teléfono, dirección, factura, alergias ni notas, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).': 'Cette action est irréversible.\n\nVotre profil, vos adresses, favoris, panier et avis seront supprimés. Vos commandes passées sont conservées sans votre nom, téléphone, adresse, données de facture, allergies ni notes, car le restaurant en a besoin pour sa comptabilité et les réclamations. Les images que vous avez envoyées ne sont supprimées que si vous le demandez par e-mail (voir la Politique de confidentialité).',
+  // Dos pasos obligatorios para administradores
+  'Vuelve a iniciar sesión': 'Reconnectez-vous',
+  'Para terminar, cierra sesión y vuelve a entrar. Esta vez te pediremos el código de tu app autenticadora.': 'Pour terminer, déconnectez-vous puis reconnectez-vous. Cette fois, nous vous demanderons le code de votre application d\'authentification.',
+  'Preparando tu espacio…': 'Préparation de votre espace…',
+  'Cargando': 'Chargement',
 };

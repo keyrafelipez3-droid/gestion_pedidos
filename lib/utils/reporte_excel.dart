@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../models/pedido_models.dart';
 import '../models/pais.dart';
+import '../services/pedido_service.dart';
 import 'descarga.dart';
 import 'formato.dart';
 import 'reporte_csv.dart';
@@ -146,6 +147,8 @@ Future<void> exportarExcel(
   String periodo = '',
 }) async {
   final messenger = ScaffoldMessenger.of(context);
+  // El NIT de los pedidos con factura está en privado/contacto.
+  pedidos = await PedidoService.instancia.conDatosDeFactura(pedidos);
   final bytes = excelVentas(pedidos, nombresSucursal: nombresSucursal, periodo: periodo);
   final descargado = await descargarBytes(
     nombreArchivo,

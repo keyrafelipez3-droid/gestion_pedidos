@@ -70,12 +70,14 @@ class CodigoNegocioService {
     }
   }
 
+  /// Documento privado con el código del negocio. Solo lo leen el
+  /// SuperAdmin y el Administrador de ese negocio (ver firestore.rules).
+  DocumentReference<Map<String, dynamic>> _acceso(String idNegocio) =>
+      _db.collection('negocios').doc(idNegocio).collection('privado').doc('acceso');
+
   /// Código actual de un negocio, en vivo (null si todavía no tiene).
-  Stream<String?> streamCodigo(String idNegocio) => _db
-      .collection('negocios')
-      .doc(idNegocio)
-      .snapshots()
-      .map((d) => d.data()?['codigoAcceso'] as String?);
+  Stream<String?> streamCodigo(String idNegocio) =>
+      _acceso(idNegocio).snapshots().map((d) => d.data()?['codigo'] as String?);
 
   Map<String, dynamic> _marca(NegocioModel n) => {
         'idNegocio': n.idNegocio,
@@ -88,8 +90,8 @@ class CodigoNegocioService {
   /// deja de servir para entrar, pero quienes ya entraron siguen teniendo
   /// acceso.
   Future<String> asignarCodigo(NegocioModel negocio) async {
-    final ref = _db.collection('negocios').doc(negocio.idNegocio);
-    final anterior = (await ref.get()).data()?['codigoAcceso'] as String?;
+    final ref = _acceso(negocio.idNegocio);
+    final anterior = (await ref.get()).data()?['codigo'] as String?;
     String codigo;
     var intentos = 0;
     do {
@@ -98,7 +100,7 @@ class CodigoNegocioService {
     } while ((await _codigos.doc(codigo).get()).exists && intentos < 10);
     final lote = _db.batch()
       ..set(_codigos.doc(codigo), _marca(negocio))
-      ..update(ref, {'codigoAcceso': codigo});
+      ..set(ref, {'codigo': codigo});
     if (anterior != null && anterior.isNotEmpty) lote.delete(_codigos.doc(anterior));
     await lote.commit();
     return codigo;
@@ -107,8 +109,7 @@ class CodigoNegocioService {
   /// Mantiene el nombre, logo y color del enlace iguales a los del negocio.
   Future<void> sincronizarMarca(NegocioModel negocio) async {
     try {
-      final codigo = (await _db.collection('negocios').doc(negocio.idNegocio).get())
-          .data()?['codigoAcceso'] as String?;
+      final codigo = (await _acceso(negocio.idNegocio).get()).data()?['codigo'] as String?;
       if (codigo == null || codigo.isEmpty) return;
       await _codigos.doc(codigo).set(_marca(negocio), SetOptions(merge: true));
     } catch (_) {

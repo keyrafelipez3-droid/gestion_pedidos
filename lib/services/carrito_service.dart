@@ -58,6 +58,11 @@ class CarritoService {
     return _items(uid).doc(itemId).update({'cantidad': nuevaCantidad});
   }
 
+  /// Pone en el carrito el precio de hoy de un producto (si cambió desde
+  /// que el cliente lo agregó).
+  Future<void> actualizarPrecio(String uid, String itemId, double precio) =>
+      _items(uid).doc(itemId).update({'precioUnitario': precio});
+
   /// HU-22: eliminar producto del carrito.
   Future<void> eliminarItem(String uid, String itemId) =>
       _items(uid).doc(itemId).delete();

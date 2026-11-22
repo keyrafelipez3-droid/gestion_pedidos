@@ -32,6 +32,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 let env;
@@ -60,6 +61,8 @@ async function sembrar() {
     // Codigos de acceso y los clientes que ya entraron con el de n1.
     await setDoc(doc(db, 'codigosNegocio', 'POLLO1'), { idNegocio: 'n1', nombre: 'Pollos Caro' });
     await setDoc(doc(db, 'codigosNegocio', 'OTRA22'), { idNegocio: 'n2', nombre: 'Otra tienda' });
+    await setDoc(doc(db, 'negocios/n1/privado', 'acceso'), { codigo: 'POLLO1' });
+    await setDoc(doc(db, 'negocios/n2/privado', 'acceso'), { codigo: 'OTRA22' });
     await setDoc(doc(db, 'usuarios/cli1/misNegocios', 'n1'), { codigo: 'POLLO1' });
     await setDoc(doc(db, 'usuarios/cli2/misNegocios', 'n1'), { codigo: 'POLLO1' });
     await setDoc(doc(db, 'sucursales', 's1'), { idNegocio: 'n1', nombre: 'Centro' });
@@ -70,6 +73,14 @@ async function sembrar() {
     await setDoc(doc(db, 'productos', 'prod1'), {
       idNegocio: 'n1', nombre: 'Pollo', precio: 35, disponible: true, stock: 10,
     });
+    // Lista de precios de n1 (la usan las reglas para validar los pedidos).
+    // "uno" cuesta 1: sirve para armar pedidos de cualquier monto.
+    await setDoc(doc(db, 'negocios/n1/publico', 'precios'), {
+      normal: { prod1: 35, uno: 1, promo1: 20 },
+      promo: { promo1: 15 },
+      promoHasta: null,
+    });
+    await setDoc(doc(db, 'negocios/n2/publico', 'precios'), { normal: { ajeno1: 1 } });
     await setDoc(doc(db, 'negocios/n1/cupones', 'CARO10'), {
       tipo: 'porcentaje', valor: 10, minimo: 0, activo: true, vence: null,
     });
@@ -88,13 +99,100 @@ async function sembrar() {
   });
 }
 
-/** Firestore como lo ve una persona con sesión (correo verificado). */
-function como(uid, { correoVerificado = true } = {}) {
-  return env.authenticatedContext(uid, { email_verified: correoVerificado }).firestore();
+/**
+ * Firestore como lo ve una persona con sesión (correo verificado). Por
+ * defecto entró con el código de su app autenticadora (dos pasos), que las
+ * reglas exigen al Administrador y al SuperAdmin.
+ */
+function como(uid, { correoVerificado = true, dosPasos = true } = {}) {
+  const firebase = { sign_in_provider: 'password', identities: {} };
+  if (dosPasos) firebase.sign_in_second_factor = 'totp';
+  return env.authenticatedContext(uid, { email_verified: correoVerificado, firebase }).firestore();
 }
 
-/** Pedido válido de un cliente; se puede modificar cualquier campo. */
+/**
+ * Líneas del pedido como las guarda la app: listas paralelas (producto,
+ * cantidad, nombre, notas), el precio de cada producto y el subtotal.
+ * items: [[idProducto, precio, cantidad], ...]
+ */
+function lineas(items) {
+  const precios = {};
+  for (const [id, precio] of items) precios[id] = precio;
+  return {
+    lineasIds: items.map((i) => i[0]),
+    lineasCant: items.map((i) => i[2] ?? 1),
+    lineasNombre: items.map((i) => i[0]),
+    lineasNotas: items.map(() => ''),
+    precios,
+    subtotal: items.reduce((t, i) => t + i[1] * (i[2] ?? 1), 0),
+  };
+}
+
+/** Líneas del producto "uno" (cuesta 1) que suman [monto]. */
+function lineasPorMonto(monto) {
+  const items = [];
+  let resto = monto;
+  while (resto > 0) {
+    const c = Math.min(99, resto);
+    items.push(['uno', 1, c]);
+    resto -= c;
+  }
+  return lineas(items);
+}
+
+/**
+ * Crea el pedido y su control/total en un solo lote, como la app. El
+ * control copia productos, cantidades, precios y subtotal del pedido.
+ * Como la app, la dirección, el teléfono y la factura van aparte
+ * (privado/contacto), y si hay cupón se anota su uso.
+ */
+let contadorPedidos = 0;
+const CAMPOS_CONTACTO = ['direccionEntrega', 'telefonoCliente', 'facturaNit', 'facturaRazonSocial'];
+function crearPedido(db, idPedido, datos, {
+  conControl = true, control = {}, contactoDentro = false, sinUsoCupon = false, uidUso,
+} = {}) {
+  // "nuevo" = un id distinto cada vez, para que dos pedidos de la misma
+  // prueba no caigan en el mismo documento.
+  const id = idPedido === 'nuevo' ? `nuevo${++contadorPedidos}` : idPedido;
+  const lote = writeBatch(db);
+  const contacto = {};
+  if (!contactoDentro) {
+    datos = { ...datos };
+    for (const c of CAMPOS_CONTACTO) {
+      if (c in datos) { contacto[c] = datos[c]; delete datos[c]; }
+    }
+  }
+  lote.set(doc(db, 'pedidos', id), datos);
+  if (Object.keys(contacto).length > 0) {
+    lote.set(doc(db, `pedidos/${id}/privado`, 'contacto'), contacto);
+  }
+  if (datos.codigoCupon && !sinUsoCupon) {
+    lote.set(doc(db, `negocios/${datos.idNegocio}/cupones/${datos.codigoCupon}/usos`, uidUso ?? datos.idCliente),
+      { idPedido: id, fecha: serverTimestamp() });
+  }
+  if (conControl) {
+    lote.set(doc(db, `pedidos/${id}/control`, 'total'), {
+      ids: datos.lineasIds ?? [],
+      cant: datos.lineasCant ?? [],
+      precios: datos.precios ?? {},
+      subtotal: datos.subtotal ?? 0,
+      ...control,
+    });
+  }
+  return lote.commit();
+}
+
+/**
+ * Pedido válido de un cliente; se puede modificar cualquier campo. Si no
+ * se pasan líneas, se arman solas para que sumen total + descuento.
+ */
 function pedidoCliente(uid, cambios = {}) {
+  const p = pedidoBase(uid, cambios);
+  if (cambios.lineasIds) return p;
+  return { ...lineasPorMonto(p.total + (p.descuento ?? 0)), ...p };
+}
+
+function pedidoBase(uid, cambios) {
   return {
     idCliente: uid,
     idNegocio: 'n1',
@@ -187,7 +285,8 @@ describe('Acuerdo de confidencialidad del personal', () => {
   const firma = (cambios = {}) => ({
     acuerdoPersonal: {
       version: '2026-10-23', fecha: serverTimestamp(), nombre: 'Rosa Quispe', ci: '1234567',
-      idNegocio: 'n1', rol: 'Cocina', ...cambios,
+      idNegocio: 'n1', rol: 'Cocina',
+      firma: 'M10 50 L15 54 L20 58 L25 50 L30 54 L35 58 L40 50 L45 54 L50 58', ...cambios,
     },
   });
 
@@ -203,11 +302,24 @@ describe('Acuerdo de confidencialidad del personal', () => {
   test('el Administrador no puede firmar por el empleado', async () => {
     await assertFails(updateDoc(doc(como('admin1'), 'usuarios', 'cocina1'), firma()));
   });
+
+  test('sin la firma dibujada no se puede firmar', async () => {
+    const sinFirma = firma();
+    delete sinFirma.acuerdoPersonal.firma;
+    await assertFails(updateDoc(doc(como('cocina1'), 'usuarios', 'cocina1'), sinFirma));
+  });
+
+  test('la firma dibujada solo acepta trazos y no puede ser enorme', async () => {
+    await assertFails(updateDoc(doc(como('cocina1'), 'usuarios', 'cocina1'),
+      firma({ firma: '<script>alert(1)</script> M10 10 L20 20' })));
+    await assertFails(updateDoc(doc(como('cocina1'), 'usuarios', 'cocina1'),
+      firma({ firma: 'M1 1 L2 2 '.repeat(2100) })));
+  });
 });
 
 // ---------------------------------------------------------------------------
 describe('Pedidos del cliente', () => {
-  const crear = (uid, datos, opciones) => setDoc(doc(como(uid, opciones), 'pedidos', 'nuevo'), datos);
+  const crear = (uid, datos, opciones) => crearPedido(como(uid, opciones), 'nuevo', datos);
 
   test('un pedido normal se crea', async () => {
     await assertSucceeds(crear('cli1', pedidoCliente('cli1')));
@@ -315,8 +427,10 @@ describe('Pedidos en el local (cocina, caja, reparto)', () => {
   });
 
   test('solo el cajero registra el cobro, y no se puede des-cobrar', async () => {
-    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { cobrado: true }));
-    await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { cobrado: true }));
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'cajas', 'c1'), { idCajero: 'cajero1', idNegocio: 'n1', estado: 'Abierta' }));
+    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { cobrado: true, idCaja: 'c1' }));
+    await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { cobrado: true, idCaja: 'c1' }));
     await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { cobrado: false }));
   });
 
@@ -356,7 +470,12 @@ describe('Catálogo y stock', () => {
   });
 
   test('el Administrador edita su catálogo, no el de otro negocio', async () => {
-    await assertSucceeds(updateDoc(doc(como('admin1'), 'productos', 'prod1'), { precio: 40 }));
+    // El precio se cambia junto con la lista de precios, en un solo lote.
+    const db = como('admin1');
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'productos', 'prod1'), { precio: 40 });
+    lote.set(doc(db, 'negocios/n1/publico', 'precios'), { normal: { prod1: 40 } }, { merge: true });
+    await assertSucceeds(lote.commit());
     await assertFails(updateDoc(doc(como('admin1'), 'productos', 'prod1'), { idNegocio: 'n2' }));
     await assertFails(setDoc(doc(como('admin1'), 'productos', 'ajeno'), { idNegocio: 'n2', nombre: 'X' }));
   });
@@ -367,12 +486,93 @@ describe('Catálogo y stock', () => {
 
   test('cupones: los gestiona el Administrador; el cliente solo los lee', async () => {
     await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/cupones', 'CARO10')));
+    // El cliente consulta el código que escribe, pero no puede listar todos.
+    await assertFails(getDocs(collection(como('cli1'), 'negocios/n1/cupones')));
+    await assertSucceeds(getDocs(collection(como('admin1'), 'negocios/n1/cupones')));
     await assertFails(updateDoc(doc(como('cli1'), 'negocios/n1/cupones', 'CARO10'), { valor: 100 }));
     await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios/n1/cupones', 'CARO10'), { valor: 15 }));
   });
 });
 
 // ---------------------------------------------------------------------------
+describe('Líneas y total del pedido', () => {
+  const crear = (datos, opciones) => crearPedido(como('cli1'), 'nuevo', datos, opciones);
+  const conLineas = (items, cambios = {}) => {
+    const l = lineas(items);
+    return pedidoCliente('cli1', { ...l, total: l.subtotal, ...cambios });
+  };
+
+  test('el precio de cada producto es el del catálogo', async () => {
+    await assertSucceeds(crear(conLineas([['prod1', 35, 2], ['uno', 1, 5], ['prod1', 35, 1]])));
+    await assertFails(crear(conLineas([['prod1', 1, 2]])));
+  });
+
+  test('la promoción vigente se acepta; si venció, no', async () => {
+    await assertSucceeds(crear(conLineas([['promo1', 15]])));
+    await assertSucceeds(crear(conLineas([['promo1', 20]])));
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios/n1/publico', 'precios'),
+        { promoHasta: Timestamp.fromDate(new Date('2020-01-01')) }));
+    await assertFails(crear(conLineas([['promo1', 15]])));
+  });
+
+  test('cantidad de 1 a 99 y entera', async () => {
+    await assertFails(crear(conLineas([['uno', 1, 0]], { subtotal: 0, total: 0.01 })));
+    await assertFails(crear(conLineas([['uno', 1, 100]])));
+    await assertFails(crear(conLineas([['uno', 1, 1.5]])));
+  });
+
+  test('no se puede pedir un producto de otro negocio o que no existe', async () => {
+    await assertFails(crear(conLineas([['ajeno1', 1]])));
+    await assertFails(crear(conLineas([['inventado', 1]])));
+  });
+
+  test('el subtotal es la suma de las líneas y el total no se puede cambiar', async () => {
+    await assertFails(crear(conLineas([['prod1', 35]], { subtotal: 1, total: 1 })));
+    await assertFails(crear(conLineas([['prod1', 35]], { total: 1 })));
+  });
+
+  test('sin el control/total, o con un control distinto al pedido, no se crea', async () => {
+    await assertFails(crear(conLineas([['prod1', 35]]), { conControl: false }));
+    await assertFails(crear(conLineas([['prod1', 35]]), { control: { cant: [2], subtotal: 70 } }));
+  });
+
+  test('sin líneas o con más de 30, no se crea', async () => {
+    await assertFails(crear(pedidoCliente('cli1', { ...lineas([]), total: 1 })));
+    await assertFails(crear(conLineas(Array.from({ length: 31 }, () => ['uno', 1]))));
+  });
+
+  test('un pedido de 30 líneas con 99 unidades cada una cabe en el límite de las reglas', async () => {
+    await assertSucceeds(crear(conLineas(Array.from({ length: 30 }, () => ['uno', 1, 99]))));
+  });
+
+  test('el control/total no se cambia ni se crea para un pedido que ya existe', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'p1', conLineas([['prod1', 35]])));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/p1/control', 'total'),
+      { ids: ['uno'], cant: [1], precios: { uno: 1 }, subtotal: 1 }));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/ped1/control', 'total'),
+      { ids: ['uno'], cant: [1], precios: { uno: 1 }, subtotal: 1 }));
+  });
+
+  test('las líneas viejas (detalle) ya no las crea nadie salvo el SuperAdmin', async () => {
+    const linea1 = { idProducto: 'prod1', precioUnitario: 1, cantidad: 1 };
+    await assertFails(addDoc(collection(como('cli1'), 'pedidos/ped1/detalle'), linea1));
+    await assertFails(addDoc(collection(como('cajero1'), 'pedidos/ped1/detalle'), linea1));
+  });
+
+  test('la lista de precios la leen todos y solo la cambia su Administrador', async () => {
+    const precios = (uid) => doc(como(uid), 'negocios/n1/publico', 'precios');
+    await assertSucceeds(getDoc(precios('cli1')));
+    await assertFails(setDoc(precios('cli1'), { normal: { prod1: 1 } }, { merge: true }));
+    await assertFails(setDoc(precios('cajero1'), { normal: { prod1: 1 } }, { merge: true }));
+    await assertSucceeds(setDoc(precios('admin1'), { normal: { prod1: 36 } }, { merge: true }));
+  });
+
+  test('el Administrador no puede cambiar un precio sin actualizar la lista', async () => {
+    await assertFails(updateDoc(doc(como('admin1'), 'productos', 'prod1'), { precio: 40 }));
+  });
+});
+
 describe('Registro de actividad (auditoría)', () => {
   const registro = (uid, cambios = {}) => ({
     tipo: 'pedido', descripcion: 'Cambió el estado', idUsuario: uid, nombreUsuario: 'X', rol: 'Cocina',
@@ -426,8 +626,89 @@ describe('Caja', () => {
   });
 });
 
+describe('Cobro en caja: un pedido se cobra una sola vez', () => {
+  const abrirCajas = () =>
+    env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'usuarios', 'cajero2'),
+        { rol: 'Cajero', estado: true, idNegocio: 'n1', idSucursal: 's1', email: 'c2@n1.bo' });
+      await setDoc(doc(db, 'cajas', 'c1'), { idCajero: 'cajero1', idNegocio: 'n1', estado: 'Abierta' });
+      await setDoc(doc(db, 'cajas', 'c2'), { idCajero: 'cajero2', idNegocio: 'n1', estado: 'Abierta' });
+      await setDoc(doc(db, 'cajas', 'cContada'),
+        { idCajero: 'cajero1', idNegocio: 'n1', estado: 'Abierta', montoContado: 10 });
+      await updateDoc(doc(db, 'pedidos', 'ped1'), { estado: 'Listo', costoEnvio: 0 });
+    });
+  /** Entrega y cobra ped1 (total 35) en un lote, como entregarYCobrar. */
+  const entregarYCobrar = (uid, idCaja, { monto = 35, conPedido = true } = {}) => {
+    const db = como(uid);
+    const lote = writeBatch(db);
+    lote.set(doc(db, `cajas/${idCaja}/movimientos`, 'cobro_ped1'), {
+      tipo: 'Cobro', concepto: 'Pedido', monto, metodoPago: 'Efectivo',
+      idPedido: 'ped1', idUsuario: uid, fecha: serverTimestamp(),
+    });
+    if (conPedido) lote.update(doc(db, 'pedidos', 'ped1'), { estado: 'Entregado', cobrado: true, idCaja });
+    return lote.commit();
+  };
+
+  test('el cajero entrega y cobra en su caja, en un solo paso', async () => {
+    await abrirCajas();
+    await assertSucceeds(entregarYCobrar('cajero1', 'c1'));
+  });
+
+  test('el mismo pedido no se cobra dos veces, ni en otra caja', async () => {
+    await abrirCajas();
+    await assertSucceeds(entregarYCobrar('cajero1', 'c1'));
+    await assertFails(entregarYCobrar('cajero1', 'c1'));
+    await assertFails(entregarYCobrar('cajero2', 'c2'));
+  });
+
+  test('no hay movimiento de cobro sin que el pedido quede cobrado', async () => {
+    await abrirCajas();
+    await assertFails(entregarYCobrar('cajero1', 'c1', { conPedido: false }));
+  });
+
+  test('el monto del cobro es el del pedido', async () => {
+    await abrirCajas();
+    await assertFails(entregarYCobrar('cajero1', 'c1', { monto: 1 }));
+  });
+
+  test('no se cobra en la caja de otro cajero ni en una caja ya contada', async () => {
+    await abrirCajas();
+    await assertFails(entregarYCobrar('cajero1', 'c2'));
+    await assertFails(entregarYCobrar('cajero1', 'cContada'));
+  });
+});
+
+describe('Cada sucursal ve solo sus pedidos', () => {
+  const pedidoOtraSucursal = () =>
+    env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'pedidos', 'pedSur'), {
+        idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's3', modalidad: 'Recoger',
+        metodoPago: 'Efectivo', estado: 'Pendiente', total: 35, cobrado: false,
+      }));
+
+  test('el cajero de una sucursal no ve ni cambia pedidos de otra', async () => {
+    await pedidoOtraSucursal();
+    await assertSucceeds(getDoc(doc(como('cajero1'), 'pedidos', 'ped1')));
+    await assertFails(getDoc(doc(como('cajero1'), 'pedidos', 'pedSur')));
+    await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'pedSur'), { estado: 'En preparación' }));
+  });
+
+  test('su consulta tiene que pedir solo su sucursal', async () => {
+    const pedidos = collection(como('cajero1'), 'pedidos');
+    await assertSucceeds(getDocs(query(pedidos, where('idNegocio', '==', 'n1'), where('idSucursal', '==', 's1'))));
+    await assertFails(getDocs(query(pedidos, where('idNegocio', '==', 'n1'))));
+  });
+
+  test('el personal sin sucursal asignada ve todo el negocio', async () => {
+    await pedidoOtraSucursal();
+    await assertSucceeds(getDoc(doc(como('cocina1'), 'pedidos', 'pedSur')));
+    await assertSucceeds(getDocs(query(collection(como('cocina1'), 'pedidos'), where('idNegocio', '==', 'n1'))));
+  });
+});
+
 describe('Delivery por zonas', () => {
-  const crear = (datos) => setDoc(doc(como('cli1'), 'pedidos', 'nuevo'), datos);
+  const crear = (datos, opciones) => crearPedido(como('cli1'), 'nuevo', datos, opciones);
   const delivery = (cambios = {}) =>
     pedidoCliente('cli1', {
       idSucursal: 's3', modalidad: 'Delivery', direccionEntrega: { texto: 'Calle 1' }, total: 40, ...cambios,
@@ -491,6 +772,7 @@ describe('Permisos ajustables por el Administrador', () => {
   const pedidoMesa = () => ({
     idNegocio: 'n1', idSucursal: 's1', modalidad: 'Mesa', metodoPago: 'Por definir', estado: 'Pendiente',
     origen: 'cajero', creadoPor: 'cajero1', cobrado: false, total: 20, alergias: [], fechaCreacion: serverTimestamp(),
+    ...lineasPorMonto(20),
   });
   const abrirCaja = () =>
     env.withSecurityRulesDisabled((ctx) =>
@@ -501,7 +783,7 @@ describe('Permisos ajustables por el Administrador', () => {
     await abrirCaja();
     await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
     await assertSucceeds(addDoc(collection(como('cajero1'), 'cajas/c9/movimientos'), egreso));
-    await assertSucceeds(setDoc(doc(como('cajero1'), 'pedidos', 'mesa1'), pedidoMesa()));
+    await assertSucceeds(crearPedido(como('cajero1'), 'mesa1', pedidoMesa()));
   });
 
   test('si el Administrador quita los permisos, el servidor los bloquea', async () => {
@@ -509,7 +791,7 @@ describe('Permisos ajustables por el Administrador', () => {
     await quitarPermisos();
     await assertFails(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
     await assertFails(addDoc(collection(como('cajero1'), 'cajas/c9/movimientos'), egreso));
-    await assertFails(setDoc(doc(como('cajero1'), 'pedidos', 'mesa1'), pedidoMesa()));
+    await assertFails(crearPedido(como('cajero1'), 'mesa1', pedidoMesa()));
     // Lo demás sigue funcionando.
     await assertSucceeds(updateDoc(doc(como('cajero1'), 'pedidos', 'ped1'), { estado: 'En preparación' }));
     await assertSucceeds(updateDoc(doc(como('admin1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
@@ -561,14 +843,14 @@ describe('Código de acceso de cada restaurante', () => {
   test('un cliente no puede pedir en un restaurante al que no entró con su código', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       setDoc(doc(ctx.firestore(), 'usuarios', 'cli3'), { rol: 'Cliente', estado: true, email: 'c3@x.com' }));
-    await assertFails(addDoc(collection(como('cli3'), 'pedidos'), pedidoCliente('cli3')));
+    await assertFails(crearPedido(como('cli3'), 'nuevo', pedidoCliente('cli3')));
   });
 
   test('con el código correcto entra y ya puede pedir', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       setDoc(doc(ctx.firestore(), 'usuarios', 'cli3'), { rol: 'Cliente', estado: true, email: 'c3@x.com' }));
     await assertSucceeds(unirse('cli3', 'n1', 'POLLO1'));
-    await assertSucceeds(addDoc(collection(como('cli3'), 'pedidos'), pedidoCliente('cli3')));
+    await assertSucceeds(crearPedido(como('cli3'), 'nuevo', pedidoCliente('cli3')));
   });
 
   test('no puede entrar con un código de otro restaurante o inventado', async () => {
@@ -583,6 +865,28 @@ describe('Código de acceso de cada restaurante', () => {
     await assertFails(getDocs(collection(como('cli1'), 'codigosNegocio')));
   });
 
+  test('el código de un restaurante solo lo ven el SuperAdmin y su Administrador', async () => {
+    await assertSucceeds(getDoc(doc(como('super1'), 'negocios/n1/privado', 'acceso')));
+    await assertSucceeds(getDoc(doc(como('admin1'), 'negocios/n1/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('admin1'), 'negocios/n2/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('cli1'), 'negocios/n1/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('cajero1'), 'negocios/n1/privado', 'acceso')));
+    await assertFails(getDoc(doc(como('cocina1'), 'negocios/n1/privado', 'acceso')));
+  });
+
+  test('solo el SuperAdmin cambia el código privado', async () => {
+    await assertSucceeds(setDoc(doc(como('super1'), 'negocios/n1/privado', 'acceso'), { codigo: 'NUEVO9' }));
+    await assertFails(setDoc(doc(como('admin1'), 'negocios/n1/privado', 'acceso'), { codigo: 'MIO123' }));
+    await assertFails(updateDoc(doc(como('admin1'), 'negocios', 'n1'), { codigoAcceso: 'MIO123' }));
+  });
+
+  test('un cliente lee un negocio por su id, pero no puede listar todos', async () => {
+    await assertSucceeds(getDoc(doc(como('cli1'), 'negocios', 'n1')));
+    await assertFails(getDocs(collection(como('cli1'), 'negocios')));
+    await assertFails(getDocs(collection(como('admin1'), 'negocios')));
+    await assertSucceeds(getDocs(collection(como('super1'), 'negocios')));
+  });
+
   test('solo el SuperAdmin crea códigos', async () => {
     await assertSucceeds(setDoc(doc(como('super1'), 'codigosNegocio', 'NUEVO9'), { idNegocio: 'n1', nombre: 'x' }));
     await assertFails(setDoc(doc(como('admin1'), 'codigosNegocio', 'MIO123'), { idNegocio: 'n1', nombre: 'x' }));
@@ -594,11 +898,11 @@ describe('Condiciones de cada restaurante', () => {
   test('si el restaurante cambia sus condiciones, el cliente debe aceptarlas antes de pedir', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), { condiciones: { version: '2026-10-25 20:00' } }));
-    await assertFails(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
     await assertSucceeds(updateDoc(doc(como('cli1'), 'usuarios/cli1/misNegocios', 'n1'), {
       condicionesVersion: '2026-10-25 20:00', condicionesAceptadasEn: serverTimestamp(),
     }));
-    await assertSucceeds(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
   });
 
   test('al aceptar, el cliente no puede cambiar a qué restaurante entró', async () => {
@@ -619,13 +923,13 @@ describe('Pausa de pedidos (HU-47)', () => {
   test('con la sucursal en pausa nadie puede hacer un pedido ahí', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { pedidosPausados: true, motivoPausa: 'Cocina llena' }));
-    await assertFails(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
   });
 
   test('al reanudar, se vuelve a poder pedir', async () => {
     await env.withSecurityRulesDisabled((ctx) =>
       updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { pedidosPausados: false }));
-    await assertSucceeds(addDoc(collection(como('cli1'), 'pedidos'), pedidoCliente('cli1')));
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
   });
 
   test('el Administrador pausa su sucursal, no la de otro negocio', async () => {
@@ -704,4 +1008,117 @@ describe('Versión publicada de la app', () => {
 
 test('cualquier colección que no está en las reglas queda cerrada', async () => {
   await assertFails(setDoc(doc(como('super1'), 'secreto', 'x'), { a: 1 }));
+});
+
+// ---------------------------------------------------------------------------
+describe('Datos personales del pedido (privado/contacto)', () => {
+  const crear = (uid, datos, opciones) => crearPedido(como(uid), 'nuevo', datos, opciones);
+  const delivery = {
+    modalidad: 'Delivery', nombreCliente: 'Ana', direccionEntrega: { direccion: 'Calle 1' }, telefonoCliente: '70000000',
+  };
+
+  async function pedidoConContacto(estado = 'Pendiente', extra = {}) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'pedidos', 'pedC'), {
+        idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's1', modalidad: 'Delivery',
+        metodoPago: 'Efectivo', estado, total: 50, cobrado: false, ...extra,
+      });
+      await setDoc(doc(db, 'pedidos/pedC/privado', 'contacto'), {
+        direccionEntrega: { direccion: 'Calle 1' }, telefonoCliente: '70000000',
+      });
+    });
+  }
+
+  test('la dirección y el teléfono van aparte del pedido', async () => {
+    await assertSucceeds(crear('cli1', pedidoCliente('cli1', delivery)));
+    await assertFails(crear('cli1', pedidoCliente('cli1', delivery), { contactoDentro: true }));
+  });
+
+  test('la factura también va aparte y con tamaño limitado', async () => {
+    await assertSucceeds(crear('cli1', pedidoCliente('cli1', { facturaNit: '1234567', facturaRazonSocial: 'Ana SRL' })));
+    await assertFails(crear('cli1', pedidoCliente('cli1', { facturaNit: '1'.repeat(40) })));
+  });
+
+  test('la cocina no ve los datos de contacto; el cajero y el Administrador sí', async () => {
+    await pedidoConContacto();
+    await assertSucceeds(getDoc(doc(como('cocina1'), 'pedidos', 'pedC')));
+    await assertFails(getDoc(doc(como('cocina1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertSucceeds(getDoc(doc(como('cajero1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertSucceeds(getDoc(doc(como('admin1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertFails(getDoc(doc(como('cli2'), 'pedidos/pedC/privado', 'contacto')));
+  });
+
+  test('el repartidor ve el contacto solo mientras lleva el pedido', async () => {
+    await pedidoConContacto('Listo');
+    await assertFails(getDoc(doc(como('repa1'), 'pedidos/pedC/privado', 'contacto')));
+    await pedidoConContacto('En camino', { idRepartidor: 'repa1' });
+    await assertSucceeds(getDoc(doc(como('repa1'), 'pedidos/pedC/privado', 'contacto')));
+    await pedidoConContacto('Entregado', { idRepartidor: 'repa1' });
+    await assertFails(getDoc(doc(como('repa1'), 'pedidos/pedC/privado', 'contacto')));
+  });
+
+  test('un cupón se usa una sola vez por cliente', async () => {
+    const conCupon = () => pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 });
+    await assertFails(crear('cli1', conCupon(), { sinUsoCupon: true }));
+    await assertSucceeds(crear('cli1', conCupon()));
+    await assertFails(crear('cli1', conCupon()));
+  });
+
+  test('un 10 % de descuento con decimales también se acepta', async () => {
+    await assertSucceeds(crear('cli1', pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 3.5, total: 31.5 })));
+  });
+
+  test('la ficha del cliente solo se crea en un restaurante al que entró', async () => {
+    const ficha = {
+      nombre: 'Ana', telefono: '7', bloqueado: false, fechaPrimerPedido: serverTimestamp(), ultimoPedido: serverTimestamp(),
+    };
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n2/clientes', 'cli1'), ficha));
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/clientes', 'cli1'), ficha));
+    await assertFails(updateDoc(doc(como('cli1'), 'negocios/n1/clientes', 'cli1'), { nombre: 'x'.repeat(200) }));
+  });
+
+  test('el historial no acepta campos extra ni comentarios enormes', async () => {
+    const h = (cambios = {}) => ({
+      estado: 'Pendiente', idUsuarioQueCambio: 'cli1', comentario: 'Creado', fecha: serverTimestamp(), ...cambios,
+    });
+    await assertSucceeds(setDoc(doc(como('cli1'), 'pedidos/ped1/historialEstados', 'h1'), h()));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/ped1/historialEstados', 'h2'), h({ extra: 1 })));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/ped1/historialEstados', 'h3'), h({ comentario: 'x'.repeat(600) })));
+  });
+
+  test('al eliminar su cuenta, el cliente borra sus datos de pedidos terminados', async () => {
+    const anonimo = {
+      idCliente: 'cuenta-eliminada', direccionEntrega: null, nombreCliente: null, telefonoCliente: null,
+      facturaNit: null, facturaRazonSocial: null, alergias: [], notas: '',
+    };
+    await pedidoConContacto('En camino');
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'pedC'), anonimo));
+    await assertFails(deleteDoc(doc(como('cli1'), 'pedidos/pedC/privado', 'contacto')));
+    await pedidoConContacto('Entregado');
+    const db = como('cli1');
+    const lote = writeBatch(db);
+    lote.delete(doc(db, 'pedidos/pedC/privado', 'contacto'));
+    lote.update(doc(db, 'pedidos', 'pedC'), anonimo);
+    await assertSucceeds(lote.commit());
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('Verificación en dos pasos del Administrador y el SuperAdmin', () => {
+  test('sin el código de su app autenticadora, el Administrador no usa sus permisos', async () => {
+    await assertFails(getDoc(doc(como('admin1', { dosPasos: false }), 'negocios/n1/privado', 'acceso')));
+    await assertFails(updateDoc(doc(como('admin1', { dosPasos: false }), 'negocios', 'n1'), { nombre: 'X' }));
+    await assertSucceeds(getDoc(doc(como('admin1'), 'negocios/n1/privado', 'acceso')));
+  });
+
+  test('tampoco el SuperAdmin', async () => {
+    await assertFails(getDocs(collection(como('super1', { dosPasos: false }), 'negocios')));
+    await assertSucceeds(getDocs(collection(como('super1'), 'negocios')));
+  });
+
+  test('sin el código, el Administrador sí puede leer su perfil y firmar su acuerdo', async () => {
+    await assertSucceeds(getDoc(doc(como('admin1', { dosPasos: false }), 'usuarios', 'admin1')));
+  });
 });

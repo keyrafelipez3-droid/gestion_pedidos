@@ -870,4 +870,24 @@ const traduccionesEn = <String, String>{
   "Logo de {restaurante}": "{restaurante} logo",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Eat healthy: choose plain water, fruits and vegetables, and limit salt, sugar and fat.',
+  // Pedido: precios y líneas, y aviso de documentos legales
+  '"{producto}" ya no está disponible. Quítalo para continuar.': '"{producto}" is no longer available. Remove it to continue.',
+  'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'The price changed for: {productos}. Check the total and confirm again.',
+  'La cantidad de cada producto debe estar entre 1 y 99.': 'The quantity of each product must be between 1 and 99.',
+  'Por ahora no se pueden pedir productos con extras.': 'Products with extras can\'t be ordered for now.',
+  'Un pedido puede tener hasta {n} productos distintos.': 'An order can have up to {n} different products.',
+  'Este documento está disponible solo en español, que es la versión válida.': 'This document is only available in Spanish, which is the valid version.',
+  // Protección de datos (22 nov)
+  'Ya usaste este cupón.': 'You already used this coupon.',
+  'Preparando tus datos…': 'Preparing your data…',
+  'Copiamos tus datos al portapapeles. Pégalos en un archivo o un correo para guardarlos.': 'We copied your data to the clipboard. Paste it into a file or an email to keep it.',
+  'No se pudieron preparar tus datos. Inténtalo de nuevo.': 'We could not prepare your data. Please try again.',
+  'Descargar mis datos': 'Download my data',
+  'Tu perfil, direcciones, restaurantes y pedidos en un archivo': 'Your profile, addresses, restaurants and orders in one file',
+  'Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos, tu carrito y tus reseñas. Tus pedidos pasados se conservan sin tu nombre, teléfono, dirección, factura, alergias ni notas, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).': 'This cannot be undone.\n\nYour profile, addresses, favorites, cart and reviews will be deleted. Your past orders are kept without your name, phone, address, invoice details, allergies or notes, because the restaurant needs them for its accounting and claims. Images you uploaded are only deleted if you ask by email (see the Privacy policy).',
+  // Dos pasos obligatorios para administradores
+  'Vuelve a iniciar sesión': 'Sign in again',
+  'Para terminar, cierra sesión y vuelve a entrar. Esta vez te pediremos el código de tu app autenticadora.': 'To finish, sign out and sign in again. This time we will ask for the code from your authenticator app.',
+  'Preparando tu espacio…': 'Getting your space ready…',
+  'Cargando': 'Loading',
 };

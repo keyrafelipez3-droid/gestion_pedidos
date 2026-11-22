@@ -88,7 +88,9 @@ Future<bool> _ejecutar(BuildContext context, Future<void> Function() accion, Str
 String _direccion(PedidoModel p) {
   final direccion = (p.direccionEntrega?['direccion'] as String?) ?? '';
   final etiqueta = (p.direccionEntrega?['etiqueta'] as String?) ?? '';
-  if (direccion.isEmpty) return tr('Sin dirección registrada');
+  // La dirección se guarda aparte (privado/contacto) y el repartidor solo
+  // la ve cuando el pedido es suyo.
+  if (direccion.isEmpty) return tr('La dirección se ve al tomar el pedido');
   return etiqueta.isEmpty ? direccion : '$etiqueta · $direccion';
 }
 
