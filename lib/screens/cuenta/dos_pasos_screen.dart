@@ -11,6 +11,7 @@ import '../../models/actividad_model.dart';
 import '../../services/actividad_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/dos_pasos_service.dart';
+import '../../services/registro_errores.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 
@@ -194,11 +195,21 @@ class _AsistenteDosPasosState extends State<AsistenteDosPasos> {
             _detalle = e.code;
           });
       }
-    } catch (e) {
-      if (mounted) setState(() => _error = tr('Ocurrió un error inesperado. Intenta de nuevo.'));
+    } catch (e, pila) {
+      _errorDesconocido(e, pila, 'Dos pasos: Empezar');
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
+  }
+
+  /// Error que no es de Firebase Auth (en Android a veces llega como
+  /// PlatformException). Se guarda en "Errores de la app" para el SuperAdmin
+  /// y se muestra su código, así se puede saber qué pasó.
+  void _errorDesconocido(Object e, StackTrace pila, String donde) {
+    RegistroErrores.registrar(e, pila, contexto: donde);
+    if (!mounted) return;
+    final codigo = e is PlatformException ? e.code : e.runtimeType.toString();
+    setState(() => _error = '${tr('Ocurrió un error inesperado. Intenta de nuevo.')} ($codigo)');
   }
 
   /// Firebase pide haber iniciado sesión hace poco: se vuelve a pedir la
@@ -261,6 +272,8 @@ class _AsistenteDosPasosState extends State<AsistenteDosPasos> {
       if (!mounted) return;
       _codigoCtrl.clear();
       setState(() => _error = AuthService.instancia.mensajeError(e.code));
+    } catch (e, pila) {
+      _errorDesconocido(e, pila, 'Dos pasos: Activar');
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
