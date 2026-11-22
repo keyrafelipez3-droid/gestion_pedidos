@@ -1,11 +1,11 @@
 {
-    "name": "Caro | Pedidos de comida",
-    "short_name": "Caro",
+    "name": "Nami | Pedidos de comida",
+    "short_name": "Nami",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0B0B0B",
     "theme_color": "#F2BC45",
-    "description": "Caro: pedidos de comida, mesas, caja y reparto para tu negocio.",
+    "description": "Nami: pedidos de comida, mesas, caja y reparto para tu negocio.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

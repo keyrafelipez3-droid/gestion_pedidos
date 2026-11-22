@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
 
-/// Logo de la marca Caro, recortado en círculo (el archivo del logo es un
+/// Logo de la marca Nami, recortado en círculo (el archivo del logo es un
 /// cuadrado negro con el círculo dorado). Si el archivo faltara, muestra
 /// un ícono de comida para que la pantalla no quede rota.
 class LogoCaro extends StatelessWidget {
