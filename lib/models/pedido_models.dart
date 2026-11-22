@@ -155,8 +155,13 @@ class PedidoModel {
   final DateTime? programadoPara;
 
   /// Datos para la factura (NIT/CI y razón social), si el cliente los pidió.
+  /// Van en privado/contacto; en el pedido solo queda [conFactura].
   final String? facturaNit;
   final String? facturaRazonSocial;
+
+  /// El cliente pidió factura (sin el NIT: así la Cocina ve la etiqueta
+  /// "Factura" pero no el dato).
+  final bool conFactura;
 
   /// Productos del pedido (máximo 30 líneas). Se guardan dentro del mismo
   /// documento, en listas paralelas (`lineasIds`, `lineasCant`,
@@ -210,13 +215,14 @@ class PedidoModel {
     this.programadoPara,
     this.facturaNit,
     this.facturaRazonSocial,
+    this.conFactura = false,
     this.lineas = const [],
     this.subtotal = 0,
   });
 
   bool get tieneAlergias => alergias.isNotEmpty;
   bool get esProgramado => programadoPara != null;
-  bool get pideFactura => (facturaNit ?? '').isNotEmpty;
+  bool get pideFactura => conFactura || (facturaNit ?? '').isNotEmpty;
 
   /// Productos antes del descuento.
   double get subtotalProductos => total + descuento;
@@ -257,7 +263,6 @@ class PedidoModel {
         'idSucursal': idSucursal,
         'modalidad': modalidad,
         'idMesa': idMesa,
-        'direccionEntrega': direccionEntrega,
         'metodoPago': metodoPago,
         'comprobantePagoUrl': comprobantePagoUrl,
         'estado': estado,
@@ -271,7 +276,6 @@ class PedidoModel {
         'cobrado': cobrado,
         'idCaja': idCaja,
         'nombreCliente': nombreCliente,
-        'telefonoCliente': telefonoCliente,
         'alergias': alergias,
         'idiomaCliente': idiomaCliente,
         'descuento': descuento,
@@ -280,17 +284,33 @@ class PedidoModel {
         if (zonaEntrega != null) 'zonaEntrega': zonaEntrega,
         if (codigoCupon != null) 'codigoCupon': codigoCupon,
         if (programadoPara != null) 'programadoPara': Timestamp.fromDate(programadoPara!),
-        if (facturaNit != null) 'facturaNit': facturaNit,
-        if (facturaRazonSocial != null) 'facturaRazonSocial': facturaRazonSocial,
+        if (pideFactura) 'conFactura': true,
         ...DetallePedidoModel.camposDeLineas(lineas),
         'subtotal': subtotal,
         // idRepartidor / nombreRepartidor / telefonoRepartidor NO van acá a
         // propósito: los escribe el repartidor al tomar el pedido, no el
         // cliente al crearlo (las reglas de Firestore no los aceptan al crear).
+        // La dirección, el teléfono y la factura tampoco: van en
+        // privado/contacto (ver contactoMap).
       };
 
-  factory PedidoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? {};
+  /// Datos de contacto del cliente que se guardan aparte, en
+  /// `pedidos/{id}/privado/contacto`: así la Cocina no los ve, y el
+  /// repartidor solo mientras lleva el pedido (ver firestore.rules).
+  Map<String, dynamic> contactoMap() => {
+        if (direccionEntrega != null) 'direccionEntrega': direccionEntrega,
+        if ((telefonoCliente ?? '').isNotEmpty) 'telefonoCliente': telefonoCliente,
+        if (facturaNit != null) 'facturaNit': facturaNit,
+        if (facturaRazonSocial != null) 'facturaRazonSocial': facturaRazonSocial,
+      };
+
+  /// [contacto]: datos de `privado/contacto`, si se pudieron leer. Los
+  /// pedidos anteriores tienen esos datos dentro del propio pedido.
+  factory PedidoModel.fromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    Map<String, dynamic>? contacto,
+  }) {
+    final data = <String, dynamic>{...?doc.data(), ...?contacto};
     final rawTotal = data['total'];
     final ts = data['fechaCreacion'] as Timestamp?;
     final rawDireccion = data['direccionEntrega'];
@@ -335,6 +355,7 @@ class PedidoModel {
       programadoPara: (data['programadoPara'] as Timestamp?)?.toDate(),
       facturaNit: data['facturaNit'] as String?,
       facturaRazonSocial: data['facturaRazonSocial'] as String?,
+      conFactura: data['conFactura'] == true,
       lineas: DetallePedidoModel.desdePedido(data),
       subtotal: (data['subtotal'] as num?)?.toDouble() ?? 0,
     );

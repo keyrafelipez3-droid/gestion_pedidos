@@ -137,14 +137,33 @@ function lineasPorMonto(monto) {
 /**
  * Crea el pedido y su control/total en un solo lote, como la app. El
  * control copia productos, cantidades, precios y subtotal del pedido.
+ * Como la app, la dirección, el teléfono y la factura van aparte
+ * (privado/contacto), y si hay cupón se anota su uso.
  */
 let contadorPedidos = 0;
-function crearPedido(db, idPedido, datos, { conControl = true, control = {} } = {}) {
+const CAMPOS_CONTACTO = ['direccionEntrega', 'telefonoCliente', 'facturaNit', 'facturaRazonSocial'];
+function crearPedido(db, idPedido, datos, {
+  conControl = true, control = {}, contactoDentro = false, sinUsoCupon = false, uidUso,
+} = {}) {
   // "nuevo" = un id distinto cada vez, para que dos pedidos de la misma
   // prueba no caigan en el mismo documento.
   const id = idPedido === 'nuevo' ? `nuevo${++contadorPedidos}` : idPedido;
   const lote = writeBatch(db);
+  const contacto = {};
+  if (!contactoDentro) {
+    datos = { ...datos };
+    for (const c of CAMPOS_CONTACTO) {
+      if (c in datos) { contacto[c] = datos[c]; delete datos[c]; }
+    }
+  }
   lote.set(doc(db, 'pedidos', id), datos);
+  if (Object.keys(contacto).length > 0) {
+    lote.set(doc(db, `pedidos/${id}/privado`, 'contacto'), contacto);
+  }
+  if (datos.codigoCupon && !sinUsoCupon) {
+    lote.set(doc(db, `negocios/${datos.idNegocio}/cupones/${datos.codigoCupon}/usos`, uidUso ?? datos.idCliente),
+      { idPedido: id, fecha: serverTimestamp() });
+  }
   if (conControl) {
     lote.set(doc(db, `pedidos/${id}/control`, 'total'), {
       ids: datos.lineasIds ?? [],
@@ -461,6 +480,9 @@ describe('Catálogo y stock', () => {
 
   test('cupones: los gestiona el Administrador; el cliente solo los lee', async () => {
     await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/cupones', 'CARO10')));
+    // El cliente consulta el código que escribe, pero no puede listar todos.
+    await assertFails(getDocs(collection(como('cli1'), 'negocios/n1/cupones')));
+    await assertSucceeds(getDocs(collection(como('admin1'), 'negocios/n1/cupones')));
     await assertFails(updateDoc(doc(como('cli1'), 'negocios/n1/cupones', 'CARO10'), { valor: 100 }));
     await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios/n1/cupones', 'CARO10'), { valor: 15 }));
   });
@@ -980,4 +1002,99 @@ describe('Versión publicada de la app', () => {
 
 test('cualquier colección que no está en las reglas queda cerrada', async () => {
   await assertFails(setDoc(doc(como('super1'), 'secreto', 'x'), { a: 1 }));
+});
+
+// ---------------------------------------------------------------------------
+describe('Datos personales del pedido (privado/contacto)', () => {
+  const crear = (uid, datos, opciones) => crearPedido(como(uid), 'nuevo', datos, opciones);
+  const delivery = {
+    modalidad: 'Delivery', nombreCliente: 'Ana', direccionEntrega: { direccion: 'Calle 1' }, telefonoCliente: '70000000',
+  };
+
+  async function pedidoConContacto(estado = 'Pendiente', extra = {}) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'pedidos', 'pedC'), {
+        idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's1', modalidad: 'Delivery',
+        metodoPago: 'Efectivo', estado, total: 50, cobrado: false, ...extra,
+      });
+      await setDoc(doc(db, 'pedidos/pedC/privado', 'contacto'), {
+        direccionEntrega: { direccion: 'Calle 1' }, telefonoCliente: '70000000',
+      });
+    });
+  }
+
+  test('la dirección y el teléfono van aparte del pedido', async () => {
+    await assertSucceeds(crear('cli1', pedidoCliente('cli1', delivery)));
+    await assertFails(crear('cli1', pedidoCliente('cli1', delivery), { contactoDentro: true }));
+  });
+
+  test('la factura también va aparte y con tamaño limitado', async () => {
+    await assertSucceeds(crear('cli1', pedidoCliente('cli1', { facturaNit: '1234567', facturaRazonSocial: 'Ana SRL' })));
+    await assertFails(crear('cli1', pedidoCliente('cli1', { facturaNit: '1'.repeat(40) })));
+  });
+
+  test('la cocina no ve los datos de contacto; el cajero y el Administrador sí', async () => {
+    await pedidoConContacto();
+    await assertSucceeds(getDoc(doc(como('cocina1'), 'pedidos', 'pedC')));
+    await assertFails(getDoc(doc(como('cocina1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertSucceeds(getDoc(doc(como('cajero1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertSucceeds(getDoc(doc(como('admin1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'pedidos/pedC/privado', 'contacto')));
+    await assertFails(getDoc(doc(como('cli2'), 'pedidos/pedC/privado', 'contacto')));
+  });
+
+  test('el repartidor ve el contacto solo mientras lleva el pedido', async () => {
+    await pedidoConContacto('Listo');
+    await assertFails(getDoc(doc(como('repa1'), 'pedidos/pedC/privado', 'contacto')));
+    await pedidoConContacto('En camino', { idRepartidor: 'repa1' });
+    await assertSucceeds(getDoc(doc(como('repa1'), 'pedidos/pedC/privado', 'contacto')));
+    await pedidoConContacto('Entregado', { idRepartidor: 'repa1' });
+    await assertFails(getDoc(doc(como('repa1'), 'pedidos/pedC/privado', 'contacto')));
+  });
+
+  test('un cupón se usa una sola vez por cliente', async () => {
+    const conCupon = () => pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 });
+    await assertFails(crear('cli1', conCupon(), { sinUsoCupon: true }));
+    await assertSucceeds(crear('cli1', conCupon()));
+    await assertFails(crear('cli1', conCupon()));
+  });
+
+  test('un 10 % de descuento con decimales también se acepta', async () => {
+    await assertSucceeds(crear('cli1', pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 3.5, total: 31.5 })));
+  });
+
+  test('la ficha del cliente solo se crea en un restaurante al que entró', async () => {
+    const ficha = {
+      nombre: 'Ana', telefono: '7', bloqueado: false, fechaPrimerPedido: serverTimestamp(), ultimoPedido: serverTimestamp(),
+    };
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n2/clientes', 'cli1'), ficha));
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/clientes', 'cli1'), ficha));
+    await assertFails(updateDoc(doc(como('cli1'), 'negocios/n1/clientes', 'cli1'), { nombre: 'x'.repeat(200) }));
+  });
+
+  test('el historial no acepta campos extra ni comentarios enormes', async () => {
+    const h = (cambios = {}) => ({
+      estado: 'Pendiente', idUsuarioQueCambio: 'cli1', comentario: 'Creado', fecha: serverTimestamp(), ...cambios,
+    });
+    await assertSucceeds(setDoc(doc(como('cli1'), 'pedidos/ped1/historialEstados', 'h1'), h()));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/ped1/historialEstados', 'h2'), h({ extra: 1 })));
+    await assertFails(setDoc(doc(como('cli1'), 'pedidos/ped1/historialEstados', 'h3'), h({ comentario: 'x'.repeat(600) })));
+  });
+
+  test('al eliminar su cuenta, el cliente borra sus datos de pedidos terminados', async () => {
+    const anonimo = {
+      idCliente: 'cuenta-eliminada', direccionEntrega: null, nombreCliente: null, telefonoCliente: null,
+      facturaNit: null, facturaRazonSocial: null, alergias: [], notas: '',
+    };
+    await pedidoConContacto('En camino');
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'pedC'), anonimo));
+    await assertFails(deleteDoc(doc(como('cli1'), 'pedidos/pedC/privado', 'contacto')));
+    await pedidoConContacto('Entregado');
+    const db = como('cli1');
+    const lote = writeBatch(db);
+    lote.delete(doc(db, 'pedidos/pedC/privado', 'contacto'));
+    lote.update(doc(db, 'pedidos', 'pedC'), anonimo);
+    await assertSucceeds(lote.commit());
+  });
 });

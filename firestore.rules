@@ -7,7 +7,9 @@ rules_version = '2';
 //     negocio. Un Administrador sin negocio asignado no tiene permisos.
 //  2. Nadie puede escalar su propio rol, ni cambiarse de negocio/sucursal.
 //  3. Los datos personales de los clientes solo los ve el propio cliente
-//     y, de forma limitada, el negocio al que le compro.
+//     y, de forma limitada, el negocio al que le compro. La direccion, el
+//     telefono y la factura de cada pedido van en pedidos/{id}/privado/contacto
+//     (no los ve la Cocina, y el repartidor solo mientras lleva el pedido).
 //  4. Las escrituras validan CAMPOS (affectedKeys) y no solo quien escribe.
 //
 // Total del pedido: las lineas van dentro del pedido (maximo 30). Junto
@@ -103,10 +105,7 @@ service cloud.firestore {
             || (p.programadoPara is timestamp
                 && p.programadoPara > request.time
                 && p.programadoPara < request.time + duration.value(3, 'd')))
-        && (p.get('facturaNit', null) == null
-            || (p.facturaNit is string && p.facturaNit.size() <= 20
-                && p.get('facturaRazonSocial', '') is string
-                && p.get('facturaRazonSocial', '').size() <= 80))
+        && p.get('conFactura', false) is bool
         && p.get('descuento', 0) is number
         && p.get('descuento', 0) >= 0
         && (p.get('descuento', 0) == 0 || cuponValido(p));
@@ -121,8 +120,39 @@ service cloud.firestore {
         && (cupon.get('vence', null) == null || cupon.vence > request.time)
         && subtotal >= cupon.get('minimo', 0)
         && p.descuento <= (cupon.tipo == 'porcentaje'
-              ? subtotal * cupon.valor / 100 + 0.01
+              // 100.0: con numeros enteros (la web los manda asi) la division
+              // seria entera y un 10 % de 35 daria 3 en vez de 3.5.
+              ? subtotal * cupon.valor / 100.0 + 0.01
               : cupon.valor + 0.01);
+    }
+
+    // Un cupon se usa UNA vez por cliente: junto con el pedido se crea
+    // negocios/{id}/cupones/{codigo}/usos/{uid}, que antes no debe existir.
+    function cuponUnaVez(p) {
+      return p.get('codigoCupon', null) == null
+        || (!exists(/databases/$(database)/documents/negocios/$(p.idNegocio)/cupones/$(p.codigoCupon)/usos/$(request.auth.uid))
+            && existsAfter(/databases/$(database)/documents/negocios/$(p.idNegocio)/cupones/$(p.codigoCupon)/usos/$(request.auth.uid)));
+    }
+
+    // Datos de contacto del cliente de un pedido (pedidos/{id}/privado/contacto):
+    // direccion, telefono y datos de factura. Van aparte del pedido para que
+    // la Cocina (y el repartidor despues de entregar) no los vean.
+    function contactoValido(d) {
+      return d.keys().hasOnly(['direccionEntrega', 'telefonoCliente', 'facturaNit', 'facturaRazonSocial'])
+        && (d.get('direccionEntrega', null) == null
+            || (d.direccionEntrega is map && d.direccionEntrega.size() <= 10))
+        && (d.get('telefonoCliente', null) == null
+            || (d.telefonoCliente is string && d.telefonoCliente.size() <= 20))
+        && (d.get('facturaNit', null) == null
+            || (d.facturaNit is string && d.facturaNit.size() <= 20))
+        && (d.get('facturaRazonSocial', null) == null
+            || (d.facturaRazonSocial is string && d.facturaRazonSocial.size() <= 80));
+    }
+
+    // Ficha del cliente en un negocio: nombre y telefono de tamano normal.
+    function fichaValida(d) {
+      return d.get('nombre', '') is string && d.get('nombre', '').size() <= 80
+        && d.get('telefono', '') is string && d.get('telefono', '').size() <= 20;
     }
 
     // Costo de envio: si la sucursal tiene zonas de delivery, el pedido
@@ -520,12 +550,31 @@ service cloud.firestore {
         allow write: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
       }
 
-      // Cupones de descuento: los lee cualquier usuario con sesion (el
-      // cliente escribe el codigo al pagar) y los gestiona el
-      // Administrador de este negocio.
+      // Cupones de descuento: el cliente solo consulta el codigo que escribe
+      // (no puede listar todos los cupones); los gestiona el Administrador
+      // de este negocio.
       match /cupones/{codigo} {
-        allow read: if signedIn();
+        allow get: if signedIn();
+        allow list: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
         allow write: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
+
+        // Uso del cupon por cada cliente (el id es su uid): se crea junto con
+        // el pedido que lo usa, asi cada cliente lo usa una sola vez.
+        match /usos/{uidCliente} {
+          allow read: if isSuperAdmin()
+            || (isAdmin() && idNegocioActual() == documentId)
+            || (signedIn() && request.auth.uid == uidCliente);
+          allow create: if signedIn()
+            && request.auth.uid == uidCliente
+            && request.resource.data.keys().hasOnly(['idPedido', 'fecha'])
+            && request.resource.data.idPedido is string
+            && request.resource.data.fecha == request.time
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.idCliente == uidCliente
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.get('codigoCupon', '') == codigo
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.idNegocio == documentId
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.fechaCreacion == request.time;
+          allow update, delete: if isSuperAdmin();
+        }
       }
 
       // Registro de actividad: cada persona escribe SUS acciones (con su uid
@@ -556,13 +605,17 @@ service cloud.firestore {
 
         allow create: if signedIn()
           && request.auth.uid == clienteId
+          // Solo en un restaurante al que entro con su codigo.
+          && exists(/databases/$(database)/documents/usuarios/$(clienteId)/misNegocios/$(documentId))
+          && fichaValida(request.resource.data)
           && request.resource.data.bloqueado == false
           && request.resource.data.keys().hasOnly(
                ['nombre', 'telefono', 'bloqueado', 'fechaPrimerPedido', 'ultimoPedido']);
 
         allow update: if (signedIn()
             && request.auth.uid == clienteId
-            && cambios().hasOnly(['nombre', 'telefono', 'ultimoPedido']))
+            && cambios().hasOnly(['nombre', 'telefono', 'ultimoPedido'])
+            && fichaValida(request.resource.data))
           || (isAdmin()
             && idNegocioActual() == documentId
             && cambios().hasOnly(['bloqueado', 'motivoBloqueo', 'fechaBloqueo', 'idAdminBloqueo']));
@@ -655,14 +708,15 @@ service cloud.firestore {
           && request.resource.data.fechaCreacion == request.time
           && request.resource.data.keys().hasOnly(
                ['idCliente', 'idNegocio', 'idSucursal', 'modalidad', 'idMesa',
-                'direccionEntrega', 'metodoPago', 'comprobantePagoUrl', 'estado',
+                'metodoPago', 'comprobantePagoUrl', 'estado',
                 'total', 'notas', 'fechaCreacion', 'origen', 'creadoPor',
                 'numeroMesa', 'cuentaAbierta', 'cobrado', 'idCaja',
-                'nombreCliente', 'telefonoCliente', 'alergias', 'idiomaCliente',
+                'nombreCliente', 'alergias', 'idiomaCliente',
                 'descuento', 'propina', 'codigoCupon', 'programadoPara',
-                'facturaNit', 'facturaRazonSocial', 'costoEnvio', 'zonaEntrega',
+                'costoEnvio', 'zonaEntrega', 'conFactura',
                 'lineasIds', 'lineasCant', 'lineasNombre', 'lineasNotas', 'precios', 'subtotal'])
           && extrasPedidoValidos(request.resource.data)
+          && cuponUnaVez(request.resource.data)
           && envioValido(request.resource.data)
           && alergiasValidas(request.resource.data.get('alergias', []))
           && request.resource.data.get('idiomaCliente', 'es') in ['es', 'en', 'pt', 'fr']
@@ -696,15 +750,22 @@ service cloud.firestore {
             && request.resource.data.fechaCreacion == request.time);
 
       allow update: if isSuperAdmin()
-        // Al eliminar su cuenta, el Cliente desvincula sus pedidos pasados:
-        // solo puede quitar su identificador y su direccion de entrega.
+        // Al eliminar su cuenta, el Cliente desvincula sus pedidos pasados
+        // (ya entregados o cancelados): quita su identificador y sus datos
+        // personales (direccion, nombre, telefono, factura, alergias, notas).
         || (signedIn()
             && resource.data.idCliente == request.auth.uid
-            && cambios().hasOnly(['idCliente', 'direccionEntrega', 'nombreCliente', 'telefonoCliente'])
+            && resource.data.estado in ['Entregado', 'Cancelado']
+            && cambios().hasOnly(['idCliente', 'direccionEntrega', 'nombreCliente', 'telefonoCliente',
+                                  'facturaNit', 'facturaRazonSocial', 'alergias', 'notas'])
             && request.resource.data.idCliente == 'cuenta-eliminada'
             && request.resource.data.get('direccionEntrega', null) == null
             && request.resource.data.get('nombreCliente', null) == null
-            && request.resource.data.get('telefonoCliente', null) == null)
+            && request.resource.data.get('telefonoCliente', null) == null
+            && request.resource.data.get('facturaNit', null) == null
+            && request.resource.data.get('facturaRazonSocial', null) == null
+            && request.resource.data.get('alergias', []) == []
+            && request.resource.data.get('notas', '') == '')
         // Repartidor: toma un pedido Listo (queda asignado a el) y luego
         // avisa que llego y lo entrega. Solo cambia estado y sus datos.
         || (isRepartidor()
@@ -808,6 +869,36 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // Datos de contacto del cliente (documento "contacto"): direccion,
+      // telefono y factura. Los ven el propio cliente, el Administrador y el
+      // Cajero (de su sucursal) y el repartidor asignado MIENTRAS lleva el
+      // pedido. La Cocina no los ve. Se crea junto con el pedido.
+      match /privado/{idDoc} {
+        allow read: if isSuperAdmin()
+          || (signedIn()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
+          || ((isAdmin() || isCajero())
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
+              && sucursalPermitida(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idSucursal', null)))
+          || (isRepartidor()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idRepartidor', null) == request.auth.uid
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.estado in ['Listo', 'En camino', 'En el lugar']);
+
+        allow create: if signedIn()
+          && idDoc == 'contacto'
+          && getAfter(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid
+          && getAfter(/databases/$(database)/documents/pedidos/$(pedidoId)).data.fechaCreacion == request.time
+          && contactoValido(request.resource.data);
+
+        // El cliente lo borra al eliminar su cuenta (solo pedidos terminados).
+        allow delete: if isSuperAdmin()
+          || (signedIn()
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.estado in ['Entregado', 'Cancelado']);
+        allow update: if isSuperAdmin();
+      }
+
       // Lineas de los pedidos ANTERIORES (ahora van dentro del pedido, en
       // los campos lineasIds, lineasCant, etc.). Se siguen pudiendo leer; ya nadie las crea, salvo
       // el SuperAdmin.
@@ -835,6 +926,10 @@ service cloud.firestore {
         allow create: if isSuperAdmin()
           || (request.resource.data.idUsuarioQueCambio == request.auth.uid
               && request.resource.data.fecha == request.time
+              && request.resource.data.keys().hasOnly(['estado', 'idUsuarioQueCambio', 'comentario', 'fecha'])
+              && request.resource.data.estado is string && request.resource.data.estado.size() <= 30
+              && request.resource.data.get('comentario', '') is string
+              && request.resource.data.get('comentario', '').size() <= 500
               && (
                 (signedIn()
                   && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)

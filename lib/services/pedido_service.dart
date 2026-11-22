@@ -28,6 +28,43 @@ class PedidoService {
 
   CollectionReference<Map<String, dynamic>> get _pedidos => _db.collection('pedidos');
 
+  /// Para los reportes del Administrador: a los pedidos con factura les
+  /// suma el NIT y la razón social, que están en privado/contacto.
+  Future<List<PedidoModel>> conDatosDeFactura(List<PedidoModel> pedidos) async {
+    final lista = <PedidoModel>[];
+    for (final p in pedidos) {
+      if (p.conFactura && (p.facturaNit ?? '').isEmpty) {
+        final contacto = await _contacto(p.id);
+        if (contacto != null) {
+          lista.add(PedidoModel.fromSnapshot(await _pedidos.doc(p.id).get(), contacto: contacto));
+          continue;
+        }
+      }
+      lista.add(p);
+    }
+    return lista;
+  }
+
+  /// Datos de contacto ya leídos (no cambian después de crear el pedido).
+  final _contactos = <String, Map<String, dynamic>>{};
+
+  /// Dirección, teléfono y factura del pedido (`privado/contacto`). Solo los
+  /// pueden leer el cliente, el Administrador, el Cajero y el repartidor
+  /// que lo lleva; para la Cocina, o si no se puede leer, devuelve null.
+  Future<Map<String, dynamic>?> _contacto(String idPedido) async {
+    final guardado = _contactos[idPedido];
+    if (guardado != null) return guardado;
+    if (SesionActual.instancia.esCocina) return null;
+    try {
+      final d = await _pedidos.doc(idPedido).collection('privado').doc('contacto').get();
+      final datos = d.data();
+      if (datos != null) _contactos[idPedido] = datos;
+      return datos;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Pedidos de un negocio. El Cajero y la Cocina con sucursal asignada
   /// solo ven los de SU sucursal (las reglas de Firestore también lo
   /// exigen, así que la consulta tiene que pedirlo).
@@ -250,6 +287,25 @@ class PedidoService {
         'precios': campos['precios'],
         'subtotal': pedido.subtotal,
       });
+    // Dirección, teléfono y factura van aparte (privado/contacto).
+    final contacto = pedido.contactoMap();
+    if (contacto.isNotEmpty) {
+      lote.set(pedidoDoc.collection('privado').doc('contacto'), contacto);
+    }
+    // Cada cliente usa un cupón una sola vez: se deja anotado su uso.
+    final cupon = pedido.codigoCupon;
+    if (cupon != null) {
+      lote.set(
+        _db
+            .collection('negocios')
+            .doc(pedido.idNegocio)
+            .collection('cupones')
+            .doc(cupon)
+            .collection('usos')
+            .doc(pedido.idCliente),
+        {'idPedido': pedidoDoc.id, 'fecha': FieldValue.serverTimestamp()},
+      );
+    }
     await lote.commit();
   }
 
@@ -551,7 +607,8 @@ class PedidoService {
   Stream<PedidoModel?> streamPedido(String idPedido) => _pedidos
       .doc(idPedido)
       .snapshots()
-      .map((d) => d.exists ? PedidoModel.fromSnapshot(d) : null);
+      .asyncMap((d) async =>
+          d.exists ? PedidoModel.fromSnapshot(d, contacto: await _contacto(d.id)) : null);
 
   /// Pedidos de un estado (Entregado / Cancelado) de los últimos [dias]
   /// días, del más reciente al más antiguo. Usa el índice
@@ -628,12 +685,15 @@ class PedidoService {
           .where('modalidad', isEqualTo: PedidoModalidad.delivery)
           .where('idRepartidor', isEqualTo: idRepartidor)
           .snapshots()
-          .map((qs) {
-        // También los pedidos Listos que el Cajero le asignó (HU-39).
-        final lista = qs.docs
-            .map(PedidoModel.fromSnapshot)
-            .where((p) => p.enReparto || p.estado == PedidoEstado.listo)
-            .toList();
+          .asyncMap((qs) async {
+        // También los pedidos Listos que el Cajero le asignó (HU-39). A
+        // cada uno se le suma su dirección y teléfono (privado/contacto).
+        final lista = <PedidoModel>[];
+        for (final d in qs.docs) {
+          final p = PedidoModel.fromSnapshot(d);
+          if (!p.enReparto && p.estado != PedidoEstado.listo) continue;
+          lista.add(PedidoModel.fromSnapshot(d, contacto: await _contacto(d.id)));
+        }
         lista.sort((a, b) =>
             (a.fechaCreacion ?? DateTime(0)).compareTo(b.fechaCreacion ?? DateTime(0)));
         return lista;

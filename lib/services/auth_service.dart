@@ -256,9 +256,12 @@ class AuthService {
   /// - Pide la contraseña actual (reautenticación).
   /// - No deja eliminar si hay pedidos en curso.
   /// - Borra perfil, direcciones, favoritos y carrito.
-  /// - Los pedidos pasados se conservan SIN el identificador del cliente
-  ///   ni su dirección (el negocio los necesita para contabilidad y
-  ///   reclamos), y en la ficha del negocio se borran su nombre y teléfono.
+  /// - Los pedidos pasados se conservan SIN el identificador del cliente ni
+  ///   sus datos personales (dirección, teléfono, factura, alergias, notas):
+  ///   el negocio los necesita para contabilidad y reclamos. En la ficha del
+  ///   negocio se borran su nombre y teléfono.
+  /// - También se borran los restaurantes a los que entró y su solicitud
+  ///   de negocio (si no fue aprobada).
   /// - Las imágenes en Cloudinary no se pueden borrar desde la app (ver la
   ///   política de privacidad).
   /// Las cuentas del personal las administra el Administrador del negocio.
@@ -301,20 +304,28 @@ class AuthService {
         }
       }
 
-      // 1) Pedidos pasados: se quita el identificador y la dirección.
+      // 1) Pedidos pasados: se borran sus datos de contacto
+      // (privado/contacto) y se quitan del pedido el identificador y los
+      // datos personales.
       final negocios = <String>{};
       var batch = _db.batch();
       var operaciones = 0;
       for (final p in pedidos.docs) {
         final idNegocio = p.data()['idNegocio'];
         if (idNegocio is String) negocios.add(idNegocio);
+        batch.delete(p.reference.collection('privado').doc('contacto'));
         batch.update(p.reference, {
           'idCliente': 'cuenta-eliminada',
           'direccionEntrega': null,
           'nombreCliente': null,
           'telefonoCliente': null,
+          'facturaNit': null,
+          'facturaRazonSocial': null,
+          'alergias': <String>[],
+          'notas': '',
         });
-        if (++operaciones == 400) {
+        operaciones += 2;
+        if (operaciones >= 400) {
           await batch.commit();
           batch = _db.batch();
           operaciones = 0;
@@ -337,7 +348,12 @@ class AuthService {
       }
 
       // 3) Datos propios de la cuenta.
-      for (final sub in ['carritoItems', 'direcciones', 'favoritos', 'notificaciones']) {
+      try {
+        await _db.collection('solicitudesNegocio').doc(uid).delete();
+      } catch (_) {
+        // No tenía solicitud, o ya fue aprobada (esa la conserva el SuperAdmin).
+      }
+      for (final sub in ['carritoItems', 'direcciones', 'favoritos', 'notificaciones', 'misNegocios']) {
         final qs = await _db.collection('usuarios').doc(uid).collection(sub).get();
         var b = _db.batch();
         var n = 0;

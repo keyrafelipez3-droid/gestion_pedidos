@@ -76,11 +76,11 @@ class AppConfig {
   /// gratuito es menor; con correo es más alto. Vacío = no se envía.
   static const String traductorCorreo = '';
 
-  /// Dirección web pública (de la versión web desplegada) donde el
-  /// usuario puede pedir la eliminación de su cuenta sin instalar la app.
+  /// Página pública (sin iniciar sesión) que explica cómo eliminar la
+  /// cuenta y permite pedirlo por correo (web/eliminar-cuenta.html).
   /// Google Play pide este enlace en el formulario "Seguridad de los
-  /// datos". Vacío hasta que la web esté publicada.
-  static const String urlEliminacionCuenta = urlWeb;
+  /// datos".
+  static const String urlEliminacionCuenta = '$urlWeb/eliminar-cuenta.html';
 
   /// Dirección de la versión web publicada en Firebase Hosting.
   static const String urlWeb = 'https://gestion-pedidos-univalle.web.app';
