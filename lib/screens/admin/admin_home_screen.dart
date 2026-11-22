@@ -24,6 +24,7 @@ import 'actividad_screen.dart';
 import 'clientes_screen.dart';
 import 'condiciones_negocio_screen.dart';
 import 'cupones_screen.dart';
+import 'reclamos_screen.dart';
 import 'resenas_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
@@ -60,6 +61,7 @@ enum _SeccionAdmin {
   actividad,
   clientes,
   resenas,
+  reclamos,
   versiones,
   errores,
   miCuenta,
@@ -293,6 +295,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           onTap: () => ir(_SeccionAdmin.resenas, () => const ResenasScreen()),
         ),
         AppSidebarItem(
+          icon: Icons.support_agent_outlined,
+          label: 'Reclamos',
+          selected: _seccion == _SeccionAdmin.reclamos,
+          onTap: () => ir(_SeccionAdmin.reclamos, () => const ReclamosScreen()),
+        ),
+        AppSidebarItem(
           icon: Icons.manage_accounts_outlined,
           label: 'Mi cuenta',
           selected: _seccion == _SeccionAdmin.miCuenta,
@@ -334,6 +342,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return const ClientesScreen(incrustada: true);
       case _SeccionAdmin.resenas:
         return const ResenasScreen(incrustada: true);
+      case _SeccionAdmin.reclamos:
+        return const ReclamosScreen(incrustada: true);
       case _SeccionAdmin.versiones:
         return const SuperAdminVersionesScreen(incrustada: true);
       case _SeccionAdmin.errores:

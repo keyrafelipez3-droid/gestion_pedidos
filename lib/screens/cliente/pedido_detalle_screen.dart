@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/idioma.dart';
 import '../../models/alergenos.dart';
@@ -21,6 +22,7 @@ import '../../widgets/linea_estado_pedido.dart';
 import '../../widgets/mapa_seguimiento.dart';
 import '../../widgets/texto_traducido.dart';
 import 'inicio_cliente.dart';
+import 'reclamos_cliente_screen.dart';
 import 'resena_pedido_card.dart';
 import 'ticket_pedido_screen.dart';
 
@@ -225,6 +227,30 @@ class _ProductosDelPedidoState extends State<_ProductosDelPedido> {
   }
 }
 
+/// El comprobante lo sube el cliente; solo se abre si es un enlace web.
+Uri? _urlComprobante(PedidoModel pedido) {
+  final texto = pedido.comprobantePagoUrl?.trim() ?? '';
+  if (texto.isEmpty) return null;
+  final uri = Uri.tryParse(texto);
+  if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http') || uri.host.isEmpty) {
+    return null;
+  }
+  return uri;
+}
+
+Future<void> _abrirComprobante(BuildContext context, Uri uri) async {
+  final mensajero = ScaffoldMessenger.of(context);
+  var abierto = false;
+  try {
+    abierto = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    abierto = false;
+  }
+  if (!abierto) {
+    mensajero.showSnackBar(SnackBar(content: Text(tr('No se pudo abrir el comprobante.'))));
+  }
+}
+
 class _Detalle extends StatelessWidget {
   final PedidoModel pedido;
   final bool esPersonal;
@@ -330,15 +356,32 @@ class _Detalle extends StatelessWidget {
           AvisoCancelacion(idPedido: pedido.id),
         ],
         const SizedBox(height: AppSpacing.sm),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => TicketPedidoScreen(pedido: pedido)),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: AppSpacing.sm,
+          children: [
+            if (_urlComprobante(pedido) != null)
+              TextButton.icon(
+                onPressed: () => _abrirComprobante(context, _urlComprobante(pedido)!),
+                icon: const Icon(Icons.image_outlined, size: 18),
+                label: Text(tr('Ver comprobante de pago')),
+              ),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => TicketPedidoScreen(pedido: pedido)),
+              ),
+              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+              label: Text(tr('Ver ticket')),
             ),
-            icon: const Icon(Icons.receipt_long_outlined, size: 18),
-            label: Text(tr('Ver ticket')),
-          ),
+            if (!esPersonal && pedido.origen == PedidoOrigen.cliente)
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => NuevoReclamoScreen(idNegocio: pedido.idNegocio, idPedido: pedido.id),
+                )),
+                icon: const Icon(Icons.support_agent_outlined, size: 18),
+                label: Text(tr('Tengo un problema con este pedido')),
+              ),
+          ],
         ),
         if (!esPersonal &&
             pedido.estado == PedidoEstado.entregado &&

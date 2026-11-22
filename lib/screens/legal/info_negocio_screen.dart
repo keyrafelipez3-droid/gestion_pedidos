@@ -4,6 +4,7 @@ import '../../l10n/idioma.dart';
 import '../../models/negocio_model.dart';
 import '../../theme/design_tokens.dart';
 import '../cliente/condiciones_restaurante_screen.dart';
+import '../cliente/reclamos_cliente_screen.dart';
 
 /// Ficha del negocio para el cliente: quién es, cómo contactarlo y cómo
 /// reclamar. Los datos los ingresa el Administrador del negocio en "Datos
@@ -70,7 +71,7 @@ class InfoNegocioScreen extends StatelessWidget {
                 Text(tr('¿Tienes un reclamo?'), style: textos.titleMedium),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  tr('Puedes presentarlo directamente a este negocio, de forma verbal o escrita y sin formalidades, usando los datos de contacto de arriba.'),
+                  tr('Puedes presentarlo aquí mismo y seguir la respuesta del negocio, o usar los datos de contacto de arriba.'),
                   style: textos.bodyMedium,
                 ),
                 if (negocio.condiciones.contactoReclamos.isNotEmpty) ...[
@@ -80,6 +81,27 @@ class InfoNegocioScreen extends StatelessWidget {
                     style: textos.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => NuevoReclamoScreen(idNegocio: negocio.idNegocio, nombreNegocio: negocio.nombre),
+                      )),
+                      icon: const Icon(Icons.edit_note_outlined),
+                      label: Text(tr('Presentar un reclamo')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => MisReclamosScreen(idNegocio: negocio.idNegocio, nombreNegocio: negocio.nombre),
+                      )),
+                      icon: const Icon(Icons.history_outlined),
+                      label: Text(tr('Mis reclamos')),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Card(
                   child: ListTile(
