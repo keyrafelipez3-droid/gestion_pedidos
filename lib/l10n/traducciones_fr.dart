@@ -888,4 +888,6 @@ const traduccionesFr = <String, String>{
   // Dos pasos obligatorios para administradores
   'Vuelve a iniciar sesión': 'Reconnectez-vous',
   'Para terminar, cierra sesión y vuelve a entrar. Esta vez te pediremos el código de tu app autenticadora.': 'Pour terminer, déconnectez-vous puis reconnectez-vous. Cette fois, nous vous demanderons le code de votre application d\'authentification.',
+  'Preparando tu espacio…': 'Préparation de votre espace…',
+  'Cargando': 'Chargement',
 };

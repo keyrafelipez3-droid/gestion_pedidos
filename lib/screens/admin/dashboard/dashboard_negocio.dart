@@ -205,9 +205,7 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
           ),
 
         // ------------------------------------------------------- KPIs
-        Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
+        GrillaKpi(
           children: [
             KpiCard(
               icono: Icons.payments_outlined,

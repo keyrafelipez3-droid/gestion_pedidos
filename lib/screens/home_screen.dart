@@ -19,6 +19,8 @@ import '../services/sesion_actual.dart';
 import '../services/solicitudes_service.dart';
 import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/animaciones_marca.dart';
+import '../widgets/aparecer_suave.dart';
 import '../widgets/app_status_badge.dart';
 import '../widgets/app_fotos_comida.dart';
 import '../widgets/avisos_cliente.dart';
@@ -125,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
         future: _usuarioFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const CargandoMarca();
           }
 
           final usuario = snapshot.data;
@@ -148,13 +150,18 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           // El personal debe tener activa la verificación en dos pasos.
-          final contenido = PuertaDosPasos(
-            usuario: usuario,
-            // Después de los dos pasos: el personal firma su acuerdo y el
-            // cliente acepta los términos vigentes.
-            child: PuertaAcuerdos(
+          // La pantalla de cada rol entra subiendo con un desvanecido.
+          final contenido = AparecerSuave(
+            desplazamiento: 28,
+            duracion: const Duration(milliseconds: 650),
+            child: PuertaDosPasos(
               usuario: usuario,
-              child: _ContenidoInicio(usuario: usuario, onMiCuenta: _abrirMiCuenta),
+              // Después de los dos pasos: el personal firma su acuerdo y el
+              // cliente acepta los términos vigentes.
+              child: PuertaAcuerdos(
+                usuario: usuario,
+                child: _ContenidoInicio(usuario: usuario, onMiCuenta: _abrirMiCuenta),
+              ),
             ),
           );
           // El cliente recibe avisos cuando sus pedidos cambian de estado.
