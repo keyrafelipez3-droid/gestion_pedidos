@@ -34,6 +34,12 @@ class VistaDocumentoLegal extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(subtitulo!, style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
         ],
+        // Los textos legales están solo en español (es la versión que vale).
+        if (IdiomaController.instancia.codigo.value != 'es') ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(tr('Este documento está disponible solo en español, que es la versión válida.'),
+              style: textos.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+        ],
         if (resumen.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.md),
           Container(
