@@ -29,6 +29,9 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # La misma versión que usa el equipo: con versiones más nuevas,
+          # camera_web 0.3.5+3 no compila para web.
+          flutter-version: 3.35.7
           cache: true
 
       - name: Dependencias

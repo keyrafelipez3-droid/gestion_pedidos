@@ -10,9 +10,12 @@ rules_version = '2';
 //     y, de forma limitada, el negocio al que le compro.
 //  4. Las escrituras validan CAMPOS (affectedKeys) y no solo quien escribe.
 //
-// Limite conocido: el total de un pedido lo calcula la app. Sin Cloud
-// Functions no se puede recalcular en el servidor; el personal ve el
-// detalle y el total antes de cobrar.
+// Total del pedido: las lineas van dentro del pedido (maximo 30). Junto
+// con el pedido se crea pedidos/{id}/control/total, cuya regla compara los
+// precios con la lista del negocio (negocios/{id}/publico/precios) y
+// comprueba que la suma de las lineas sea el subtotal. Va en un documento
+// aparte porque Firestore evalua como maximo 1000 expresiones por
+// documento y el pedido ya usa muchas.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -72,6 +75,15 @@ service cloud.firestore {
         && tieneNegocio();
     }
 
+    // El Cajero y la Cocina con sucursal asignada solo trabajan con los
+    // pedidos de SU sucursal. Sin sucursal asignada (y el Administrador)
+    // ven todo el negocio.
+    function sucursalPermitida(idSucursal) {
+      return isAdmin()
+        || datosUsuarioActual().get('idSucursal', null) == null
+        || datosUsuarioActual().idSucursal == idSucursal;
+    }
+
     function esPersonalDelNegocio() {
       return isAdmin() || isCajero() || isCocina();
     }
@@ -103,7 +115,7 @@ service cloud.firestore {
     // El descuento no puede pasar lo que da el cupon (vigente y activo).
     function cuponValido(p) {
       let cupon = get(/databases/$(database)/documents/negocios/$(p.idNegocio)/cupones/$(p.codigoCupon)).data;
-      let subtotal = p.total + p.descuento;
+      let subtotal = p.subtotal;
       return p.codigoCupon is string
         && cupon.activo == true
         && (cupon.get('vence', null) == null || cupon.vence > request.time)
@@ -126,6 +138,94 @@ service cloud.firestore {
                 && p.zonaEntrega in zonas
                 && p.costoEnvio == zonas[p.zonaEntrega]
                 && p.total >= suc.get('pedidoMinimoDelivery', 0)));
+    }
+
+    // ------------------------------------------- lineas y total del pedido
+    // Precios que usa el pedido ({idProducto: precio}): cada uno es el
+    // normal del catalogo o, si hay promociones vigentes, el de promocion.
+    // Se compara todo el mapa de una vez (diff), sin revisar uno por uno.
+    function preciosValidos(u, cat) {
+      return u.keys().hasOnly(cat.normal.keys())
+        && (u.diff(cat.normal).changedKeys().size() == 0
+            || ((cat.get('promoHasta', null) == null || cat.promoHasta > request.time)
+                && u.diff(cat.normal).changedKeys().hasOnly(cat.get('promo', {}).keys())
+                && u.diff(cat.get('promo', {})).changedKeys()
+                     .intersection(u.diff(cat.normal).changedKeys()).size() == 0));
+    }
+
+    // Documento pedidos/{id}/control/total: copia de los productos,
+    // cantidades y precios del pedido (debe ser igual al pedido). Se crea en
+    // el mismo lote que el pedido y no se puede cambiar.
+    function controlValido(ped, d, cat) {
+      return ped.fechaCreacion == request.time
+        && (ped.idCliente == request.auth.uid || ped.get('creadoPor', null) == request.auth.uid)
+        && d.keys().hasOnly(['ids', 'cant', 'precios', 'subtotal'])
+        && d.ids == ped.lineasIds
+        && d.cant == ped.lineasCant
+        && d.precios == ped.precios
+        && d.subtotal == ped.subtotal
+        && d.ids.size() >= 1 && d.ids.size() <= 30
+        && d.cant.size() == d.ids.size()
+        && d.cant.hasOnly([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99])
+        && d.ids.hasOnly(d.precios.keys())
+        && d.precios.keys().hasOnly(d.ids)
+        && preciosValidos(d.precios, cat)
+        && math.abs(sumaLineas(d) - d.subtotal) < 0.01;
+    }
+
+    // Las reglas no tienen ciclos: se suman las 30 posiciones una por una.
+    function sumaLineas(d) {
+      return (d.ids.size() <= 0 ? 0 : d.cant[0] * d.precios[d.ids[0]])
+        + (d.ids.size() <= 1 ? 0 : d.cant[1] * d.precios[d.ids[1]])
+        + (d.ids.size() <= 2 ? 0 : d.cant[2] * d.precios[d.ids[2]])
+        + (d.ids.size() <= 3 ? 0 : d.cant[3] * d.precios[d.ids[3]])
+        + (d.ids.size() <= 4 ? 0 : d.cant[4] * d.precios[d.ids[4]])
+        + (d.ids.size() <= 5 ? 0 : d.cant[5] * d.precios[d.ids[5]])
+        + (d.ids.size() <= 6 ? 0 : d.cant[6] * d.precios[d.ids[6]])
+        + (d.ids.size() <= 7 ? 0 : d.cant[7] * d.precios[d.ids[7]])
+        + (d.ids.size() <= 8 ? 0 : d.cant[8] * d.precios[d.ids[8]])
+        + (d.ids.size() <= 9 ? 0 : d.cant[9] * d.precios[d.ids[9]])
+        + (d.ids.size() <= 10 ? 0 : d.cant[10] * d.precios[d.ids[10]])
+        + (d.ids.size() <= 11 ? 0 : d.cant[11] * d.precios[d.ids[11]])
+        + (d.ids.size() <= 12 ? 0 : d.cant[12] * d.precios[d.ids[12]])
+        + (d.ids.size() <= 13 ? 0 : d.cant[13] * d.precios[d.ids[13]])
+        + (d.ids.size() <= 14 ? 0 : d.cant[14] * d.precios[d.ids[14]])
+        + (d.ids.size() <= 15 ? 0 : d.cant[15] * d.precios[d.ids[15]])
+        + (d.ids.size() <= 16 ? 0 : d.cant[16] * d.precios[d.ids[16]])
+        + (d.ids.size() <= 17 ? 0 : d.cant[17] * d.precios[d.ids[17]])
+        + (d.ids.size() <= 18 ? 0 : d.cant[18] * d.precios[d.ids[18]])
+        + (d.ids.size() <= 19 ? 0 : d.cant[19] * d.precios[d.ids[19]])
+        + (d.ids.size() <= 20 ? 0 : d.cant[20] * d.precios[d.ids[20]])
+        + (d.ids.size() <= 21 ? 0 : d.cant[21] * d.precios[d.ids[21]])
+        + (d.ids.size() <= 22 ? 0 : d.cant[22] * d.precios[d.ids[22]])
+        + (d.ids.size() <= 23 ? 0 : d.cant[23] * d.precios[d.ids[23]])
+        + (d.ids.size() <= 24 ? 0 : d.cant[24] * d.precios[d.ids[24]])
+        + (d.ids.size() <= 25 ? 0 : d.cant[25] * d.precios[d.ids[25]])
+        + (d.ids.size() <= 26 ? 0 : d.cant[26] * d.precios[d.ids[26]])
+        + (d.ids.size() <= 27 ? 0 : d.cant[27] * d.precios[d.ids[27]])
+        + (d.ids.size() <= 28 ? 0 : d.cant[28] * d.precios[d.ids[28]])
+        + (d.ids.size() <= 29 ? 0 : d.cant[29] * d.precios[d.ids[29]]);
+    }
+
+    // Lo que revisa el propio pedido: mismas cantidades de datos por linea,
+    // subtotal - descuento = total, y que exista su control/total.
+    function lineasValidas(p, pedidoId) {
+      return p.lineasIds is list
+        && p.lineasCant is list
+        && p.lineasNombre is list && p.lineasNombre.size() == p.lineasIds.size()
+        && p.lineasNotas is list && p.lineasNotas.size() == p.lineasIds.size()
+        && p.precios is map
+        && p.subtotal is number
+        && p.get('descuento', 0) is number
+        && math.abs(p.subtotal - p.get('descuento', 0) - p.total) < 0.01
+        && existsAfter(/databases/$(database)/documents/pedidos/$(pedidoId)/control/total);
+    }
+
+    // Al guardar un producto, el Administrador actualiza en el mismo lote
+    // su precio en la lista de precios del negocio.
+    function precioSincronizado(idProducto) {
+      return getAfter(/databases/$(database)/documents/negocios/$(request.resource.data.idNegocio)/publico/precios)
+        .data.normal.get(idProducto, null) == request.resource.data.precio;
     }
 
     // Alergias: solo codigos de la lista fija de la app (lib/models/alergenos.dart).
@@ -159,6 +259,14 @@ service cloud.firestore {
       return isAdmin()
         || (isCajero() && p.get('cajeroCancelaPedidos', true) == true)
         || (isCocina() && p.get('cocinaCancelaPedidos', false) == true);
+    }
+
+    // Caja abierta (y todavia sin contar) del cajero que esta cobrando.
+    function cajaAbiertaDelCajero(idCaja) {
+      let caja = get(/databases/$(database)/documents/cajas/$(idCaja)).data;
+      return caja.idCajero == request.auth.uid
+        && caja.estado == 'Abierta'
+        && !('montoContado' in caja);
     }
 
     // El cliente fue bloqueado por el Administrador de ese negocio.
@@ -334,11 +442,14 @@ service cloud.firestore {
     match /productos/{documentId} {
       allow read: if signedIn();
       allow create: if isSuperAdmin()
-        || (isAdmin() && request.resource.data.get('idNegocio', null) == idNegocioActual());
+        || (isAdmin()
+            && request.resource.data.get('idNegocio', null) == idNegocioActual()
+            && precioSincronizado(documentId));
       allow update: if isSuperAdmin()
         || (isAdmin()
             && resource.data.get('idNegocio', null) == idNegocioActual()
-            && request.resource.data.get('idNegocio', null) == idNegocioActual())
+            && request.resource.data.get('idNegocio', null) == idNegocioActual()
+            && precioSincronizado(documentId))
         // Control de stock: la Cocina/Caja descuenta lo que se prepara.
         || (esPersonalDelNegocio()
             && resource.data.get('idNegocio', null) == idNegocioActual()
@@ -376,14 +487,35 @@ service cloud.firestore {
 
     // ----------------------------------------------------------- negocios
     match /negocios/{documentId} {
-      allow read: if signedIn();
+      // Cada negocio se lee por su id (el cliente solo conoce los de los
+      // restaurantes a los que entro con su codigo). Listarlos todos es
+      // solo del SuperAdmin.
+      allow get: if signedIn();
+      allow list: if isSuperAdmin();
       // El Administrador edita los datos de SU negocio, pero no puede
-      // activarlo/desactivarlo (eso es del SuperAdmin).
+      // activarlo/desactivarlo (eso es del SuperAdmin). El codigo de acceso
+      // ya no se guarda aqui (ver privado/acceso).
       allow update: if isSuperAdmin()
         || (isAdmin()
             && idNegocioActual() == documentId
-            && !cambios().hasAny(['estado']));
+            && !cambios().hasAny(['estado', 'codigoAcceso']));
       allow create, delete: if isSuperAdmin();
+
+      // Codigo de acceso del restaurante (documento "acceso"). Lo ven solo
+      // el SuperAdmin y el Administrador de este negocio; lo cambia solo el
+      // SuperAdmin.
+      match /privado/{idDoc} {
+        allow read: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
+        allow write: if isSuperAdmin();
+      }
+
+      // Lista de precios del negocio (documento "precios"): la leen todos
+      // (el menu ya muestra los precios) y la escribe su Administrador al
+      // guardar productos. Las reglas de pedidos la usan para validar.
+      match /publico/{idDoc} {
+        allow read: if signedIn();
+        allow write: if isSuperAdmin() || (isAdmin() && idNegocioActual() == documentId);
+      }
 
       // Cupones de descuento: los lee cualquier usuario con sesion (el
       // cliente escribe el codigo al pagar) y los gestiona el
@@ -489,7 +621,9 @@ service cloud.firestore {
     match /pedidos/{pedidoId} {
       allow read: if isSuperAdmin()
         || (signedIn() && resource.data.idCliente == request.auth.uid)
-        || (esPersonalDelNegocio() && resource.data.get('idNegocio', null) == idNegocioActual())
+        || (esPersonalDelNegocio()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && sucursalPermitida(resource.data.get('idSucursal', null)))
         // Repartidor: solo pedidos de delivery de su negocio que estan
         // listos para tomar o que el mismo tomo.
         || (isRepartidor()
@@ -511,6 +645,7 @@ service cloud.firestore {
           && request.resource.data.metodoPago in ['Efectivo', 'Transferencia', 'QR']
           && request.resource.data.total is number
           && request.resource.data.total > 0
+          && lineasValidas(request.resource.data, pedidoId)
           && request.resource.data.get('notas', '') is string
           && request.resource.data.get('notas', '').size() <= 500
           && request.resource.data.idNegocio is string
@@ -522,7 +657,8 @@ service cloud.firestore {
                 'numeroMesa', 'cuentaAbierta', 'cobrado', 'idCaja',
                 'nombreCliente', 'telefonoCliente', 'alergias', 'idiomaCliente',
                 'descuento', 'propina', 'codigoCupon', 'programadoPara',
-                'facturaNit', 'facturaRazonSocial', 'costoEnvio', 'zonaEntrega'])
+                'facturaNit', 'facturaRazonSocial', 'costoEnvio', 'zonaEntrega',
+                'lineasIds', 'lineasCant', 'lineasNombre', 'lineasNotas', 'precios', 'subtotal'])
           && extrasPedidoValidos(request.resource.data)
           && envioValido(request.resource.data)
           && alergiasValidas(request.resource.data.get('alergias', []))
@@ -544,6 +680,7 @@ service cloud.firestore {
         || ((isAdmin()
               || (isCajero() && permisosDe(idNegocioActual()).get('cajeroTomaPedidosMesa', true) == true))
             && request.resource.data.get('idNegocio', null) == idNegocioActual()
+            && sucursalPermitida(request.resource.data.get('idSucursal', null))
             && request.resource.data.get('origen', null) == 'cajero'
             && request.resource.data.estado == 'Pendiente'
             && request.resource.data.get('cobrado', false) == false
@@ -552,6 +689,7 @@ service cloud.firestore {
             && alergiasValidas(request.resource.data.get('alergias', []))
             && request.resource.data.total is number
             && request.resource.data.total > 0
+            && lineasValidas(request.resource.data, pedidoId)
             && request.resource.data.fechaCreacion == request.time);
 
       allow update: if isSuperAdmin()
@@ -604,6 +742,7 @@ service cloud.firestore {
             ))
         || (esPersonalDelNegocio()
             && resource.data.get('idNegocio', null) == idNegocioActual()
+            && sucursalPermitida(resource.data.get('idSucursal', null))
             && (
               // Cambio de estado (Cocina, Cajero o Administrador).
               (cambios().hasOnly(['estado'])
@@ -632,35 +771,52 @@ service cloud.firestore {
                      .data.get('idNegocio', null) == idNegocioActual()
                 && get(/databases/$(database)/documents/usuarios/$(request.resource.data.idRepartidor))
                      .data.get('estado', false) == true)
-              // Cobro (solo Cajero): no se puede "des-cobrar" un pedido.
+              // Cobro (solo Cajero): un pedido se cobra UNA vez, en una caja
+              // abierta del propio cajero, y no se puede "des-cobrar".
               || (isCajero()
                 && cambios().hasOnly(['cuentaAbierta', 'cobrado', 'idCaja', 'metodoPago'])
-                && (request.resource.data.get('cobrado', false) == true
-                    || resource.data.get('cobrado', false) == false)
+                && (!cambios().hasAny(['cobrado', 'idCaja'])
+                    || (resource.data.get('cobrado', false) == false
+                        && request.resource.data.cobrado == true
+                        && cajaAbiertaDelCajero(request.resource.data.idCaja)))
                 && (!cambios().hasAny(['metodoPago'])
                     || request.resource.data.metodoPago in ['Efectivo', 'Transferencia', 'QR']))
+              // Entregar y cobrar a la vez (Cajero, pedido sin cobrar).
+              || (isCajero()
+                && cambios().hasOnly(['estado', 'cobrado', 'idCaja'])
+                && request.resource.data.estado == 'Entregado'
+                && resource.data.get('cobrado', false) == false
+                && request.resource.data.cobrado == true
+                && cajaAbiertaDelCajero(request.resource.data.idCaja))
             ));
 
       allow delete: if isSuperAdmin();
 
-      // Lineas del pedido: se crean junto con el pedido y no se editan.
-      // El cliente solo puede agregarlas mientras el pedido sigue Pendiente.
+      // Control del total (ver controlValido): lo crea quien crea el pedido,
+      // en el mismo lote. Nadie lo cambia ni lo borra.
+      match /control/{idDoc} {
+        allow read: if isSuperAdmin();
+        allow create: if signedIn()
+          && idDoc == 'total'
+          && controlValido(
+               getAfter(/databases/$(database)/documents/pedidos/$(pedidoId)).data,
+               request.resource.data,
+               get(/databases/$(database)/documents/negocios/$(getAfter(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idNegocio)/publico/precios).data);
+        allow update, delete: if false;
+      }
+
+      // Lineas de los pedidos ANTERIORES (ahora van dentro del pedido, en
+      // los campos lineasIds, lineasCant, etc.). Se siguen pudiendo leer; ya nadie las crea, salvo
+      // el SuperAdmin.
       match /detalle/{detalleId} {
         allow read: if isSuperAdmin()
           || (signedIn()
               && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
           || (esPersonalDelNegocio()
-              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
-
-        allow create: if isSuperAdmin()
-          || (signedIn()
-              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid
-              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.estado == 'Pendiente')
-          || (esPersonalDelNegocio()
               && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
-              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.estado == 'Pendiente');
+              && sucursalPermitida(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idSucursal', null)));
 
-        allow update, delete: if isSuperAdmin();
+        allow create, update, delete: if isSuperAdmin();
       }
 
       // Historial de estados: solo se agrega; quien lo agrega queda
@@ -670,7 +826,8 @@ service cloud.firestore {
           || (signedIn()
               && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
           || (esPersonalDelNegocio()
-              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual());
+              && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
+              && sucursalPermitida(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idSucursal', null)));
 
         allow create: if isSuperAdmin()
           || (request.resource.data.idUsuarioQueCambio == request.auth.uid
@@ -679,7 +836,8 @@ service cloud.firestore {
                 (signedIn()
                   && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.idCliente == request.auth.uid)
                 || (esPersonalDelNegocio()
-                  && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual())
+                  && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idNegocio', null) == idNegocioActual()
+                  && sucursalPermitida(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idSucursal', null)))
                 || (isRepartidor()
                   && get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.get('idRepartidor', null) == request.auth.uid)
               ));
@@ -692,6 +850,23 @@ service cloud.firestore {
     match /cajas/{cajaId} {
       function cajaDe(id) {
         return get(/databases/$(database)/documents/cajas/$(id)).data;
+      }
+
+      // Un cobro es de UN pedido (id del movimiento: cobro_{idPedido}). En
+      // el mismo lote el pedido pasa de sin cobrar a cobrado en ESTA caja, y
+      // el monto es el del pedido (productos + envio). Asi el mismo pedido
+      // no se puede cobrar dos veces, ni en dos cajas.
+      function cobroValido(cajaId, movId) {
+        let id = request.resource.data.get('idPedido', '');
+        let antes = get(/databases/$(database)/documents/pedidos/$(id)).data;
+        let despues = getAfter(/databases/$(database)/documents/pedidos/$(id)).data;
+        return id is string && id != ''
+          && movId == 'cobro_' + id
+          && antes.get('cobrado', false) == false
+          && despues.get('cobrado', false) == true
+          && despues.get('idCaja', null) == cajaId
+          && math.abs(request.resource.data.monto
+               - (despues.total + despues.get('costoEnvio', 0))) < 0.01;
       }
 
       function cajaOperable(id) {
@@ -746,7 +921,8 @@ service cloud.firestore {
           && (request.resource.data.tipo == 'Cobro'
               || request.resource.data.metodoPago == 'Efectivo')
           && (request.resource.data.tipo != 'Egreso'
-              || permisosDe(idNegocioActual()).get('cajeroRegistraEgresos', true) == true);
+              || permisosDe(idNegocioActual()).get('cajeroRegistraEgresos', true) == true)
+          && (request.resource.data.tipo != 'Cobro' || cobroValido(cajaId, movId));
 
         allow update, delete: if false;
       }
