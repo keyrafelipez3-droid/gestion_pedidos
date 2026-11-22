@@ -28,7 +28,7 @@ class AppConfig {
 
   /// Versión del "Acuerdo de uso y confidencialidad del personal". Si se
   /// sube, todo el personal debe volver a firmarlo al entrar.
-  static const String versionAcuerdoPersonal = '2026-10-25';
+  static const String versionAcuerdoPersonal = '2026-11-21';
 
   /// Quién ofrece la plataforma (persona o empresa titular).
   static const String titularPlataforma =

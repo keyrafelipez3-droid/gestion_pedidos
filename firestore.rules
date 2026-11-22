@@ -240,11 +240,14 @@ service cloud.firestore {
     // hora del servidor (no se puede poner otra fecha).
     function acuerdoValido(a) {
       return a is map
-        && a.keys().hasOnly(['version', 'fecha', 'nombre', 'ci', 'idNegocio', 'rol'])
+        && a.keys().hasOnly(['version', 'fecha', 'nombre', 'ci', 'idNegocio', 'rol', 'firma'])
         && a.version is string
         && a.fecha == request.time
         && a.nombre is string && a.nombre.size() >= 3 && a.nombre.size() <= 80
-        && a.ci is string && a.ci.size() >= 4 && a.ci.size() <= 20;
+        && a.ci is string && a.ci.size() >= 4 && a.ci.size() <= 20
+        // Firma dibujada: trazos tipo SVG ("M10 20 L12 22 ..."), ver FirmaTrazos.
+        && a.firma is string && a.firma.size() >= 20 && a.firma.size() <= 20000
+        && a.firma.matches('^[ML0-9 ]+$');
     }
 
     // Permisos ajustables por el Administrador (negocios/{id}.permisos).

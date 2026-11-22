@@ -16,6 +16,7 @@ import '../../services/sucursal_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/formato.dart';
 import '../../widgets/documento_legal.dart';
+import '../../widgets/firma_dibujada.dart';
 import '../legal/legal_screen.dart';
 
 /// Antes de usar la app:
@@ -229,6 +230,7 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
   final _form = GlobalKey<FormState>();
   bool _acepta = false;
   bool _guardando = false;
+  String? _firmaDibujada;
 
   @override
   void dispose() {
@@ -239,6 +241,8 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
 
   Future<void> _firmar() async {
     if (!_form.currentState!.validate()) return;
+    final firma = _firmaDibujada;
+    if (firma == null) return;
     setState(() => _guardando = true);
     final nombre = _nombre.text.trim();
     final ci = _ci.text.trim().toUpperCase();
@@ -252,6 +256,7 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
           'ci': ci,
           'idNegocio': widget.usuario.idNegocio,
           'rol': widget.usuario.rol,
+          'firma': firma,
         },
       });
       ActividadService.instancia.registrar(
@@ -264,6 +269,7 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
           fecha: DateTime.now(),
           nombre: nombre,
           ci: ci,
+          firma: firma,
         ),
       );
     } catch (_) {
@@ -367,6 +373,8 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
             ],
           ),
         ),
+        const SizedBox(height: AppSpacing.md),
+        PanelFirma(alCambiar: (texto) => setState(() => _firmaDibujada = texto)),
         const SizedBox(height: AppSpacing.sm),
         CheckboxListTile(
           contentPadding: EdgeInsets.zero,
@@ -377,7 +385,7 @@ class _FirmarAcuerdoState extends State<_FirmarAcuerdo> {
         ),
         const SizedBox(height: AppSpacing.sm),
         FilledButton.icon(
-          onPressed: !_acepta || _guardando ? null : _firmar,
+          onPressed: !_acepta || _firmaDibujada == null || _guardando ? null : _firmar,
           icon: _guardando
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.draw_outlined),

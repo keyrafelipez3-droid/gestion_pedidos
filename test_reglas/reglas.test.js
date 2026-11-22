@@ -260,7 +260,8 @@ describe('Acuerdo de confidencialidad del personal', () => {
   const firma = (cambios = {}) => ({
     acuerdoPersonal: {
       version: '2026-10-23', fecha: serverTimestamp(), nombre: 'Rosa Quispe', ci: '1234567',
-      idNegocio: 'n1', rol: 'Cocina', ...cambios,
+      idNegocio: 'n1', rol: 'Cocina',
+      firma: 'M10 50 L15 54 L20 58 L25 50 L30 54 L35 58 L40 50 L45 54 L50 58', ...cambios,
     },
   });
 
@@ -275,6 +276,19 @@ describe('Acuerdo de confidencialidad del personal', () => {
 
   test('el Administrador no puede firmar por el empleado', async () => {
     await assertFails(updateDoc(doc(como('admin1'), 'usuarios', 'cocina1'), firma()));
+  });
+
+  test('sin la firma dibujada no se puede firmar', async () => {
+    const sinFirma = firma();
+    delete sinFirma.acuerdoPersonal.firma;
+    await assertFails(updateDoc(doc(como('cocina1'), 'usuarios', 'cocina1'), sinFirma));
+  });
+
+  test('la firma dibujada solo acepta trazos y no puede ser enorme', async () => {
+    await assertFails(updateDoc(doc(como('cocina1'), 'usuarios', 'cocina1'),
+      firma({ firma: '<script>alert(1)</script> M10 10 L20 20' })));
+    await assertFails(updateDoc(doc(como('cocina1'), 'usuarios', 'cocina1'),
+      firma({ firma: 'M1 1 L2 2 '.repeat(2100) })));
   });
 });
 
