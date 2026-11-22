@@ -885,9 +885,6 @@ const traduccionesPt = <String, String>{
   'Descargar mis datos': 'Baixar meus dados',
   'Tu perfil, direcciones, restaurantes y pedidos en un archivo': 'Seu perfil, endereços, restaurantes e pedidos em um arquivo',
   'Esta acción no se puede deshacer.\n\nSe borrarán tu perfil, tus direcciones, tus favoritos, tu carrito y tus reseñas. Tus pedidos pasados se conservan sin tu nombre, teléfono, dirección, factura, alergias ni notas, porque el negocio los necesita para su contabilidad y reclamos. Las imágenes que subiste se borran solo si lo pides por correo (mira la Política de privacidad).': 'Esta ação não pode ser desfeita.\n\nSeu perfil, endereços, favoritos, carrinho e avaliações serão apagados. Seus pedidos anteriores são mantidos sem seu nome, telefone, endereço, dados de nota fiscal, alergias ou observações, porque o restaurante precisa deles para a contabilidade e reclamações. As imagens que você enviou só são apagadas se você pedir por e-mail (veja a Política de privacidade).',
-  // Dos pasos obligatorios para administradores
-  'Vuelve a iniciar sesión': 'Entre novamente',
-  'Para terminar, cierra sesión y vuelve a entrar. Esta vez te pediremos el código de tu app autenticadora.': 'Para terminar, saia e entre novamente. Desta vez vamos pedir o código do seu app autenticador.',
   'Preparando tu espacio…': 'Preparando seu espaço…',
   'Cargando': 'Carregando',
 };
