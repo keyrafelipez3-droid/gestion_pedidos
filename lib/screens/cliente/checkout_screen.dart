@@ -1062,7 +1062,7 @@ class _SelectorMesa extends StatelessWidget {
           return Text(tr('Este local todavía no tiene mesas registradas.'));
         }
         return DropdownButtonFormField<String>(
-          value: seleccionada,
+          initialValue: seleccionada,
           decoration: InputDecoration(labelText: tr('Elige tu mesa')),
           items: mesas
               .map((m) => DropdownMenuItem(
@@ -1216,17 +1216,28 @@ class _SelectorDireccion extends StatelessWidget {
             if (direcciones.isEmpty)
               Text(tr('Todavía no tienes direcciones guardadas.'))
             else
-              ...direcciones.map((d) => RadioListTile<String>(
-                    value: d.id,
-                    groupValue: seleccionada?.id,
-                    title: Text(d.etiqueta),
-                    subtitle: Text(
-                      d.tieneUbicacion
-                          ? d.direccion
-                          : tr('{direccion}\n(Sin ubicación en el mapa: agrega una dirección nueva)', {'direccion': d.direccion}),
-                    ),
-                    onChanged: (_) => onChanged(d),
-                  )),
+              RadioGroup<String>(
+                groupValue: seleccionada?.id,
+                onChanged: (id) {
+                  for (final d in direcciones) {
+                    if (d.id == id) onChanged(d);
+                  }
+                },
+                child: Column(
+                  children: [
+                    for (final d in direcciones)
+                      RadioListTile<String>(
+                        value: d.id,
+                        title: Text(d.etiqueta),
+                        subtitle: Text(
+                          d.tieneUbicacion
+                              ? d.direccion
+                              : tr('{direccion}\n(Sin ubicación en el mapa: agrega una dirección nueva)', {'direccion': d.direccion}),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             const SizedBox(height: AppSpacing.xs),
             OutlinedButton.icon(
               icon: const Icon(Icons.add_location_alt_outlined),

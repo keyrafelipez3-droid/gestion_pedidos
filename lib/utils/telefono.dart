@@ -62,7 +62,7 @@ class Telefono {
 
   static String _soloDigitos(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
 
-  /// Arma el valor a guardar: '+<código><número>'. Devuelve '' si no hay número.
+  /// Arma el valor a guardar: `+códigonúmero` (ej. `+59171234567`). Devuelve '' si no hay número.
   static String componer(PaisTelefono pais, String numeroLocal) {
     final digitos = _soloDigitos(numeroLocal);
     if (digitos.isEmpty) return '';
