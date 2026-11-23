@@ -1384,3 +1384,32 @@ describe('Negocio o sucursal desactivados', () => {
     await assertSucceeds(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
   });
 });
+
+describe('Stock de los combos', () => {
+  test('al cancelar un combo vuelve al stock lo que incluye, indicando el combo', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'productos', 'soda'), { idNegocio: 'n1', nombre: 'Soda', precio: 8, disponible: true, stock: 5 });
+      await setDoc(doc(db, 'productos', 'otro'), { idNegocio: 'n1', nombre: 'Otro', precio: 1, disponible: true, stock: 5 });
+      await setDoc(doc(db, 'productos', 'combo1'), {
+        idNegocio: 'n1', nombre: 'Combo', precio: 40, disponible: true, esCombo: true, comboIds: ['prod1', 'soda'],
+      });
+      await updateDoc(doc(db, 'pedidos', 'ped1'), { estado: 'En preparación', lineasIds: ['combo1'], lineasCant: [1] });
+    });
+    const db = como('cajero1');
+    // Sin decir de qué combo salió, no.
+    const sinCombo = writeBatch(db);
+    sinCombo.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    sinCombo.update(doc(db, 'productos', 'soda'), { stock: 6, devolucionDe: 'ped1' });
+    await assertFails(sinCombo.commit());
+    // Un producto que no está en el combo, tampoco.
+    const malo = writeBatch(db);
+    malo.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    malo.update(doc(db, 'productos', 'otro'), { stock: 6, devolucionDe: 'ped1', devolucionCombo: 'combo1' });
+    await assertFails(malo.commit());
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    lote.update(doc(db, 'productos', 'soda'), { stock: 6, devolucionDe: 'ped1', devolucionCombo: 'combo1' });
+    await assertSucceeds(lote.commit());
+  });
+});
