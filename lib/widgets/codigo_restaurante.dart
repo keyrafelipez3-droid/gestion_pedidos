@@ -247,6 +247,9 @@ Future<bool> pedirCodigoRestaurante(BuildContext context, String uid) async {
         }
 
         return AlertDialog(
+          // Con el teclado abierto el contenido se desplaza en vez de
+          // encimarse con los botones.
+          scrollable: true,
           title: Text(tr('Código del restaurante')),
           content: Column(
             mainAxisSize: MainAxisSize.min,

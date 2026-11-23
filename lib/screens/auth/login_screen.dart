@@ -626,6 +626,9 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text(tr('Restablecer contraseña')),
       content: Form(
         key: _formKey,

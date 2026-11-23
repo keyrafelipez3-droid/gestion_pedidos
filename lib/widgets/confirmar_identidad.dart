@@ -76,6 +76,9 @@ class _DialogoIdentidadState extends State<_DialogoIdentidad> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       icon: const Icon(Icons.verified_user_outlined, size: 36),
       title: Text(tr('Confirma que eres tú')),
       content: SizedBox(

@@ -65,6 +65,9 @@ class _CajeroMesasScreenState extends State<CajeroMesasScreen> {
     final crear = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(tr('Nueva mesa')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -107,6 +110,9 @@ class _CajeroMesasScreenState extends State<CajeroMesasScreen> {
     final asignar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(tr('Asignar mesa {numero}', {'numero': mesa.numero})),
         content: Column(
           mainAxisSize: MainAxisSize.min,

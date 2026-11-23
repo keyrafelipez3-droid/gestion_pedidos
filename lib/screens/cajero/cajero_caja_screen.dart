@@ -639,6 +639,9 @@ class _MontoDialogState extends State<_MontoDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text(widget.titulo),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -717,6 +720,9 @@ class _MovimientoDialogState extends State<_MovimientoDialog> {
   Widget build(BuildContext context) {
     final esEgreso = widget.tipo == MovimientoTipo.egreso;
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text(esEgreso ? 'Registrar egreso' : 'Registrar ingreso'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

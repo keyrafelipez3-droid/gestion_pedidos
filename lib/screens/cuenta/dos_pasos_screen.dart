@@ -219,6 +219,9 @@ class _AsistenteDosPasosState extends State<AsistenteDosPasos> {
     final password = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(tr('Confirma tu contraseña')),
         content: TextField(
           controller: ctrl,
@@ -598,6 +601,9 @@ class _TileDosPasosState extends State<TileDosPasos> {
     final password = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(tr('Desactivar verificación en dos pasos')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
