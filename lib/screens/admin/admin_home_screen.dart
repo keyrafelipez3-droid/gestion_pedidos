@@ -108,7 +108,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final sesion = SesionActual.instancia;
     final idNegocio = sesion.idNegocio;
     if (sesion.esAdministrador && idNegocio != null && idNegocio.isNotEmpty) {
-      CatalogoService.instancia.limpiarPromosVencidas(idNegocio);
+      // Uno después del otro: los dos escriben la lista de precios.
+      CatalogoService.instancia
+          .limpiarPromosVencidas(idNegocio)
+          .then((_) => CatalogoService.instancia.sincronizarExtras(idNegocio));
     }
   }
 

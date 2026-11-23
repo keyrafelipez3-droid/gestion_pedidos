@@ -1326,3 +1326,44 @@ describe('Ciclo completo de la caja', () => {
   });
 });
 
+describe('Variantes y complementos (extras)', () => {
+  // Los extras van como líneas propias después de su producto; su precio
+  // está en la misma lista de precios del negocio.
+  const conExtras = (items, tipos) => {
+    const l = lineas(items);
+    return pedidoCliente('cli1', { ...l, lineasTipo: tipos, total: l.subtotal });
+  };
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios/n1/publico', 'precios'),
+        { 'normal.var1': 5, 'normal.comp1': 3 }));
+  });
+
+  test('un producto con variante y complemento se puede pedir', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 2], ['var1', 5, 2], ['comp1', 3, 2]], ['p', 'v', 'c'])));
+  });
+
+  test('un extra con otro precio o que no está en la lista: no', async () => {
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['comp1', 0.5, 1]], ['p', 'c'])));
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['compX', 1, 1]], ['p', 'c'])));
+  });
+
+  test('lineasTipo debe tener una marca válida por línea', async () => {
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['comp1', 3, 1]], ['p'])));
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['comp1', 3, 1]], ['p', 'x'])));
+  });
+
+  test('el Administrador guarda un complemento junto con su precio', async () => {
+    const db = como('admin1');
+    const lote = writeBatch(db);
+    lote.set(doc(db, 'complementos', 'comp2'), { nombre: 'Queso', precio: 4, estado: true, idNegocio: 'n1' });
+    lote.set(doc(db, 'negocios/n1/publico', 'precios'), { normal: { comp2: 4 } }, { merge: true });
+    await assertSucceeds(lote.commit());
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n1/publico', 'precios'), { normal: { comp2: 0 } }, { merge: true }));
+  });
+});

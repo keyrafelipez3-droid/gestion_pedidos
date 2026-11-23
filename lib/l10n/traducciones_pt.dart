@@ -922,5 +922,12 @@ const traduccionesPt = <String, String>{
   'Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.': 'Só é possível cancelar enquanto o restaurante não o aceitar. Se você usou um cupom, poderá usá-lo de novo.',
   'Sí, cancelar': 'Sim, cancelar',
   'El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.': 'O restaurante já aceitou seu pedido; não é mais possível cancelá-lo aqui. Fale com o restaurante.',
+  'Un pedido puede tener hasta {n} líneas contando los extras. Quita algunos extras o productos.': 'Um pedido pode ter até {n} linhas contando os extras. Remova alguns extras ou produtos.',
+  'El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.': 'O extra "{extra}" de "{producto}" não está mais disponível. Remova o produto e adicione-o novamente.',
+  'Cambió el precio del extra "{extra}" de "{producto}". Quita el producto y vuelve a agregarlo.': 'O preço do extra "{extra}" de "{producto}" mudou. Remova o produto e adicione-o novamente.',
+  'Personaliza "{producto}"': 'Personalize "{producto}"',
+  'Elige una opción': 'Escolha uma opção',
+  'Extras (opcional)': 'Extras (opcional)',
+  'Agregar · {precio}': 'Adicionar · {precio}',
   'Confirma que eres tú para {accion}.': 'Confirme que é você para {accion}.',
 };

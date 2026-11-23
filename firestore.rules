@@ -244,6 +244,10 @@ service cloud.firestore {
         && p.lineasCant is list
         && p.lineasNombre is list && p.lineasNombre.size() == p.lineasIds.size()
         && p.lineasNotas is list && p.lineasNotas.size() == p.lineasIds.size()
+        // Que es cada linea: producto, variante o complemento (opcional).
+        && (!('lineasTipo' in p)
+            || (p.lineasTipo is list && p.lineasTipo.size() == p.lineasIds.size()
+                && p.lineasTipo.hasOnly(['p', 'v', 'c'])))
         && p.precios is map
         && p.subtotal is number
         && p.get('descuento', 0) is number
@@ -824,7 +828,7 @@ service cloud.firestore {
                 'nombreCliente', 'alergias', 'idiomaCliente',
                 'descuento', 'propina', 'codigoCupon', 'programadoPara',
                 'costoEnvio', 'zonaEntrega', 'conFactura',
-                'lineasIds', 'lineasCant', 'lineasNombre', 'lineasNotas', 'precios', 'subtotal'])
+                'lineasIds', 'lineasCant', 'lineasNombre', 'lineasNotas', 'lineasTipo', 'precios', 'subtotal'])
           && extrasPedidoValidos(request.resource.data)
           && cuponUnaVez(request.resource.data)
           && envioValido(request.resource.data)
