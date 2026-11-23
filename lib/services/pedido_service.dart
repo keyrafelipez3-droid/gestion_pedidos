@@ -803,6 +803,60 @@ class PedidoService {
         .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
   }
 
+  /// Pedidos cancelados en los últimos [dias] días, del más reciente al más
+  /// antiguo, contando la fecha en que se CANCELARON (antes se contaba la
+  /// fecha de creación y un pedido viejo cancelado hoy no aparecía).
+  ///
+  /// Une dos consultas: la de `fechaCancelacion` (pedidos cancelados desde
+  /// esta versión; usa los índices idNegocio [+ idSucursal] + estado +
+  /// fechaCancelacion) y la anterior por `fechaCreacion`, para que los
+  /// cancelados antes de esta versión, que no tienen esa fecha, sigan
+  /// apareciendo. Si un pedido sale en las dos, se muestra una sola vez.
+  Stream<List<PedidoModel>> streamCanceladosRecientes(String idNegocio, {int dias = 7}) {
+    final hoy = DateTime.now();
+    final desde = Timestamp.fromDate(
+        DateTime(hoy.year, hoy.month, hoy.day).subtract(Duration(days: dias - 1)));
+    final consultas = [
+      _delNegocio(idNegocio)
+          .where('estado', isEqualTo: PedidoEstado.cancelado)
+          .where('fechaCancelacion', isGreaterThanOrEqualTo: desde)
+          .orderBy('fechaCancelacion', descending: true)
+          .limit(200),
+      _delNegocio(idNegocio)
+          .where('estado', isEqualTo: PedidoEstado.cancelado)
+          .where('fechaCreacion', isGreaterThanOrEqualTo: desde)
+          .orderBy('fechaCreacion', descending: true)
+          .limit(200),
+    ];
+    final partes = List<List<PedidoModel>>.generate(consultas.length, (_) => const []);
+    final recibidos = List<bool>.filled(consultas.length, false);
+    final subs = <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
+    late final StreamController<List<PedidoModel>> ctrl;
+    ctrl = StreamController<List<PedidoModel>>.broadcast(
+      onListen: () {
+        for (var i = 0; i < consultas.length; i++) {
+          partes[i] = const [];
+          recibidos[i] = false;
+        }
+        for (var i = 0; i < consultas.length; i++) {
+          subs.add(consultas[i].snapshots().listen((qs) {
+            partes[i] = qs.docs.map(PedidoModel.fromSnapshot).toList();
+            recibidos[i] = true;
+            if (recibidos.every((r) => r)) ctrl.add(unirCancelados(partes[0], partes[1]));
+          }, onError: ctrl.addError));
+        }
+      },
+      onCancel: () async {
+        final activas = List.of(subs);
+        subs.clear();
+        for (final s in activas) {
+          await s.cancel();
+        }
+      },
+    );
+    return ctrl.stream;
+  }
+
   /// Deliverys entregados por un repartidor que todavía no pasaron por caja
   /// (rendición). Antes se tomaban de los últimos 200 entregados de 7 días,
   /// y en un local con mucho movimiento algunos quedaban fuera. Solo
@@ -1051,6 +1105,7 @@ class PedidoService {
       _validarCambio(actual, nuevoEstado);
       tx.update(ref, {
         'estado': nuevoEstado,
+        if (nuevoEstado == PedidoEstado.cancelado) 'fechaCancelacion': FieldValue.serverTimestamp(),
         // Si el pedido iba en camino, se borra la posición del repartidor.
         if (limpiarUbicacion) 'ubicacionRepartidor': null,
         if (limpiarUbicacion) 'ubicacionActualizada': null,
@@ -1250,6 +1305,7 @@ class PedidoService {
       final enReparto = actual == PedidoEstado.enCamino || actual == PedidoEstado.llego;
       tx.update(ref, {
         'estado': PedidoEstado.cancelado,
+        'fechaCancelacion': FieldValue.serverTimestamp(),
         if (enReparto) 'ubicacionRepartidor': null,
         if (enReparto) 'ubicacionActualizada': null,
       });
@@ -1300,7 +1356,10 @@ class PedidoService {
           // Si no se puede ver el uso, el pedido se cancela igual.
         }
       }
-      tx.update(ref, {'estado': PedidoEstado.cancelado});
+      tx.update(ref, {
+        'estado': PedidoEstado.cancelado,
+        'fechaCancelacion': FieldValue.serverTimestamp(),
+      });
       tx.set(
         ref.collection('historialEstados').doc(),
         HistorialEstadoModel(
