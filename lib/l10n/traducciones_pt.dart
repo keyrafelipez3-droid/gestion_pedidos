@@ -917,4 +917,10 @@ const traduccionesPt = <String, String>{
   'Resuelto': 'Resolvido',
   'Solo quedan {n} de "{producto}". Cambia la cantidad para continuar.': 'Restam apenas {n} de "{producto}". Mude a quantidade para continuar.',
   'El enlace del comprobante es muy largo. Sube la imagen en vez de pegar el enlace.': 'O link do comprovante é muito longo. Envie a imagem em vez de colar o link.',
+  'Cancelar mi pedido': 'Cancelar meu pedido',
+  '¿Cancelar tu pedido?': 'Cancelar seu pedido?',
+  'Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.': 'Só é possível cancelar enquanto o restaurante não o aceitar. Se você usou um cupom, poderá usá-lo de novo.',
+  'Sí, cancelar': 'Sim, cancelar',
+  'Pedido cancelado.': 'Pedido cancelado.',
+  'El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.': 'O restaurante já aceitou seu pedido; não é mais possível cancelá-lo aqui. Fale com o restaurante.',
 };

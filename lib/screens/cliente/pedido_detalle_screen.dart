@@ -12,6 +12,7 @@ import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/acciones_pedido.dart';
 import '../../utils/contacto.dart';
+import '../../utils/errores.dart';
 import '../../utils/formato.dart';
 import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
@@ -251,6 +252,38 @@ Future<void> _abrirComprobante(BuildContext context, Uri uri) async {
   }
 }
 
+/// El cliente cancela su pedido mientras el local todavía no lo aceptó.
+Future<void> _cancelarComoCliente(BuildContext context, PedidoModel pedido) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('¿Cancelar tu pedido?')),
+      content: Text(tr('Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Volver'))),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(ctx).colorScheme.error,
+            foregroundColor: Theme.of(ctx).colorScheme.onError,
+          ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(tr('Sí, cancelar')),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  final uid = SesionActual.instancia.actual?.idUsuario;
+  if (uid == null) return;
+  try {
+    await PedidoService.instancia.cancelarPorCliente(idPedido: pedido.id, idCliente: uid);
+    messenger.showSnackBar(SnackBar(content: Text(tr('Pedido cancelado.'))));
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(textoError(e))));
+  }
+}
+
 class _Detalle extends StatelessWidget {
   final PedidoModel pedido;
   final bool esPersonal;
@@ -380,6 +413,15 @@ class _Detalle extends StatelessWidget {
                 )),
                 icon: const Icon(Icons.support_agent_outlined, size: 18),
                 label: Text(tr('Tengo un problema con este pedido')),
+              ),
+            if (!esPersonal &&
+                pedido.origen == PedidoOrigen.cliente &&
+                pedido.estado == PedidoEstado.pendiente)
+              TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                onPressed: () => _cancelarComoCliente(context, pedido),
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: Text(tr('Cancelar mi pedido')),
               ),
           ],
         ),

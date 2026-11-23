@@ -392,7 +392,16 @@ describe('Pedidos del cliente', () => {
 
   test('el cliente no modifica su pedido después de crearlo', async () => {
     await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { total: 1 }));
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'Cancelado', total: 1 }));
+    // Una vez que el local lo acepta, el cliente ya no lo cancela.
+    await assertSucceeds(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { estado: 'En preparación' }));
     await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+  });
+
+  test('el cliente cancela su pedido mientras sigue Pendiente, y solo el suyo', async () => {
+    await assertFails(updateDoc(doc(como('cli2'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'En preparación' }));
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
   });
 });
 
@@ -1207,5 +1216,28 @@ describe('Revisión completa (23 nov)', () => {
     await assertSucceeds(addDoc(collection(como('cli1'), 'erroresApp'), error()));
     await assertFails(addDoc(collection(como('cli1'), 'erroresApp'), error({ plataforma: 'x'.repeat(100) })));
     await assertFails(addDoc(collection(como('cli1'), 'erroresApp'), error({ idNegocio: 'x'.repeat(100) })));
+  });
+});
+
+describe('Orden de los estados del pedido', () => {
+  test('nadie se salta pasos ni vuelve atrás', async () => {
+    const cambiar = (uid, estado) => updateDoc(doc(como(uid), 'pedidos', 'ped1'), { estado });
+    await assertFails(cambiar('cocina1', 'Listo'));
+    await assertFails(cambiar('cajero1', 'Entregado'));
+    await assertSucceeds(cambiar('cocina1', 'En preparación'));
+    await assertFails(cambiar('cocina1', 'Pendiente'));
+    await assertSucceeds(cambiar('cocina1', 'Listo'));
+    await assertSucceeds(cambiar('admin1', 'Entregado'));
+    await assertFails(cambiar('admin1', 'Cancelado'));
+  });
+
+  test('el cliente que cancela su pedido Pendiente recupera su cupón', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedC',
+      pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 })));
+    const db = como('cli1');
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'pedC'), { estado: 'Cancelado' });
+    lote.delete(doc(db, 'negocios/n1/cupones/CARO10/usos', 'cli1'));
+    await assertSucceeds(lote.commit());
   });
 });

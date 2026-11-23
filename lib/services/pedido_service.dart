@@ -1152,6 +1152,53 @@ class PedidoService {
     });
   }
 
+  /// El cliente cancela su propio pedido mientras sigue Pendiente (antes de
+  /// que el local lo acepte). Si usó un cupón, lo recupera. Si el local ya
+  /// lo aceptó, lanza un error con un mensaje claro.
+  Future<void> cancelarPorCliente({required String idPedido, required String idCliente}) async {
+    final ref = _pedidos.doc(idPedido);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final data = snap.data();
+      if (data == null || data['idCliente'] != idCliente) {
+        throw PedidoEstadoException(tr('No se encontró el pedido.'));
+      }
+      if (data['estado'] != PedidoEstado.pendiente) {
+        throw PedidoEstadoException(
+            tr('El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.'));
+      }
+      DocumentReference<Map<String, dynamic>>? usoCupon;
+      final cupon = data['codigoCupon'];
+      final negocio = data['idNegocio'];
+      if (cupon is String && cupon.isNotEmpty && negocio is String) {
+        final r = _db
+            .collection('negocios')
+            .doc(negocio)
+            .collection('cupones')
+            .doc(cupon)
+            .collection('usos')
+            .doc(idCliente);
+        try {
+          final uso = await tx.get(r);
+          if (uso.exists && uso.data()?['idPedido'] == idPedido) usoCupon = r;
+        } catch (_) {
+          // Si no se puede ver el uso, el pedido se cancela igual.
+        }
+      }
+      tx.update(ref, {'estado': PedidoEstado.cancelado});
+      tx.set(
+        ref.collection('historialEstados').doc(),
+        HistorialEstadoModel(
+          id: '',
+          estado: PedidoEstado.cancelado,
+          idUsuarioQueCambio: idCliente,
+          comentario: 'Cancelado por el cliente.',
+        ).toMap(),
+      );
+      if (usoCupon != null) tx.delete(usoCupon);
+    });
+  }
+
   /// Comprueba, ANTES de hacer otras operaciones (como registrar un cobro),
   /// que el pedido todavía puede pasar a [nuevoEstado]. Lanza
   /// [PedidoEstadoException] con un mensaje claro si ya no se puede.
