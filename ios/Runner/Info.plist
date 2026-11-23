@@ -8,6 +8,8 @@
 	<string>Usamos tus fotos para que elijas una imagen de perfil, de productos o del comprobante de pago.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>La app no graba audio; este permiso solo lo exige el componente de camara.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usamos Face ID para confirmar que eres tu antes de acciones sensibles, como cancelar un pedido o cerrar la caja.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Usamos tu ubicacion para marcar tu direccion de entrega en el mapa y, si eres repartidor, para mostrar al cliente por donde vas.</string>
 	<key>CFBundleDevelopmentRegion</key>
