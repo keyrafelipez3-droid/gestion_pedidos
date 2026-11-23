@@ -36,8 +36,13 @@ Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) a
   );
   if (respuesta == null || !context.mounted) return;
   final motivo = respuesta.motivo;
-  // Acción sensible: se vuelve a pedir la contraseña (y el código).
-  if (!await confirmarIdentidad(context, accion: 'cancelar el pedido') || !context.mounted) return;
+  // Acción sensible: se confirma la identidad (huella, cara o contraseña).
+  // Un pedido Pendiente todavía no se preparó ni se cobró: se cancela sin
+  // pedir nada más, como en las apps grandes (lo pequeño pasa directo).
+  if (pedido.estado != PedidoEstado.pendiente &&
+      (!await confirmarIdentidad(context, accion: 'cancelar el pedido') || !context.mounted)) {
+    return;
+  }
   final messenger = ScaffoldMessenger.of(context);
   try {
     await PedidoService.instancia.cancelarPedido(

@@ -1264,3 +1264,65 @@ describe('Devolver stock al cancelar', () => {
     await assertSucceeds(lote.commit());
   });
 });
+
+describe('Reseñas', () => {
+  const resena = (idPedido, cambios = {}) => ({
+    idNegocio: 'n1', idPedido, idCliente: 'cli1', nombreCliente: 'Ana P.', calificacion: 5,
+    comentario: 'Muy rico', fecha: serverTimestamp(), estado: 'Visible', ...cambios,
+  });
+  const sembrarPedidos = () => env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'pedidos', 'pE'), { idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's1', estado: 'Entregado', total: 35 });
+    await setDoc(doc(db, 'pedidos', 'pP'), { idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's1', estado: 'Pendiente', total: 35 });
+    await setDoc(doc(db, 'pedidos', 'pO'), { idCliente: 'cli2', idNegocio: 'n1', idSucursal: 's1', estado: 'Entregado', total: 35 });
+  });
+
+  test('solo el cliente de un pedido entregado lo reseña, con 1 a 5 estrellas', async () => {
+    await sembrarPedidos();
+    const db = como('cli1');
+    await assertSucceeds(setDoc(doc(db, 'negocios/n1/resenas', 'pE'), resena('pE')));
+    await assertFails(setDoc(doc(db, 'negocios/n1/resenas', 'pP'), resena('pP')));
+    await assertFails(setDoc(doc(db, 'negocios/n1/resenas', 'pO'), resena('pO')));
+    await assertFails(setDoc(doc(db, 'negocios/n1/resenas', 'pP'), resena('pP', { calificacion: 6 })));
+  });
+
+  test('el Administrador la oculta; la oculta solo la ven él y la autora', async () => {
+    await sembrarPedidos();
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE'), resena('pE')));
+    await assertFails(updateDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE'), { estado: 'Oculta' }));
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios/n1/resenas', 'pE'), { estado: 'Oculta', motivoModeracion: 'x' }));
+    await assertFails(getDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pE')));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE')));
+    await assertFails(deleteDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pE')));
+    await assertSucceeds(deleteDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE')));
+  });
+
+  test('un cliente bloqueado no reseña', async () => {
+    await sembrarPedidos();
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'negocios/n1/clientes', 'cli2'), { nombre: 'Luis', telefono: '7', bloqueado: true }));
+    await assertFails(setDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pO'), resena('pO', { idCliente: 'cli2' })));
+  });
+});
+
+describe('Ciclo completo de la caja', () => {
+  test('abrir, movimientos, contar y cerrar; después no se cambia nada', async () => {
+    const db = como('cajero1');
+    const mov = (tipo, monto) => ({
+      tipo, concepto: 'x', monto, metodoPago: 'Efectivo', idUsuario: 'cajero1', fecha: serverTimestamp(),
+    });
+    await assertSucceeds(setDoc(doc(db, 'cajas', 'k1'),
+      { idCajero: 'cajero1', idNegocio: 'n1', idSucursal: 's1', estado: 'Abierta', montoInicial: 100 }));
+    await assertSucceeds(setDoc(doc(db, 'cajas/k1/movimientos', 'm1'), mov('Ingreso', 20)));
+    await assertSucceeds(setDoc(doc(db, 'cajas/k1/movimientos', 'm2'), mov('Egreso', 10)));
+    await assertFails(updateDoc(doc(db, 'cajas', 'k1'), { estado: 'Cerrada' }));
+    await assertSucceeds(updateDoc(doc(db, 'cajas', 'k1'), { montoContado: 110, fechaConteo: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, 'cajas', 'k1'), { montoContado: 999 }));
+    await assertFails(setDoc(doc(db, 'cajas/k1/movimientos', 'm3'), mov('Ingreso', 5)));
+    await assertSucceeds(updateDoc(doc(db, 'cajas', 'k1'),
+      { estado: 'Cerrada', montoEsperado: 110, diferencia: 0, observacionCierre: '' }));
+    await assertFails(updateDoc(doc(db, 'cajas', 'k1'), { estado: 'Abierta' }));
+    await assertFails(updateDoc(doc(db, 'cajas/k1/movimientos', 'm1'), { monto: 1 }));
+  });
+});
+
