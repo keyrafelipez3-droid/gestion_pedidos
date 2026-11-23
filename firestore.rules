@@ -291,6 +291,22 @@ service cloud.firestore {
 
     // Quien puede cancelar pedidos: el Administrador siempre; el Cajero y
     // la Cocina segun los permisos de su negocio.
+    // Fecha de cancelacion de un pedido: es opcional (las versiones
+    // anteriores de la app no la mandan), pero si viene debe ser la hora
+    // del servidor y solo al pasar a Cancelado.
+    function fechaCancelacionValida() {
+      return !cambios().hasAny(['fechaCancelacion'])
+        || (request.resource.data.estado == 'Cancelado'
+            && resource.data.estado != 'Cancelado'
+            && request.resource.data.fechaCancelacion == request.time);
+    }
+
+    // Motivo obligatorio (bloquear un cliente u ocultar su resena): texto
+    // de 5 a 140 letras, igual que en la app (utils/motivo_obligatorio.dart).
+    function motivoValido(m) {
+      return m is string && m.trim().size() >= 5 && m.size() <= 140;
+    }
+
     function puedeCancelar() {
       let p = permisosDe(idNegocioActual());
       return isAdmin()
@@ -671,7 +687,10 @@ service cloud.firestore {
             && fichaValida(request.resource.data))
           || (isAdmin()
             && idNegocioActual() == documentId
-            && cambios().hasOnly(['bloqueado', 'motivoBloqueo', 'fechaBloqueo', 'idAdminBloqueo']));
+            && cambios().hasOnly(['bloqueado', 'motivoBloqueo', 'fechaBloqueo', 'idAdminBloqueo'])
+            // Para bloquear hay que escribir el motivo.
+            && (request.resource.data.bloqueado != true
+                || motivoValido(request.resource.data.get('motivoBloqueo', null))));
 
         allow delete: if isSuperAdmin();
       }
@@ -712,7 +731,10 @@ service cloud.firestore {
           || (isAdmin()
               && idNegocioActual() == documentId
               && cambios().hasOnly(['estado', 'motivoModeracion', 'fechaModeracion', 'idAdminModeracion'])
-              && request.resource.data.estado in ['Visible', 'Oculta']);
+              && request.resource.data.estado in ['Visible', 'Oculta']
+              // Para ocultarla hay que escribir el motivo.
+              && (request.resource.data.estado != 'Oculta'
+                  || motivoValido(request.resource.data.get('motivoModeracion', null))));
 
         allow delete: if isSuperAdmin()
           || (signedIn() && resource.data.idCliente == request.auth.uid);
@@ -896,7 +918,8 @@ service cloud.firestore {
             && resource.data.get('origen', 'cliente') == 'cliente'
             && resource.data.estado == 'Pendiente'
             && request.resource.data.estado == 'Cancelado'
-            && cambios().hasOnly(['estado']))
+            && cambios().hasOnly(['estado', 'fechaCancelacion'])
+            && fechaCancelacionValida())
         // Repartidor: toma un pedido Listo (queda asignado a el) y luego
         // avisa que llego y lo entrega. Solo cambia estado y sus datos.
         || (isRepartidor()
@@ -940,11 +963,13 @@ service cloud.firestore {
             && sucursalPermitida(resource.data.get('idSucursal', null))
             && (
               // Cambio de estado (Cocina, Cajero o Administrador).
-              (cambios().hasOnly(['estado'])
+              (cambios().hasOnly(['estado', 'fechaCancelacion'])
+                && fechaCancelacionValida()
                 && transicionValida(resource.data.estado, request.resource.data.estado)
                 && (request.resource.data.estado != 'Cancelado' || puedeCancelar()))
               // Cierre de un pedido en camino: tambien se borra la posicion.
-              || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
+              || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada', 'fechaCancelacion'])
+                && fechaCancelacionValida()
                 && request.resource.data.estado in ['En camino', 'En el lugar', 'Entregado', 'Cancelado']
                 && transicionValida(resource.data.estado, request.resource.data.estado)
                 && (request.resource.data.estado != 'Cancelado' || puedeCancelar())

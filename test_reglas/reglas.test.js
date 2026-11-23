@@ -23,6 +23,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -1290,7 +1291,7 @@ describe('Reseñas', () => {
     await sembrarPedidos();
     await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE'), resena('pE')));
     await assertFails(updateDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE'), { estado: 'Oculta' }));
-    await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios/n1/resenas', 'pE'), { estado: 'Oculta', motivoModeracion: 'x' }));
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios/n1/resenas', 'pE'), { estado: 'Oculta', motivoModeracion: 'Lenguaje ofensivo' }));
     await assertFails(getDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pE')));
     await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE')));
     await assertFails(deleteDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pE')));
@@ -1411,5 +1412,69 @@ describe('Stock de los combos', () => {
     lote.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
     lote.update(doc(db, 'productos', 'soda'), { stock: 6, devolucionDe: 'ped1', devolucionCombo: 'combo1' });
     await assertSucceeds(lote.commit());
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('Motivo obligatorio para bloquear u ocultar', () => {
+  const sembrarCliente = () => env.withSecurityRulesDisabled((ctx) =>
+    setDoc(doc(ctx.firestore(), 'negocios/n1/clientes', 'cli2'), { nombre: 'Luis', telefono: '7', bloqueado: false }));
+
+  test('el Administrador no bloquea a un cliente sin escribir el motivo', async () => {
+    await sembrarCliente();
+    const ref = doc(como('admin1'), 'negocios/n1/clientes', 'cli2');
+    await assertFails(updateDoc(ref, { bloqueado: true }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: '' }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: '    ' }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: 'abc' }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: 'x'.repeat(141) }));
+    await assertSucceeds(updateDoc(ref, {
+      bloqueado: true, motivoBloqueo: 'Pedidos falsos repetidos', fechaBloqueo: serverTimestamp(), idAdminBloqueo: 'admin1',
+    }));
+    // Desbloquear no pide motivo.
+    await assertSucceeds(updateDoc(ref, { bloqueado: false, motivoBloqueo: deleteField() }));
+  });
+
+  test('el Administrador no oculta una reseña sin escribir el motivo', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'negocios/n1/resenas', 'pX'), {
+        idNegocio: 'n1', idPedido: 'pX', idCliente: 'cli1', nombreCliente: 'Ana P.', calificacion: 1,
+        comentario: 'Malo', estado: 'Visible',
+      }));
+    const ref = doc(como('admin1'), 'negocios/n1/resenas', 'pX');
+    await assertFails(updateDoc(ref, { estado: 'Oculta' }));
+    await assertFails(updateDoc(ref, { estado: 'Oculta', motivoModeracion: '' }));
+    await assertFails(updateDoc(ref, { estado: 'Oculta', motivoModeracion: 'no' }));
+    await assertSucceeds(updateDoc(ref, { estado: 'Oculta', motivoModeracion: 'Insulta al personal' }));
+    // Volver a mostrarla no pide motivo.
+    await assertSucceeds(updateDoc(ref, { estado: 'Visible', motivoModeracion: deleteField() }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('Fecha de cancelación del pedido', () => {
+  test('al cancelar se guarda la hora del servidor (opcional, para versiones anteriores)', async () => {
+    // El cliente cancela su pedido Pendiente con la fecha de cancelación.
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: serverTimestamp(),
+    }));
+  });
+
+  test('el personal cancela con la fecha; sin ella también funciona', async () => {
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: serverTimestamp(),
+    }));
+  });
+
+  test('no se puede inventar la fecha ni ponerla sin cancelar', async () => {
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: Timestamp.fromDate(new Date(2020, 0, 1)),
+    }));
+    await assertFails(updateDoc(doc(como('admin1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: Timestamp.fromDate(new Date(2020, 0, 1)),
+    }));
+    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), {
+      estado: 'En preparación', fechaCancelacion: serverTimestamp(),
+    }));
   });
 });

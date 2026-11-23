@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import '../firebase_options.dart';
 import '../models/cliente_negocio_model.dart';
 import '../models/usuario_model.dart';
+import '../utils/motivo_obligatorio.dart';
 
 /// Operaciones exclusivas del Administrador sobre la colección `usuarios`.
 class AdminService {
@@ -180,7 +181,9 @@ class AdminService {
     required bool bloqueado,
     String? motivo,
     required String idAdmin,
-  }) {
+  }) async {
+    // Bloquear exige un motivo (las reglas también lo exigen).
+    final motivoLimpio = bloqueado ? exigirMotivo(motivo) : null;
     return _db
         .collection('negocios')
         .doc(idNegocio)
@@ -188,7 +191,7 @@ class AdminService {
         .doc(idCliente)
         .update({
       'bloqueado': bloqueado,
-      'motivoBloqueo': bloqueado ? (motivo ?? '') : FieldValue.delete(),
+      'motivoBloqueo': bloqueado ? motivoLimpio : FieldValue.delete(),
       'fechaBloqueo': bloqueado ? FieldValue.serverTimestamp() : FieldValue.delete(),
       'idAdminBloqueo': bloqueado ? idAdmin : FieldValue.delete(),
     });

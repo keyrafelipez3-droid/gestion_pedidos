@@ -93,6 +93,10 @@ class PedidoModel {
   final String notas;
   final DateTime? fechaCreacion;
 
+  /// Cuándo se canceló (solo pedidos cancelados desde esta versión; los
+  /// anteriores no la tienen).
+  final DateTime? fechaCancelacion;
+
   /// `cliente` (por defecto, pedidos de la app) o `cajero` (pedido de mesa
   /// registrado por el personal; en ese caso `idCliente` queda vacío).
   final String origen;
@@ -191,6 +195,7 @@ class PedidoModel {
     this.total = 0,
     this.notas = '',
     this.fechaCreacion,
+    this.fechaCancelacion,
     this.origen = PedidoOrigen.cliente,
     this.creadoPor,
     this.numeroMesa,
@@ -341,6 +346,7 @@ class PedidoModel {
       total: rawTotal is num ? rawTotal.toDouble() : 0,
       notas: data['notas'] as String? ?? '',
       fechaCreacion: ts?.toDate(),
+      fechaCancelacion: (data['fechaCancelacion'] as Timestamp?)?.toDate(),
       origen: data['origen'] as String? ?? PedidoOrigen.cliente,
       creadoPor: data['creadoPor'] as String?,
       numeroMesa: data['numeroMesa'] as String?,
@@ -575,4 +581,18 @@ class HistorialEstadoModel {
       fecha: ts?.toDate(),
     );
   }
+}
+
+/// Une las dos listas de pedidos cancelados (por fecha de cancelación y
+/// por fecha de creación), sin repetir ninguno, del cancelado más reciente
+/// al más antiguo. Los pedidos sin fecha de cancelación (cancelados antes
+/// de que existiera) se ordenan por su fecha de creación.
+List<PedidoModel> unirCancelados(List<PedidoModel> porCancelacion, List<PedidoModel> porCreacion) {
+  final porId = <String, PedidoModel>{};
+  for (final p in [...porCreacion, ...porCancelacion]) {
+    porId[p.id] = p;
+  }
+  DateTime fecha(PedidoModel p) =>
+      p.fechaCancelacion ?? p.fechaCreacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+  return porId.values.toList()..sort((a, b) => fecha(b).compareTo(fecha(a)));
 }
