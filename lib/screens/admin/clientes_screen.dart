@@ -89,6 +89,9 @@ class ClientesScreen extends StatelessWidget {
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text('¿Bloquear a ${cliente.nombre}?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,

@@ -23,6 +23,9 @@ class SuperAdminNegociosScreen extends StatelessWidget {
     final nombre = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: const Text('Nuevo negocio'),
         content: Form(
           key: key,

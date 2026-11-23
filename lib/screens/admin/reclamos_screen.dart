@@ -44,6 +44,9 @@ class _ReclamosScreenState extends State<ReclamosScreen> {
     final texto = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: const Text('Responder reclamo'),
         content: TextField(
           controller: ctrl,

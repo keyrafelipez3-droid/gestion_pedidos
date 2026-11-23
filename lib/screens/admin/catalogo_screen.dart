@@ -92,6 +92,9 @@ class _CategoriasTab extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(item == null ? 'Nueva categoría' : 'Editar categoría'),
         content: SizedBox(
           width: 420,
@@ -885,6 +888,9 @@ class _ComplementosTab extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(item == null ? 'Nuevo extra' : 'Editar extra'),
         content: SizedBox(
           width: 420,
@@ -1057,6 +1063,9 @@ class _VariantesTab extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
+          // Con el teclado abierto el contenido se desplaza en vez de
+          // encimarse con los botones.
+          scrollable: true,
           title: Text(item == null ? 'Nueva variante' : 'Editar variante'),
           content: SizedBox(
             width: 420,

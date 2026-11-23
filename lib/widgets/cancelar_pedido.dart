@@ -16,7 +16,7 @@ const motivosCancelacion = [
   'El cliente pidió cancelar',
   'Producto agotado',
   'El cliente no respondió',
-  'Dirección fuera de la zona de entrega',
+  'Fuera de la zona de entrega',
   'Pago no verificado',
 ];
 
@@ -85,6 +85,9 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
     final scheme = Theme.of(context).colorScheme;
     final enReparto = widget.pedido.enReparto;
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text('Cancelar pedido #${widget.pedido.id.substring(0, 6)}'),
       content: SizedBox(
         width: 460,

@@ -621,6 +621,9 @@ class _DialogoPausaState extends State<_DialogoPausa> {
   Widget build(BuildContext context) {
     final rapidos = [tr('Cocina llena'), tr('Faltan insumos'), tr('Cerramos en unos minutos')];
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text(tr('Pausar pedidos nuevos')),
       content: SizedBox(
         width: 420,

@@ -30,6 +30,9 @@ class _ResenasScreenState extends State<ResenasScreen> {
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(titulo),
         content: TextField(
           controller: ctrl,
