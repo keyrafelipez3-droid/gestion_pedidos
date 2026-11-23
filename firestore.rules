@@ -839,6 +839,11 @@ service cloud.firestore {
           // HU-47: la sucursal no tiene los pedidos en pausa.
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
                .data.get('pedidosPausados', false) != true
+          // La sucursal y el negocio siguen activos.
+          && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
+               .data.get('estado', true) != false
+          && get(/databases/$(database)/documents/negocios/$(request.resource.data.idNegocio))
+               .data.get('estado', true) != false
           && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid)
           // Solo puede pedir en un restaurante al que entro con su codigo y
           // cuyas condiciones vigentes acepto.
