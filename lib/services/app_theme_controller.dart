@@ -81,17 +81,20 @@ class AppThemeController {
   /// con un Theme real aún sin guardar.
   ThemeData buildThemeFor(NegocioModel? data, Brightness brightness) {
     // Sin negocio (inicio de sesión, cliente, SuperAdmin) se usa la marca
-    // Caro: fondo casi negro, dorado y tarjetas finas con borde.
-    final primary = _color(data?.colorPrimario ?? '', AppBrand.dorado);
+    // Nami: fondo "masa", rojo locoto para las acciones, texto berenjena
+    // y tarjetas blancas tipo plato.
+    final esMarcaNami = data == null;
+    final primary = _color(data?.colorPrimario ?? '', AppBrand.locoto);
     final secondary = data == null
-        ? AppBrand.doradoOscuro
+        ? AppBrand.aji
         : _color(data.colorSecundario, const Color(0xFFFFF3E0));
     // HU-10 (Fase 5): "Fondo" es opcional. Si el negocio eligió uno, el
     // esquema entero se adapta a él (texto con buen contraste, superficies
     // mezcladas) para que un fondo oscuro tipo "Brasa" funcione aunque el
     // modo claro/oscuro del sistema diga otra cosa.
-    final fondoPersonalizado =
-        data == null ? AppBrand.fondoOscuro : _colorOpcional(data.colorFondo);
+    final fondoPersonalizado = data == null
+        ? (brightness == Brightness.dark ? null : AppBrand.masa)
+        : _colorOpcional(data.colorFondo);
     if (fondoPersonalizado != null) {
       brightness = ThemeData.estimateBrightnessForColor(fondoPersonalizado);
     }
@@ -101,7 +104,9 @@ class AppThemeController {
       secondary: secondary,
     );
     final base = fondoPersonalizado ?? scheme.surface;
-    final onBase = fondoPersonalizado != null ? colorSobre(base) : scheme.onSurface;
+    final onBase = esMarcaNami && fondoPersonalizado != null
+        ? AppBrand.berenjena
+        : (fondoPersonalizado != null ? colorSobre(base) : scheme.onSurface);
     Color mezcla(double a) => Color.alphaBlend(onBase.withValues(alpha: a), base);
     // El color de marca se usa TAL CUAL (fromSeed lo transforma y la marca
     // deja de parecerse a la que eligió el SuperAdmin).
@@ -120,7 +125,10 @@ class AppThemeController {
       onSurfaceVariant: onBase.withValues(alpha: 0.68),
       outline: onBase.withValues(alpha: 0.32),
       outlineVariant: onBase.withValues(alpha: 0.12),
-      surfaceContainerLowest: fondoPersonalizado != null ? mezcla(0.04) : null,
+      // En la marca Nami las tarjetas son blancas sobre el fondo "masa".
+      surfaceContainerLowest: esMarcaNami && fondoPersonalizado != null
+          ? AppBrand.leche
+          : (fondoPersonalizado != null ? mezcla(0.04) : null),
       surfaceContainerLow: mezcla(0.04),
       surfaceContainer: mezcla(0.06),
       surfaceContainerHigh: mezcla(0.08),
@@ -128,13 +136,13 @@ class AppThemeController {
     );
     final isDark = scheme.brightness == Brightness.dark;
     final brand = BrandStyle.desde(
-      forma: data?.formaBotones ?? 'redondeado',
-      estilo: data?.estiloBase ?? 'caro',
+      forma: data?.formaBotones ?? 'pildora',
+      estilo: data?.estiloBase ?? 'nami',
       primary: primary,
     );
     final textTheme = _buildTextTheme(
       scheme,
-      tipografia: data?.tipografia ?? 'redondeada',
+      tipografia: data?.tipografia ?? 'nami',
       brand: brand,
     );
     // Las sombras no se ven sobre fondo oscuro: ahí las tarjetas llevan un
@@ -180,7 +188,9 @@ class AppThemeController {
             : (isDark ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest),
         surfaceTintColor: Colors.transparent,
         shadowColor: brand.colorSombra,
-        elevation: brand.tarjeta == 'sombra' && !isDark ? 2 : 0,
+        elevation: isDark
+            ? 0
+            : (brand.tarjeta == 'sombra' ? 2 : (brand.tarjeta == 'plato' ? 1 : 0)),
         shape: RoundedRectangleBorder(
           borderRadius: brand.card,
           side: conBorde ? bordeFino : BorderSide.none,

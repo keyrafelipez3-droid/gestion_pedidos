@@ -14,31 +14,63 @@ class AppSpacing {
   static const double xxl = 48;
 }
 
-/// Identidad de la marca "Nami" (tomada del logo: negro, dorado y rojo).
+/// Identidad de la marca "Nami" (de "ñam": el sonido de comer rico).
+///
+/// La paleta sale de la cocina boliviana:
+/// - berenjena: la "tinta" de la marca (texto, logo, fondos de acento).
+/// - locoto: el rojo del ají fresco; color principal de acción.
+/// - ají amarillo: acentos pequeños (vapor del logo, estrellas, avisos).
+/// - huacataya: el verde de la hierba; éxito / disponible.
+/// - masa: fondo general, un blanco apenas teñido de berenjena.
+///
 /// Es la paleta por defecto de la app; cada negocio la reemplaza con su
 /// propio color de marca (ver AppThemeController).
 class AppBrand {
   AppBrand._();
   static const String nombre = 'Nami';
   static const String eslogan = 'Pedidos de comida';
-  /// Logo de día (plato verde) y de noche (cuchara sobre verde oliva).
-  static const String logoDia = 'assets/images/logo_dia.png';
+
+  /// Un logo para cada momento del día: mañana (plato verde), tarde
+  /// (plato locoto con vapor) y noche (cuchara sobre verde oliva).
+  static const String logoManana = 'assets/images/logo_dia.png';
+  static const String logoTarde = 'assets/images/logo_nami.png';
   static const String logoNoche = 'assets/images/logo_noche.png';
 
-  /// De 6:00 a 18:59 se usa el logo de día; de 19:00 a 5:59, el de noche.
-  static String get logoAsset {
-    final hora = DateTime.now().hour;
-    return (hora >= 6 && hora < 19) ? logoDia : logoNoche;
+  /// 'manana' de 6:00 a 11:59, 'tarde' de 12:00 a 18:59 y 'noche' de
+  /// 19:00 a 5:59.
+  static String momento([DateTime? ahora]) {
+    final hora = (ahora ?? DateTime.now()).hour;
+    if (hora >= 6 && hora < 12) return 'manana';
+    if (hora >= 12 && hora < 19) return 'tarde';
+    return 'noche';
   }
+
+  static String get logoAsset {
+    switch (momento()) {
+      case 'manana':
+        return logoManana;
+      case 'tarde':
+        return logoTarde;
+      default:
+        return logoNoche;
+    }
+  }
+
   static const String fuente = 'Poppins';
 
-  static const Color negro = Color(0xFF0B0B0B);
-  static const Color dorado = Color(0xFFF2BC45);
-  static const Color doradoOscuro = Color(0xFFDB9622);
-  static const Color rojo = Color(0xFFF42925);
-  static const Color crema = Color(0xFFFBF7F0);
-  static const Color fondoOscuro = Color(0xFF0B0B0F); // fondo de la marca
-  static const Color tinta = Color(0xFF1A1200); // texto sobre dorado
+  /// Tipografía de la marca (Google Fonts): titulares con carácter y
+  /// texto corrido muy legible. Si no hay internet se usa Poppins.
+  static const String fuenteTitulos = 'Bricolage Grotesque';
+  static const String fuenteTexto = 'Figtree';
+
+  static const Color berenjena = Color(0xFF2A1730);
+  static const Color berenjenaSuave = Color(0xFF4A3550);
+  static const Color locoto = Color(0xFFD93A22);
+  static const Color locotoOscuro = Color(0xFFB42D18);
+  static const Color aji = Color(0xFFFFB020);
+  static const Color huacataya = Color(0xFF2F7D5B);
+  static const Color masa = Color(0xFFF7F4F8);
+  static const Color leche = Color(0xFFFFFFFF);
 }
 
 /// Duraciones de animación: cortas y suaves (150-250 ms), nada llamativo.
@@ -99,7 +131,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   });
 
   static const light = AppSemanticColors(
-    success: Color(0xFF2E7D32),
+    success: Color(0xFF2F7D5B),
     onSuccess: Colors.white,
     warning: Color(0xFFED6C02),
     onWarning: Colors.white,

@@ -5,7 +5,7 @@ import 'package:gestion_pedidos/services/cupon_service.dart';
 void main() {
   group('CuponModel.descuentoPara', () {
     test('porcentaje', () {
-      const c = CuponModel(codigo: 'CARO10', tipo: CuponModel.porcentaje, valor: 10);
+      const c = CuponModel(codigo: 'NAMI10', tipo: CuponModel.porcentaje, valor: 10);
       expect(c.descuentoPara(85), 8.5);
     });
 
@@ -45,7 +45,7 @@ void main() {
   });
 
   test('el código se normaliza (mayúsculas, sin espacios ni símbolos)', () {
-    expect(CuponService.normalizar('  caro 10! '), 'CARO10');
+    expect(CuponService.normalizar('  nami 10! '), 'NAMI10');
     expect(CuponService.normalizar('promo_2026-a'), 'PROMO_2026-A');
   });
 

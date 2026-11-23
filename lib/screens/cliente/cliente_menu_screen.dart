@@ -700,7 +700,7 @@ class _TarjetaProducto extends StatelessWidget {
                           if (producto.promoActiva())
                             _Etiqueta(
                               texto: tr('PROMO -{n}%', {'n': producto.porcentajePromo()}),
-                              color: AppBrand.rojo,
+                              color: AppBrand.locoto,
                             ),
                         ],
                       ),
@@ -809,7 +809,7 @@ class _TarjetaProducto extends StatelessWidget {
                         child: Icon(
                           esFavorito ? Icons.favorite : Icons.favorite_border,
                           size: 18,
-                          color: esFavorito ? AppBrand.rojo : Colors.black87,
+                          color: esFavorito ? AppBrand.locoto : Colors.black87,
                         ),
                       ),
                     ),

@@ -25,7 +25,7 @@ import '../widgets/app_status_badge.dart';
 import '../widgets/app_fotos_comida.dart';
 import '../widgets/avisos_cliente.dart';
 import '../widgets/codigo_restaurante.dart';
-import '../widgets/logo_caro.dart';
+import '../widgets/logo_nami.dart';
 import 'admin/admin_home_screen.dart';
 import 'cajero/panel_cajero.dart';
 import 'cliente/condiciones_restaurante_screen.dart';
@@ -94,9 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            LogoCaro(size: 34),
+            LogoNami(size: 34),
             SizedBox(width: AppSpacing.sm),
-            Text(AppBrand.nombre),
+            WordmarkNami(alto: 26),
           ],
         ),
         actions: [
@@ -629,7 +629,7 @@ class _AccionHome extends StatelessWidget {
     final flecha = Icon(Icons.chevron_right, color: texto.withValues(alpha: 0.6));
     return Material(
       color: fondo,
-      elevation: !destacada && brand.tarjeta == 'sombra' && !oscuro ? 1 : 0,
+      elevation: !destacada && (brand.tarjeta == 'sombra' || brand.tarjeta == 'plato') && !oscuro ? 1 : 0,
       shadowColor: brand.colorSombra,
       shape: RoundedRectangleBorder(
         borderRadius: brand.card,

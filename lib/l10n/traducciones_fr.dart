@@ -870,6 +870,8 @@ const traduccionesFr = <String, String>{
   "Logo de {restaurante}": "Logo de {restaurante}",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Mangez sain : privilégiez l’eau, les fruits et les légumes, et limitez le sel, le sucre et les graisses.',
+  'Del fogón a la mesa, sin papelitos.': 'Du fourneau à la table, sans petits papiers.',
+  'Pedidos, cocina, caja y reparto de tu restaurante en un solo lugar.': 'Commandes, cuisine, caisse et livraison de votre restaurant au même endroit.',
   // Pedido: precios y líneas, y aviso de documentos legales
   '"{producto}" ya no está disponible. Quítalo para continuar.': '« {producto} » n\'est plus disponible. Retirez-le pour continuer.',
   'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'Le prix a changé pour : {productos}. Vérifiez le total et confirmez à nouveau.',

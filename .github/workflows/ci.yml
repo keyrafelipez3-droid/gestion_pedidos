@@ -1,4 +1,4 @@
-# Integración continua de Caro.
+# Integración continua de Nami.
 #
 # Se ejecuta en cada push a develop/main y en cada Pull Request. GitHub marca
 # el PR con ✅ o ❌ según el resultado, así nadie integra código que rompe

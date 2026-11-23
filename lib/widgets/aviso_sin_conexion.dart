@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
+import '../theme/design_tokens.dart';
 
 /// Franja abajo cuando no hay internet. Firestore guarda en el dispositivo
 /// lo ya cargado y encola los cambios, así que la app sigue usable; esta
@@ -67,7 +68,7 @@ class _AvisoSinConexionState extends State<AvisoSinConexion> {
           child: MediaQuery.removePadding(context: context, removeBottom: true, child: widget.child),
         ),
         Material(
-          color: const Color(0xFF424242),
+          color: AppBrand.berenjena,
           child: SafeArea(
             top: false,
             child: Padding(

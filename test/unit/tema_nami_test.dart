@@ -11,12 +11,28 @@ void main() {
   AppThemeController.usarFuentesDeGoogle = false;
   final ctrl = AppThemeController.instancia;
 
-  test('sin negocio se usa la marca Nami: fondo oscuro y dorado', () {
+  test('sin negocio se usa la marca Nami: fondo masa, locoto y texto berenjena', () {
     final t = ctrl.buildThemeFor(null, Brightness.light);
-    expect(t.colorScheme.brightness, Brightness.dark);
-    expect(t.scaffoldBackgroundColor, AppBrand.fondoOscuro);
-    expect(t.colorScheme.primary, AppBrand.dorado);
-    expect(t.extension<BrandStyle>()!.tarjeta, 'borde');
+    expect(t.colorScheme.brightness, Brightness.light);
+    expect(t.scaffoldBackgroundColor, AppBrand.masa);
+    expect(t.colorScheme.primary, AppBrand.locoto);
+    expect(t.colorScheme.onSurface, AppBrand.berenjena);
+    // Botón locoto con letras blancas.
+    expect(t.colorScheme.onPrimary, Colors.white);
+    expect(t.extension<BrandStyle>()!.tarjeta, 'plato');
+  });
+
+  test('un negocio guardado con el estilo anterior "caro" usa el estilo Nami', () {
+    final b = BrandStyle.desde(forma: 'pildora', estilo: 'caro', primary: AppBrand.locoto);
+    expect(b.tarjeta, 'plato');
+  });
+
+  test('un logo para cada momento del día', () {
+    expect(AppBrand.momento(DateTime(2026, 1, 1, 8)), 'manana');
+    expect(AppBrand.momento(DateTime(2026, 1, 1, 12)), 'tarde');
+    expect(AppBrand.momento(DateTime(2026, 1, 1, 18, 59)), 'tarde');
+    expect(AppBrand.momento(DateTime(2026, 1, 1, 19)), 'noche');
+    expect(AppBrand.momento(DateTime(2026, 1, 1, 5, 59)), 'noche');
   });
 
   test('un negocio sin fondo propio sigue en modo claro con su color', () {
@@ -37,11 +53,12 @@ void main() {
     expect(colorSobre(const Color(0xFFC9A45C)), const Color(0xFF111111));
     // Azul oscuro y negro: letras blancas.
     expect(colorSobre(const Color(0xFF0A2E5C)), Colors.white);
-    expect(colorSobre(AppBrand.fondoOscuro), Colors.white);
+    expect(colorSobre(AppBrand.berenjena), Colors.white);
   });
 
   test('en fondo oscuro las tarjetas llevan borde fino', () {
-    final t = ctrl.buildThemeFor(null, Brightness.dark);
+    const n = NegocioModel(idNegocio: 'x', nombre: 'X', colorFondo: '#101820');
+    final t = ctrl.buildThemeFor(n, Brightness.dark);
     final forma = t.cardTheme.shape as RoundedRectangleBorder;
     expect(forma.side, isNot(BorderSide.none));
   });

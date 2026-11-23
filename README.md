@@ -19,6 +19,20 @@ Autoras: Alaitz Keyra Felipez Ledezma y Susan Dilana Romero Valdez.
 | **Administrador** | Sucursales, horarios, zonas de delivery, catálogo con stock, empleados, **permisos ajustables por rol**, clientes, reseñas, cupones, ventas con exportación a **Excel**, registro de actividad. |
 | **SuperAdmin** | Negocios, personalización de marca, **solicitudes de restaurantes nuevos**, versiones de la app (aviso de actualización) y errores de la app. |
 
+## Marca y diseño
+
+**Nami** (de "ñam") es la marca de la plataforma. El logo cambia según el momento del día: plato verde en la mañana, plato locoto con vapor de ají en la tarde y cuchara en la noche.
+
+| Token | Color | Uso |
+|---|---|---|
+| Berenjena | `#2A1730` | Texto, logo, paneles de marca |
+| Locoto | `#D93A22` | Botones y acciones principales |
+| Ají amarillo | `#FFB020` | Detalles: vapor del logo, estrellas |
+| Huacataya | `#2F7D5B` | Éxito / disponible |
+| Masa | `#F7F4F8` | Fondo general (las tarjetas van en blanco) |
+
+Tipografía: **Bricolage Grotesque** (títulos) y **Figtree** (texto). Botones tipo píldora y tarjetas "plato" (blancas, sin borde, sombra corta). Cada restaurante puede seguir cambiando colores, tipografía y estilo en Personalización. Diseño de Susan Dilana Romero Valdez.
+
 ## Seguridad
 
 - Reglas de Firestore por rol y por negocio (multi-tenant): cada escritura valida **quién** y **qué campos**; el servidor rechaza precios de envío alterados, descuentos mayores al cupón, estados inventados, etc.

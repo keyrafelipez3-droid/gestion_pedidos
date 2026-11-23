@@ -9,7 +9,7 @@ import '../../utils/contrasena.dart';
 import '../../widgets/app_pantalla_foto.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/codigo_restaurante.dart';
-import '../../widgets/logo_caro.dart';
+import '../../widgets/logo_nami.dart';
 import '../legal/legal_screen.dart';
 
 /// HU-01 — Pantalla de registro para Clientes.
@@ -107,7 +107,6 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final ancho = MediaQuery.sizeOf(context).width;
     final esAmplio = AppBreakpoints.isExpanded(ancho);
 
@@ -141,8 +140,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
         ),
         body: Row(
           children: [
-            Expanded(child: _PanelMarca(color: scheme.primary)),
+            const Expanded(flex: 11, child: _PanelMarca()),
             Expanded(
+              flex: 9,
               child: Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -177,62 +177,87 @@ class _RegistroScreenState extends State<RegistroScreen> {
   }
 }
 
+/// Panel de marca del registro (pantallas anchas): mismo lenguaje que el
+/// login — fondo berenjena, logotipo y la foto de comida en un "plato".
 class _PanelMarca extends StatelessWidget {
-  final Color color;
-  const _PanelMarca({required this.color});
+  const _PanelMarca();
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Foto de comida de fondo (si faltara el archivo, queda el color
-        // de marca de siempre).
-        ColoredBox(color: color),
-        Image.asset(
-          'assets/images/comida_steak.jpg',
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stack) => const SizedBox.shrink(),
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.45),
-                Colors.black.withValues(alpha: 0.80),
-              ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+    final texto = Theme.of(context).textTheme;
+    return ColoredBox(
+      color: AppBrand.berenjena,
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final diametro = c.maxHeight * 0.74;
+          return Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.hardEdge,
             children: [
-              const LogoCaro(size: 140),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                tr('Únete a {nombre}', {'nombre': AppBrand.nombre}),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
+              Positioned(
+                left: -diametro * 0.18,
+                bottom: -diametro * 0.26,
+                width: diametro,
+                height: diametro,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppBrand.aji, width: 10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/comida_steak.jpg',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) =>
+                            const ColoredBox(color: AppBrand.locoto),
+                      ),
                     ),
+                  ),
+                ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                tr('Crea tu cuenta y empieza a pedir en segundos.'),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.85),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(56, 48, 56, 48),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        LogoNami(size: 52, conFondo: false),
+                        SizedBox(width: AppSpacing.sm),
+                        WordmarkNami(alto: 36, color: AppBrand.leche),
+                      ],
                     ),
+                    SizedBox(height: c.maxHeight * 0.12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Text(
+                        tr('Únete a {nombre}', {'nombre': AppBrand.nombre}),
+                        style: texto.displaySmall?.copyWith(
+                          color: AppBrand.leche,
+                          height: 1.08,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 380),
+                      child: Text(
+                        tr('Crea tu cuenta y empieza a pedir en segundos.'),
+                        style: texto.bodyLarge?.copyWith(
+                          color: AppBrand.leche.withValues(alpha: 0.72),
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 }
@@ -281,7 +306,7 @@ class _Formulario extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (mostrarEncabezado) ...[
-            Icon(Icons.person_add_alt_1, size: 64, color: scheme.primary),
+            const Center(child: LogoNami(size: 56)),
             const SizedBox(height: AppSpacing.sm),
             Text(
               tr('Regístrate'),

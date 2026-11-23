@@ -31,20 +31,20 @@
 
   <title>Nami | Pedidos de comida</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0B0B0B">
+  <meta name="theme-color" content="#2A1730">
   <style>
     /* Pantalla de carga mientras se descarga la app (la quita Flutter al
        dibujar su primer cuadro). */
-    html, body { margin: 0; background: #0B0B0B; }
+    html, body { margin: 0; background: #2A1730; }
     #carga {
       position: fixed; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 22px;
-      background: #0B0B0B; transition: opacity .35s ease; z-index: 10;
+      background: #2A1730; transition: opacity .35s ease; z-index: 10;
     }
     #carga img { width: 96px; height: 96px; border-radius: 22px; animation: latido 1.6s ease-in-out infinite; }
-    #carga .barra { width: 120px; height: 3px; border-radius: 3px; background: #2a2a2a; overflow: hidden; }
+    #carga .barra { width: 120px; height: 3px; border-radius: 3px; background: #4A3550; overflow: hidden; }
     #carga .barra::after {
-      content: ""; display: block; width: 40%; height: 100%; background: #F2BC45;
+      content: ""; display: block; width: 40%; height: 100%; background: #FFB020;
       animation: avance 1.1s ease-in-out infinite;
     }
     #carga.oculta { opacity: 0; pointer-events: none; }

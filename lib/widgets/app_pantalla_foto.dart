@@ -34,13 +34,16 @@ class AppPantallaFoto extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (context, error, stack) => const SizedBox.shrink(),
         ),
-        // Oscurece un poco la foto, más abajo, para que la tarjeta resalte.
+        // Oscurece la foto hacia abajo con el berenjena de la marca (no
+        // con negro puro), para que la tarjeta resalte y la foto se vea
+        // cálida.
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0x26000000), Color(0x4D000000), Color(0xB3000000)],
+              stops: [0.0, 0.45, 1.0],
+              colors: [Color(0x1A2A1730), Color(0x592A1730), Color(0xE62A1730)],
             ),
           ),
         ),
@@ -60,8 +63,10 @@ class AppPantallaFoto extends StatelessWidget {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: Material(
-                          color: scheme.surface.withValues(alpha: 0.96),
+                          color: scheme.surfaceContainerLowest,
                           borderRadius: BorderRadius.circular(AppRadius.xl + 4),
+                          elevation: 6,
+                          shadowColor: const Color(0x662A1730),
                           child: Padding(
                             padding: const EdgeInsets.all(AppSpacing.lg),
                             child: formulario,
