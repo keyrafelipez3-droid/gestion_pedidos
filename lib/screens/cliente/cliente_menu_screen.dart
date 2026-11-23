@@ -117,7 +117,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
           .where((v) => v.estado && v.idProducto == producto.id)
           .toList();
       complementos = (await CatalogoService.instancia.streamComplementos(_idNegocio).first)
-          .where((c) => c.estado)
+          .where((c) => c.estado && c.seOfreceEn(producto.id))
           .toList();
     } catch (_) {
       // Sin conexión: se agrega sin extras.

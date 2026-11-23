@@ -326,10 +326,13 @@ class PedidoService {
       for (var i = 0; i < docs.length; i++) {
         final data = docs[i].data();
         final esVariante = i < item.variantes.length;
+        // Un complemento con lista de productos solo va con esos productos.
+        final productos = data?['productos'];
         final valido = data != null &&
             data['estado'] != false &&
             data['idNegocio'] == idNegocio &&
-            (!esVariante || data['idProducto'] == item.idProducto);
+            (!esVariante || data['idProducto'] == item.idProducto) &&
+            (esVariante || productos is! List || productos.isEmpty || productos.contains(item.idProducto));
         if (!valido) {
           throw Exception(tr('El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.',
               {'extra': opciones[i].nombre, 'producto': item.nombreProducto}));
