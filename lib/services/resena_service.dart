@@ -4,6 +4,7 @@ import '../l10n/idioma.dart';
 import '../models/pedido_models.dart';
 import '../models/resena_model.dart';
 import '../utils/moderacion.dart';
+import '../utils/motivo_obligatorio.dart';
 import 'sesion_actual.dart';
 
 /// Reseñas de pedidos entregados y su moderación por el negocio.
@@ -98,11 +99,14 @@ class ResenaService {
     required bool ocultar,
     String? motivo,
     required String idAdmin,
-  }) =>
-      _resenas(idNegocio).doc(idResena).update({
-        'estado': ocultar ? ResenaEstado.oculta : ResenaEstado.visible,
-        'motivoModeracion': ocultar ? (motivo ?? '') : FieldValue.delete(),
-        'fechaModeracion': ocultar ? FieldValue.serverTimestamp() : FieldValue.delete(),
-        'idAdminModeracion': ocultar ? idAdmin : FieldValue.delete(),
-      });
+  }) async {
+    // Ocultar exige un motivo (las reglas también lo exigen).
+    final motivoLimpio = ocultar ? exigirMotivo(motivo) : null;
+    await _resenas(idNegocio).doc(idResena).update({
+      'estado': ocultar ? ResenaEstado.oculta : ResenaEstado.visible,
+      'motivoModeracion': ocultar ? motivoLimpio : FieldValue.delete(),
+      'fechaModeracion': ocultar ? FieldValue.serverTimestamp() : FieldValue.delete(),
+      'idAdminModeracion': ocultar ? idAdmin : FieldValue.delete(),
+    });
+  }
 }

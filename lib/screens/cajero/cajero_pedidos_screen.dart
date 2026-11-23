@@ -101,7 +101,7 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen> {
   }
 
   Stream<List<PedidoModel>> _streamCancelados(String idNegocio) => _cancelados ??=
-      PedidoService.instancia.streamRecientesPorEstado(idNegocio, PedidoEstado.cancelado);
+      PedidoService.instancia.streamCanceladosRecientes(idNegocio);
 
   static String _nombreGrupo(GrupoPedidos g) {
     switch (g) {
