@@ -195,6 +195,9 @@ class ComplementoModel {
   final bool estado;
   final String? idNegocio;
 
+  /// Productos en los que se ofrece (sus ids). Vacío = en todos.
+  final List<String> productos;
+
   const ComplementoModel({
     required this.id,
     required this.nombre,
@@ -202,7 +205,11 @@ class ComplementoModel {
     this.precio = 0,
     this.estado = true,
     this.idNegocio,
+    this.productos = const [],
   });
+
+  /// ¿Se ofrece con este producto?
+  bool seOfreceEn(String idProducto) => productos.isEmpty || productos.contains(idProducto);
 
   Map<String, dynamic> toMap() => {
         'nombre': nombre,
@@ -210,6 +217,7 @@ class ComplementoModel {
         'precio': precio,
         'estado': estado,
         'idNegocio': idNegocio,
+        'productos': productos,
       };
 
   factory ComplementoModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -222,6 +230,11 @@ class ComplementoModel {
       precio: rawPrecio is num ? rawPrecio.toDouble() : 0,
       estado: data['estado'] as bool? ?? true,
       idNegocio: data['idNegocio'] as String?,
+      productos: [
+        if (data['productos'] is List)
+          for (final id in data['productos'] as List)
+            if (id is String) id,
+      ],
     );
   }
 }

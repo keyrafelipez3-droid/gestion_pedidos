@@ -884,10 +884,18 @@ class _ComplementosTab extends StatelessWidget {
       text: item == null ? '' : item.precio.toStringAsFixed(2),
     );
     final key = GlobalKey<FormState>();
+    // Productos en los que se ofrece (ninguno marcado = en todos).
+    final idNegocio = SesionActual.instancia.idNegocio!;
+    final productos = (await CatalogoService.instancia.streamProductos(idNegocio).first)
+        .where((p) => p.estado)
+        .toList();
+    final elegidos = <String>{...?item?.productos};
+    if (!context.mounted) return;
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogo) => AlertDialog(
         // Con el teclado abierto el contenido se desplaza en vez de
         // encimarse con los botones.
         scrollable: true,
@@ -931,6 +939,35 @@ class _ComplementosTab extends StatelessWidget {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    elegidos.isEmpty
+                        ? 'Se ofrece en: todos los productos'
+                        : 'Se ofrece en: ${elegidos.length} producto(s)',
+                    style: Theme.of(ctx).textTheme.labelLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final p in productos)
+                      FilterChip(
+                        label: Text(p.nombre),
+                        selected: elegidos.contains(p.id),
+                        onSelected: (marcado) => setDialogo(() {
+                          if (marcado) {
+                            elegidos.add(p.id);
+                          } else {
+                            elegidos.remove(p.id);
+                          }
+                        }),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -949,6 +986,7 @@ class _ComplementosTab extends StatelessWidget {
                     precio: double.parse(precio.text.replaceAll(',', '.')),
                     estado: item?.estado ?? true,
                     idNegocio: SesionActual.instancia.idNegocio,
+                    productos: elegidos.toList(),
                   ),
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -962,6 +1000,7 @@ class _ComplementosTab extends StatelessWidget {
             child: const Text('Guardar'),
           ),
         ],
+      ),
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1003,7 +1042,8 @@ class _ComplementosTab extends StatelessWidget {
                   title: Text(item.nombre),
                   subtitle: Text(
                     '${dinero(item.precio)} · '
-                    '${item.descripcion.isEmpty ? 'Sin descripción' : item.descripcion}',
+                    '${item.descripcion.isEmpty ? 'Sin descripción' : item.descripcion} · '
+                    '${item.productos.isEmpty ? 'Todos los productos' : '${item.productos.length} producto(s)'}',
                   ),
                   onTap: () => _editar(context, item: item),
                   trailing: Wrap(
