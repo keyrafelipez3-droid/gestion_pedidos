@@ -60,7 +60,7 @@ class _PersonalizacionScreenState extends State<PersonalizacionScreen> {
   // Cada preset es un punto de partida COMPLETO (color, tipografía, forma,
   // estilo de tarjetas y fondo); después el SuperAdmin ajusta lo que quiera.
   static const List<_PresetEstilo> _presets = [
-    _PresetEstilo('Nami', Color(0xFFD93A22), Color(0xFFFFB020),
+    _PresetEstilo('Nami', Color(0xFFC2301A), Color(0xFFFFB020),
         estilo: 'nami',
         tipografia: 'nami',
         forma: 'pildora',

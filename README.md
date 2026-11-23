@@ -26,7 +26,7 @@ Autoras: Alaitz Keyra Felipez Ledezma y Susan Dilana Romero Valdez.
 | Token | Color | Uso |
 |---|---|---|
 | Berenjena | `#2A1730` | Texto, logo, paneles de marca |
-| Locoto | `#D93A22` | Botones y acciones principales |
+| Locoto | `#C2301A` | Botones y acciones principales (en modo oscuro `#FF7A5C`) |
 | Ají amarillo | `#FFB020` | Detalles: vapor del logo, estrellas |
 | Huacataya | `#2F7D5B` | Éxito / disponible |
 | Masa | `#F7F4F8` | Fondo general (las tarjetas van en blanco) |

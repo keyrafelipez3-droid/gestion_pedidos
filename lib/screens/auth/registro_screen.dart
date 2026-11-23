@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/codigo_negocio_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contrasena.dart';
+import '../../widgets/animaciones_marca.dart';
 import '../../widgets/app_pantalla_foto.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/codigo_restaurante.dart';
@@ -17,8 +18,10 @@ import '../legal/legal_screen.dart';
 ///
 /// Mismo tratamiento responsive que login_screen.dart (Fase 4): en
 /// ventanas anchas se muestra un panel de marca junto al formulario; en
-/// celular el formulario queda centrado como antes. Toda la lógica de
-/// registro (_registrar, validadores, controllers) se mantiene igual.
+/// celular el formulario queda centrado como antes. Al abrirse, todo
+/// entra con una animación corta, como el inicio de sesión (sin
+/// animación si el dispositivo pide "reducir movimiento"). Toda la lógica
+/// de registro (_registrar, validadores, controllers) se mantiene igual.
 class RegistroScreen extends StatefulWidget {
   const RegistroScreen({super.key});
 
@@ -26,8 +29,13 @@ class RegistroScreen extends StatefulWidget {
   State<RegistroScreen> createState() => _RegistroScreenState();
 }
 
-class _RegistroScreenState extends State<RegistroScreen> {
+class _RegistroScreenState extends State<RegistroScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+
+  /// Animación de entrada (más corta que la bienvenida del login).
+  late final AnimationController _entrada =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
+  bool _arranco = false;
 
   final _nombreCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -43,7 +51,19 @@ class _RegistroScreenState extends State<RegistroScreen> {
   bool _errorTerminos = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _entrada.value = 1;
+    } else if (!_arranco) {
+      _arranco = true;
+      _entrada.forward();
+    }
+  }
+
+  @override
   void dispose() {
+    _entrada.dispose();
     _nombreCtrl.dispose();
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
@@ -123,6 +143,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _registrar,
       mostrarEncabezado: !esAmplio,
+      entrada: _entrada,
+      inicioEntrada: esAmplio ? 0.30 : 0.05,
       aceptaTerminos: _aceptaTerminos,
       errorTerminos: _errorTerminos,
       onCambiarTerminos: (v) => setState(() {
@@ -140,7 +162,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
         ),
         body: Row(
           children: [
-            const Expanded(flex: 11, child: _PanelMarca()),
+            Expanded(flex: 11, child: _PanelMarca(entrada: _entrada)),
             Expanded(
               flex: 9,
               child: Center(
@@ -179,82 +201,124 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
 /// Panel de marca del registro (pantallas anchas): mismo lenguaje que el
 /// login — fondo berenjena, logotipo y la foto de comida en un "plato".
+/// Cada parte entra con la animación: el logo, "nami" que se escribe, las
+/// frases y al final el plato.
 class _PanelMarca extends StatelessWidget {
-  const _PanelMarca();
+  final Animation<double> entrada;
+  const _PanelMarca({required this.entrada});
 
   @override
   Widget build(BuildContext context) {
     final texto = Theme.of(context).textTheme;
+    final foto = Image.asset(
+      'assets/images/comida_steak.jpg',
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stack) => const ColoredBox(color: AppBrand.locoto),
+    );
     return ColoredBox(
       color: AppBrand.berenjena,
       child: LayoutBuilder(
         builder: (context, c) {
           final diametro = c.maxHeight * 0.74;
-          return Stack(
-            fit: StackFit.expand,
-            clipBehavior: Clip.hardEdge,
-            children: [
-              Positioned(
-                left: -diametro * 0.18,
-                bottom: -diametro * 0.26,
-                width: diametro,
-                height: diametro,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppBrand.aji, width: 10),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/comida_steak.jpg',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stack) =>
-                            const ColoredBox(color: AppBrand.locoto),
+          return AnimatedBuilder(
+            animation: entrada,
+            builder: (context, _) {
+              final v = entrada.value;
+              double tramo(double a, double b, [Curve curva = Curves.easeOutCubic]) =>
+                  curva.transform(((v - a) / (b - a)).clamp(0.0, 1.0));
+              final logo = tramo(0.0, 0.25, Curves.easeOutBack);
+              final escrito = tramo(0.10, 0.40, Curves.linear);
+              final frase = tramo(0.30, 0.55);
+              final detalle = tramo(0.40, 0.65);
+              final plato = tramo(0.45, 0.85, Curves.easeOutBack);
+              return Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  Positioned(
+                    left: -diametro * 0.18,
+                    bottom: -diametro * 0.26,
+                    width: diametro,
+                    height: diametro,
+                    child: Opacity(
+                      opacity: plato.clamp(0.0, 1.0),
+                      child: Transform.scale(
+                        scale: 0.7 + 0.3 * plato,
+                        alignment: Alignment.bottomLeft,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppBrand.aji, width: 10),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: ClipOval(child: foto),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(56, 48, 56, 48),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(56, 48, 56, 48),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        LogoNami(size: 52, conFondo: false),
-                        SizedBox(width: AppSpacing.sm),
-                        WordmarkNami(alto: 36, color: AppBrand.leche),
+                        Row(
+                          children: [
+                            Opacity(
+                              opacity: logo.clamp(0.0, 1.0),
+                              child: Transform.scale(
+                                scale: 0.5 + 0.5 * logo,
+                                child: const LogoNami(size: 52, conFondo: false),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            RevelarHorizontal(
+                              progreso: escrito,
+                              child: const WordmarkNami(alto: 36, color: AppBrand.leche),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: c.maxHeight * 0.12),
+                        Opacity(
+                          opacity: frase,
+                          child: Transform.translate(
+                            offset: Offset(0, (1 - frase) * 12),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 440),
+                              child: Text(
+                                tr('Únete a {nombre}', {'nombre': AppBrand.nombre}),
+                                style: texto.displaySmall?.copyWith(
+                                  color: AppBrand.leche,
+                                  height: 1.08,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Opacity(
+                          opacity: detalle,
+                          child: Transform.translate(
+                            offset: Offset(0, (1 - detalle) * 12),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 380),
+                              child: Text(
+                                tr('Crea tu cuenta y empieza a pedir en segundos.'),
+                                style: texto.bodyLarge?.copyWith(
+                                  color: AppBrand.leche.withValues(alpha: 0.72),
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    SizedBox(height: c.maxHeight * 0.12),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 440),
-                      child: Text(
-                        tr('Únete a {nombre}', {'nombre': AppBrand.nombre}),
-                        style: texto.displaySmall?.copyWith(
-                          color: AppBrand.leche,
-                          height: 1.08,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 380),
-                      child: Text(
-                        tr('Crea tu cuenta y empieza a pedir en segundos.'),
-                        style: texto.bodyLarge?.copyWith(
-                          color: AppBrand.leche.withValues(alpha: 0.72),
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -275,6 +339,11 @@ class _Formulario extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
   final bool mostrarEncabezado;
+
+  /// Animación de entrada: cada parte del formulario aparece una tras otra
+  /// a partir de [inicioEntrada].
+  final Animation<double> entrada;
+  final double inicioEntrada;
   final bool aceptaTerminos;
   final bool errorTerminos;
   final ValueChanged<bool> onCambiarTerminos;
@@ -292,6 +361,8 @@ class _Formulario extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     required this.mostrarEncabezado,
+    required this.entrada,
+    required this.inicioEntrada,
     required this.aceptaTerminos,
     required this.errorTerminos,
     required this.onCambiarTerminos,
@@ -302,8 +373,9 @@ class _Formulario extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Form(
       key: formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: _ColumnaEscalonada(
+        entrada: entrada,
+        inicio: inicioEntrada,
         children: [
           if (mostrarEncabezado) ...[
             const Center(child: LogoNami(size: 56)),
@@ -505,6 +577,32 @@ class _EnlaceLegal extends StatelessWidget {
           decoration: TextDecoration.underline,
         ),
       ),
+    );
+  }
+}
+
+/// Columna cuyas partes entran una tras otra con [entrada], a partir de
+/// [inicio] (de 0 a 1).
+class _ColumnaEscalonada extends StatelessWidget {
+  final Animation<double> entrada;
+  final double inicio;
+  final List<Widget> children;
+
+  const _ColumnaEscalonada({required this.entrada, required this.inicio, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < children.length; i++)
+          EntradaEscalonada(
+            animacion: entrada,
+            inicio: (inicio + i * 0.02).clamp(0.0, 0.84),
+            fin: (inicio + i * 0.02 + 0.16).clamp(0.16, 1.0),
+            child: children[i],
+          ),
+      ],
     );
   }
 }

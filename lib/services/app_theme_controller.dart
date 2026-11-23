@@ -84,7 +84,12 @@ class AppThemeController {
     // Nami: fondo "masa", rojo locoto para las acciones, texto berenjena
     // y tarjetas blancas tipo plato.
     final esMarcaNami = data == null;
-    final primary = _color(data?.colorPrimario ?? '', AppBrand.locoto);
+    // Modo oscuro de la marca: fondo "noche" (berenjena muy oscura), texto
+    // masa y un locoto más claro que se lee bien sobre ese fondo.
+    final nocheNami = esMarcaNami && brightness == Brightness.dark;
+    final primary = nocheNami
+        ? AppBrand.locotoClaro
+        : _color(data?.colorPrimario ?? '', AppBrand.locoto);
     final secondary = data == null
         ? AppBrand.aji
         : _color(data.colorSecundario, const Color(0xFFFFF3E0));
@@ -93,7 +98,7 @@ class AppThemeController {
     // mezcladas) para que un fondo oscuro tipo "Brasa" funcione aunque el
     // modo claro/oscuro del sistema diga otra cosa.
     final fondoPersonalizado = data == null
-        ? (brightness == Brightness.dark ? null : AppBrand.masa)
+        ? (nocheNami ? AppBrand.noche : AppBrand.masa)
         : _colorOpcional(data.colorFondo);
     if (fondoPersonalizado != null) {
       brightness = ThemeData.estimateBrightnessForColor(fondoPersonalizado);
@@ -104,8 +109,8 @@ class AppThemeController {
       secondary: secondary,
     );
     final base = fondoPersonalizado ?? scheme.surface;
-    final onBase = esMarcaNami && fondoPersonalizado != null
-        ? AppBrand.berenjena
+    final onBase = esMarcaNami
+        ? (nocheNami ? AppBrand.masa : AppBrand.berenjena)
         : (fondoPersonalizado != null ? colorSobre(base) : scheme.onSurface);
     Color mezcla(double a) => Color.alphaBlend(onBase.withValues(alpha: a), base);
     // El color de marca se usa TAL CUAL (fromSeed lo transforma y la marca
@@ -115,7 +120,7 @@ class AppThemeController {
           ? ThemeData.estimateBrightnessForColor(base)
           : null,
       primary: primary,
-      onPrimary: colorSobre(primary),
+      onPrimary: nocheNami ? AppBrand.berenjena : colorSobre(primary),
       secondary: secondary,
       onSecondary: colorSobre(secondary),
       primaryContainer: Color.alphaBlend(primary.withValues(alpha: 0.18), base),
@@ -126,7 +131,7 @@ class AppThemeController {
       outline: onBase.withValues(alpha: 0.32),
       outlineVariant: onBase.withValues(alpha: 0.12),
       // En la marca Nami las tarjetas son blancas sobre el fondo "masa".
-      surfaceContainerLowest: esMarcaNami && fondoPersonalizado != null
+      surfaceContainerLowest: esMarcaNami && !nocheNami
           ? AppBrand.leche
           : (fondoPersonalizado != null ? mezcla(0.04) : null),
       surfaceContainerLow: mezcla(0.04),

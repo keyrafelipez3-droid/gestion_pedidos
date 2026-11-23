@@ -65,12 +65,23 @@ class AppBrand {
 
   static const Color berenjena = Color(0xFF2A1730);
   static const Color berenjenaSuave = Color(0xFF4A3550);
-  static const Color locoto = Color(0xFFD93A22);
+  /// Rojo de acción. Un poco más profundo que el de la propuesta original
+  /// (#D93A22): con letras blancas quedaba justo en el límite de lectura
+  /// (4,6 : 1) y como texto sobre el fondo masa no llegaba al mínimo.
+  /// Así: 5,6 : 1 con blanco y 5,2 : 1 sobre masa.
+  static const Color locoto = Color(0xFFC2301A);
   static const Color locotoOscuro = Color(0xFFB42D18);
+
+  /// Locoto para el modo oscuro: más claro, para que se lea sobre el fondo
+  /// de noche (7 : 1); los botones llevan letras berenjena.
+  static const Color locotoClaro = Color(0xFFFF7A5C);
   static const Color aji = Color(0xFFFFB020);
   static const Color huacataya = Color(0xFF2F7D5B);
   static const Color masa = Color(0xFFF7F4F8);
   static const Color leche = Color(0xFFFFFFFF);
+
+  /// Fondo del modo oscuro: berenjena muy oscura (no negro puro).
+  static const Color noche = Color(0xFF1C1220);
 }
 
 /// Duraciones de animación: cortas y suaves (150-250 ms), nada llamativo.

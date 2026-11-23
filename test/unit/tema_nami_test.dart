@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,6 +27,29 @@ void main() {
   test('un negocio guardado con el estilo anterior "caro" usa el estilo Nami', () {
     final b = BrandStyle.desde(forma: 'pildora', estilo: 'caro', primary: AppBrand.locoto);
     expect(b.tarjeta, 'plato');
+  });
+
+  test('modo oscuro de la marca: fondo noche, texto masa y locoto claro', () {
+    final t = ctrl.buildThemeFor(null, Brightness.dark);
+    expect(t.colorScheme.brightness, Brightness.dark);
+    expect(t.scaffoldBackgroundColor, AppBrand.noche);
+    expect(t.colorScheme.onSurface, AppBrand.masa);
+    expect(t.colorScheme.primary, AppBrand.locotoClaro);
+    expect(t.colorScheme.onPrimary, AppBrand.berenjena);
+    // Tarjetas con borde fino (la sombra no se ve en oscuro).
+    final forma = t.cardTheme.shape as RoundedRectangleBorder;
+    expect(forma.side, isNot(BorderSide.none));
+  });
+
+  test('el rojo de los botones se lee bien (contraste de 4,5 : 1 o más)', () {
+    double contraste(Color a, Color b) {
+      final la = a.computeLuminance(), lb = b.computeLuminance();
+      return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+    }
+    expect(contraste(AppBrand.locoto, Colors.white), greaterThanOrEqualTo(4.5));
+    expect(contraste(AppBrand.locoto, AppBrand.masa), greaterThanOrEqualTo(4.5));
+    expect(contraste(AppBrand.locotoClaro, AppBrand.noche), greaterThanOrEqualTo(4.5));
+    expect(contraste(AppBrand.locotoClaro, AppBrand.berenjena), greaterThanOrEqualTo(4.5));
   });
 
   test('un logo para cada momento del día', () {
