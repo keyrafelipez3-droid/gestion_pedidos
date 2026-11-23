@@ -102,6 +102,9 @@ class SesionActual {
       // Un documento borrado es la propia eliminación de la cuenta: de eso
       // se encarga Mi cuenta.
       if (actual == null || actual.idUsuario != doc.id || !doc.exists) return;
+      // Solo cuenta lo que confirma el servidor (la copia guardada en el
+      // dispositivo puede ser de antes).
+      if (doc.metadata.isFromCache) return;
       final nuevo = UsuarioModel.fromSnapshot(doc);
       if (!nuevo.estado) {
         _cerrarSesion(tr('Tu cuenta fue desactivada. Consulta con el administrador.'));

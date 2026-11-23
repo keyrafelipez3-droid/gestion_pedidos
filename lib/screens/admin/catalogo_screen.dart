@@ -886,11 +886,21 @@ class _ComplementosTab extends StatelessWidget {
     final key = GlobalKey<FormState>();
     // Productos en los que se ofrece (ninguno marcado = en todos).
     final idNegocio = SesionActual.instancia.idNegocio!;
-    final productos = (await CatalogoService.instancia.streamProductos(idNegocio).first)
-        .where((p) => p.estado)
-        .toList();
+    var productos = <ProductoModel>[];
+    try {
+      productos = (await CatalogoService.instancia.streamProductos(idNegocio).first)
+          .where((p) => p.estado)
+          .toList();
+    } catch (_) {
+      // Sin conexión: se puede guardar igual, sin cambiar los productos.
+    }
     final elegidos = <String>{...?item?.productos};
-    if (!context.mounted) return;
+    if (!context.mounted) {
+      nombre.dispose();
+      descripcion.dispose();
+      precio.dispose();
+      return;
+    }
 
     await showDialog<void>(
       context: context,

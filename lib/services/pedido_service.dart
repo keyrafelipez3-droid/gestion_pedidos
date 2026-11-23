@@ -478,8 +478,7 @@ class PedidoService {
   }
 
   /// Suma de las líneas en el mismo orden que la calculan las reglas.
-  double _sumaLineas(List<DetallePedidoModel> lineas) =>
-      lineas.fold<double>(0, (acc, l) => acc + l.precioUnitario * l.cantidad);
+  double _sumaLineas(List<DetallePedidoModel> lineas) => DetallePedidoModel.sumar(lineas);
 
   String _recortar(String texto, int max) =>
       texto.length <= max ? texto : texto.substring(0, max);
@@ -870,6 +869,9 @@ class PedidoService {
           .where('idNegocio', isEqualTo: idNegocio)
           .where('modalidad', isEqualTo: PedidoModalidad.delivery)
           .where('idRepartidor', isEqualTo: idRepartidor)
+          // Solo las que siguen en curso (antes leía también todas las ya
+          // entregadas, cada vez más con el tiempo).
+          .where('estado', whereIn: [PedidoEstado.listo, PedidoEstado.enCamino, PedidoEstado.llego])
           .snapshots()
           .asyncMap((qs) async {
         // También los pedidos Listos que el Cajero le asignó (HU-39). A

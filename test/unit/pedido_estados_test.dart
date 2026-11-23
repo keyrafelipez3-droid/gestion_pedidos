@@ -128,6 +128,8 @@ void main() {
       expect(campos['lineasTipo'], ['p', 'v', 'c', 'p']);
       expect(campos['precios'], {'p1': 35, 'v1': 5, 'c1': 3, 'p2': 8});
       expect(DetallePedidoModel.contarLineas(lineas), 4);
+      // El subtotal incluye los extras: 2 × (35 + 5 + 3) + 8.
+      expect(DetallePedidoModel.sumar(lineas), 94);
       final leidas = DetallePedidoModel.desdePedido(campos);
       expect(leidas.length, 2);
       expect(leidas.first.variantes.single.nombre, 'Grande');
