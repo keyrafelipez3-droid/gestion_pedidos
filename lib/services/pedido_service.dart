@@ -247,6 +247,13 @@ class PedidoService {
       throw Exception(tr('Un pedido puede tener hasta {n} productos distintos.',
           {'n': PedidoModel.maxLineas}));
     }
+    // Cada variante o complemento ocupa una línea más en el pedido.
+    final totalLineas = items.fold<int>(
+        0, (n, item) => n + 1 + item.variantes.length + item.complementos.length);
+    if (totalLineas > PedidoModel.maxLineas) {
+      throw Exception(tr('Un pedido puede tener hasta {n} líneas contando los extras. Quita algunos extras o productos.',
+          {'n': PedidoModel.maxLineas}));
+    }
     final precios = await CatalogoService.instancia.preciosVigentes(idNegocio);
     final lineas = <DetallePedidoModel>[];
     final cambiaron = <String>[];
@@ -256,8 +263,17 @@ class PedidoService {
         throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
             {'producto': item.nombreProducto}));
       }
-      if (item.variantes.isNotEmpty || item.complementos.isNotEmpty) {
-        throw Exception(tr('Por ahora no se pueden pedir productos con extras.'));
+      // Los extras se cobran con el precio de la lista, igual que el producto.
+      for (final o in [...item.variantes, ...item.complementos]) {
+        final precioExtra = precios[o.id];
+        if (precioExtra == null) {
+          throw Exception(tr('El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.',
+              {'extra': o.nombre, 'producto': item.nombreProducto}));
+        }
+        if ((precioExtra - o.precio).abs() > 0.009) {
+          throw Exception(tr('Cambió el precio del extra "{extra}" de "{producto}". Quita el producto y vuelve a agregarlo.',
+              {'extra': o.nombre, 'producto': item.nombreProducto}));
+        }
       }
       if (item.cantidad < 1 || item.cantidad > 99) {
         throw Exception(tr('La cantidad de cada producto debe estar entre 1 y 99.'));
@@ -269,14 +285,20 @@ class PedidoService {
         }
         continue;
       }
+      OpcionSeleccionada recortada(OpcionSeleccionada o) =>
+          OpcionSeleccionada(id: o.id, nombre: _recortar(o.nombre, 100), precio: o.precio);
+      final extras = [...item.variantes, ...item.complementos]
+          .fold<double>(0, (suma, o) => suma + o.precio);
       lineas.add(DetallePedidoModel(
         id: '',
         idProducto: item.idProducto,
         nombreProducto: _recortar(item.nombreProducto, 200),
         precioUnitario: precio,
         cantidad: item.cantidad,
+        variantes: item.variantes.map(recortada).toList(),
+        complementos: item.complementos.map(recortada).toList(),
         notas: _recortar(item.notas, 200),
-        subtotal: precio * item.cantidad,
+        subtotal: (precio + extras) * item.cantidad,
       ));
     }
     if (cambiaron.isNotEmpty) {
@@ -284,7 +306,36 @@ class PedidoService {
           {'productos': cambiaron.join(', ')}));
     }
     await _revisarStock(items);
+    await _revisarExtras(idNegocio, items);
     return lineas;
+  }
+
+  /// Los extras elegidos siguen activos, son de este negocio y cada
+  /// variante es del producto con el que se pidió (una por producto).
+  Future<void> _revisarExtras(String idNegocio, List<CarritoItemModel> items) async {
+    for (final item in items) {
+      if (item.variantes.length > 1) {
+        throw Exception(tr('El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.',
+            {'extra': item.variantes.last.nombre, 'producto': item.nombreProducto}));
+      }
+      final docs = await Future.wait([
+        for (final v in item.variantes) _db.collection('variantes').doc(v.id).get(),
+        for (final c in item.complementos) _db.collection('complementos').doc(c.id).get(),
+      ]);
+      final opciones = [...item.variantes, ...item.complementos];
+      for (var i = 0; i < docs.length; i++) {
+        final data = docs[i].data();
+        final esVariante = i < item.variantes.length;
+        final valido = data != null &&
+            data['estado'] != false &&
+            data['idNegocio'] == idNegocio &&
+            (!esVariante || data['idProducto'] == item.idProducto);
+        if (!valido) {
+          throw Exception(tr('El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.',
+              {'extra': opciones[i].nombre, 'producto': item.nombreProducto}));
+        }
+      }
+    }
   }
 
   /// Antes de crear el pedido se revisa que haya stock para lo que se pide

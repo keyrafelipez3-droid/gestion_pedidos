@@ -922,5 +922,12 @@ const traduccionesFr = <String, String>{
   'Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.': 'Vous ne pouvez l\'annuler qu\'avant que le restaurant l\'accepte. Si vous avez utilisé un coupon, vous pourrez le réutiliser.',
   'Sí, cancelar': 'Oui, annuler',
   'El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.': 'Le restaurant a déjà accepté votre commande ; elle ne peut plus être annulée ici. Contactez le restaurant.',
+  'Un pedido puede tener hasta {n} líneas contando los extras. Quita algunos extras o productos.': 'Une commande peut avoir jusqu\'à {n} lignes en comptant les suppléments. Retirez des suppléments ou des produits.',
+  'El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.': 'Le supplément "{extra}" de "{producto}" n\'est plus disponible. Retirez le produit et ajoutez-le à nouveau.',
+  'Cambió el precio del extra "{extra}" de "{producto}". Quita el producto y vuelve a agregarlo.': 'Le prix du supplément "{extra}" de "{producto}" a changé. Retirez le produit et ajoutez-le à nouveau.',
+  'Personaliza "{producto}"': 'Personnalisez "{producto}"',
+  'Elige una opción': 'Choisissez une option',
+  'Extras (opcional)': 'Suppléments (facultatif)',
+  'Agregar · {precio}': 'Ajouter · {precio}',
   'Confirma que eres tú para {accion}.': 'Confirmez que c\'est bien vous pour {accion}.',
 };

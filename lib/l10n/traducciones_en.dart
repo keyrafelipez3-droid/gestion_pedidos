@@ -922,5 +922,12 @@ const traduccionesEn = <String, String>{
   'Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.': 'You can only cancel it before the restaurant accepts it. If you used a coupon, you can use it again.',
   'Sí, cancelar': 'Yes, cancel',
   'El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.': 'The restaurant already accepted your order; it can no longer be cancelled here. Please contact the restaurant.',
+  'Un pedido puede tener hasta {n} líneas contando los extras. Quita algunos extras o productos.': 'An order can have up to {n} lines counting extras. Remove some extras or products.',
+  'El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.': 'The extra "{extra}" for "{producto}" is no longer available. Remove the product and add it again.',
+  'Cambió el precio del extra "{extra}" de "{producto}". Quita el producto y vuelve a agregarlo.': 'The price of the extra "{extra}" for "{producto}" changed. Remove the product and add it again.',
+  'Personaliza "{producto}"': 'Customize "{producto}"',
+  'Elige una opción': 'Choose an option',
+  'Extras (opcional)': 'Extras (optional)',
+  'Agregar · {precio}': 'Add · {precio}',
   'Confirma que eres tú para {accion}.': 'Confirm it\'s you to {accion}.',
 };
