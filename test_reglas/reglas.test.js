@@ -1367,3 +1367,20 @@ describe('Variantes y complementos (extras)', () => {
     await assertFails(setDoc(doc(como('cli1'), 'negocios/n1/publico', 'precios'), { normal: { comp2: 0 } }, { merge: true }));
   });
 });
+
+describe('Negocio o sucursal desactivados', () => {
+  test('no se puede pedir a un negocio desactivado', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), { estado: false }));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
+  });
+
+  test('no se puede pedir a una sucursal inactiva', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { estado: false }));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { estado: true }));
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
+  });
+});

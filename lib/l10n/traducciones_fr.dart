@@ -929,5 +929,7 @@ const traduccionesFr = <String, String>{
   'Elige una opción': 'Choisissez une option',
   'Extras (opcional)': 'Suppléments (facultatif)',
   'Agregar · {precio}': 'Ajouter · {precio}',
+  'Tu cuenta fue desactivada. Consulta con el administrador.': 'Votre compte a été désactivé. Contactez l\'administrateur.',
+  'Cambiaron los permisos de tu cuenta. Vuelve a iniciar sesión.': 'Les autorisations de votre compte ont changé. Reconnectez-vous.',
   'Confirma que eres tú para {accion}.': 'Confirmez que c\'est bien vous pour {accion}.',
 };
