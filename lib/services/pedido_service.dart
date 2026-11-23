@@ -343,18 +343,20 @@ class PedidoService {
   /// disponible. El stock se descuenta recién cuando la cocina empieza a
   /// prepararlo, así que es una revisión de ayuda, no una reserva.
   Future<void> _revisarStock(List<CarritoItemModel> items) async {
-    final pedidas = <String, int>{};
+    final porProducto = <String, int>{};
     final nombres = <String, String>{};
     for (final item in items) {
-      pedidas[item.idProducto] = (pedidas[item.idProducto] ?? 0) + item.cantidad;
+      porProducto[item.idProducto] = (porProducto[item.idProducto] ?? 0) + item.cantidad;
       nombres[item.idProducto] = item.nombreProducto;
     }
+    // Un combo también necesita stock de lo que incluye.
+    final pedidas = (await _sumarCombos(porProducto)).cantidades;
     final docs = await Future.wait([
       for (final id in pedidas.keys) _db.collection('productos').doc(id).get(),
     ]);
     for (final doc in docs) {
       final data = doc.data();
-      final nombre = nombres[doc.id] ?? '';
+      final nombre = nombres[doc.id] ?? data?['nombre'] as String? ?? '';
       if (data == null || data['estado'] == false || data['disponible'] == false) {
         throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
             {'producto': nombre}));
@@ -370,6 +372,29 @@ class PedidoService {
             {'n': stock, 'producto': nombre}));
       }
     }
+  }
+
+  /// Cuánto se usa de cada producto: lo pedido y, si es un combo, también
+  /// lo que incluye (un combo "Pollo + Soda" usa un pollo y una soda).
+  /// [deCombo] dice de qué combo salió cada producto incluido.
+  Future<({Map<String, int> cantidades, Map<String, String> deCombo})> _sumarCombos(
+    Map<String, int> pedidas,
+  ) async {
+    final cantidades = Map<String, int>.from(pedidas);
+    final deCombo = <String, String>{};
+    final docs = await Future.wait([
+      for (final id in pedidas.keys) _db.collection('productos').doc(id).get(),
+    ]);
+    for (final doc in docs) {
+      final data = doc.data();
+      if (data == null || data['esCombo'] != true || data['comboIds'] is! List) continue;
+      for (final id in data['comboIds'] as List) {
+        if (id is! String || id == doc.id) continue;
+        cantidades[id] = (cantidades[id] ?? 0) + (pedidas[doc.id] ?? 0);
+        deCombo.putIfAbsent(id, () => doc.id);
+      }
+    }
+    return (cantidades: cantidades, deCombo: deCombo);
   }
 
   /// Id nuevo para un pedido, para que la pantalla lo guarde y lo reuse si
@@ -1043,11 +1068,13 @@ class PedidoService {
   /// stock). Si alguno llega a 0, queda "No disponible" en el menú.
   Future<void> _descontarStock(String idPedido) async {
     final lineas = await lineasDe(idPedido);
-    final cantidades = <String, int>{};
+    final porProducto = <String, int>{};
     for (final l in lineas) {
       if (l.idProducto.isEmpty) continue;
-      cantidades[l.idProducto] = (cantidades[l.idProducto] ?? 0) + l.cantidad;
+      porProducto[l.idProducto] = (porProducto[l.idProducto] ?? 0) + l.cantidad;
     }
+    // Un combo descuenta también lo que incluye.
+    final cantidades = (await _sumarCombos(porProducto)).cantidades;
     for (final e in cantidades.entries) {
       final ref = _db.collection('productos').doc(e.key);
       // Cada producto por separado: si uno falla, los demás igual se
@@ -1193,20 +1220,25 @@ class PedidoService {
       // preparación") y solo de productos con control de stock.
       final devoluciones = <DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>{};
       if (devolverStock && actual != PedidoEstado.pendiente) {
-        final cantidades = <String, int>{};
+        final porProducto = <String, int>{};
         for (final l in DetallePedidoModel.desdePedido(data)) {
           if (l.idProducto.isEmpty) continue;
-          cantidades[l.idProducto] = (cantidades[l.idProducto] ?? 0) + l.cantidad;
+          porProducto[l.idProducto] = (porProducto[l.idProducto] ?? 0) + l.cantidad;
         }
-        for (final e in cantidades.entries) {
+        // Lo que incluye un combo también vuelve al stock; las reglas lo
+        // aceptan si se dice de qué combo del pedido salió (devolucionCombo).
+        final suma = await _sumarCombos(porProducto);
+        for (final e in suma.cantidades.entries) {
           final refProducto = _db.collection('productos').doc(e.key);
           final producto = await tx.get(refProducto);
           final stock = (producto.data()?['stock'] as num?)?.toInt();
           if (!producto.exists || stock == null) continue;
+          final combo = porProducto.containsKey(e.key) ? null : suma.deCombo[e.key];
           devoluciones[refProducto] = {
             'stock': stock + e.value,
             if (stock <= 0) 'disponible': true,
             'devolucionDe': idPedido,
+            if (combo != null) 'devolucionCombo': combo,
           };
         }
       }

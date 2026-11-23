@@ -515,7 +515,7 @@ service cloud.firestore {
         // puede devolver al stock lo de ESE pedido, en la misma operacion.
         || (puedeCancelar()
             && resource.data.get('idNegocio', null) == idNegocioActual()
-            && cambios().hasOnly(['stock', 'disponible', 'devolucionDe'])
+            && cambios().hasOnly(['stock', 'disponible', 'devolucionDe', 'devolucionCombo'])
             && resource.data.get('stock', null) is int
             && request.resource.data.stock is int
             && request.resource.data.stock > resource.data.stock
@@ -524,7 +524,11 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado != 'Cancelado'
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado == 'Cancelado'
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.idNegocio == idNegocioActual()
-            && documentId in getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.get('lineasIds', []));
+            && (documentId in getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.get('lineasIds', [])
+                // o viene dentro de un combo de ese pedido
+                || (request.resource.data.get('devolucionCombo', null) is string
+                    && request.resource.data.devolucionCombo in getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.get('lineasIds', [])
+                    && documentId in get(/databases/$(database)/documents/productos/$(request.resource.data.devolucionCombo)).data.get('comboIds', []))));
       allow delete: if isSuperAdmin()
         || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
