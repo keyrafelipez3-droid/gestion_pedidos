@@ -30,11 +30,12 @@ bool puedeCancelarPedidos() {
 
 /// Pide el motivo y cancela el pedido. Muestra el resultado en un SnackBar.
 Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) async {
-  final motivo = await showDialog<String>(
+  final respuesta = await showDialog<({String motivo, bool devolverStock})>(
     context: context,
     builder: (_) => _DialogoMotivo(pedido: pedido),
   );
-  if (motivo == null || !context.mounted) return;
+  if (respuesta == null || !context.mounted) return;
+  final motivo = respuesta.motivo;
   // Acción sensible: se vuelve a pedir la contraseña (y el código).
   if (!await confirmarIdentidad(context, accion: 'cancelar el pedido') || !context.mounted) return;
   final messenger = ScaffoldMessenger.of(context);
@@ -43,6 +44,7 @@ Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) a
       idPedido: pedido.id,
       motivo: motivo,
       idUsuario: SesionActual.instancia.actual?.idUsuario ?? '',
+      devolverStock: respuesta.devolverStock,
     );
     ActividadService.instancia.registrar(
       ActividadTipo.pedido,
@@ -66,6 +68,11 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
   final _ctrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _elegido;
+
+  /// El stock se descuenta cuando la cocina empieza a preparar: desde ahí
+  /// se pregunta si lo pedido vuelve al inventario (por defecto, no).
+  bool _devolverStock = false;
+  bool get _yaDescontado => widget.pedido.estado != PedidoEstado.pendiente;
 
   @override
   void dispose() {
@@ -126,6 +133,18 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
                 validator: (v) =>
                     (v == null || v.trim().length < 4) ? 'Escribe el motivo (mínimo 4 letras).' : null,
               ),
+              if (_yaDescontado)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _devolverStock,
+                  onChanged: (v) => setState(() => _devolverStock = v ?? false),
+                  title: const Text('Devolver los productos al stock'),
+                  subtitle: const Text(
+                    'Márcalo si no se llegaron a usar (por ejemplo, bebidas cerradas). '
+                    'Si la comida ya se preparó, déjalo sin marcar.',
+                  ),
+                ),
             ],
           ),
         ),
@@ -135,7 +154,9 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError),
           onPressed: () {
-            if (_formKey.currentState!.validate()) Navigator.of(context).pop(_ctrl.text.trim());
+            if (_formKey.currentState!.validate()) {
+              Navigator.of(context).pop((motivo: _ctrl.text.trim(), devolverStock: _devolverStock));
+            }
           },
           child: const Text('Cancelar pedido'),
         ),

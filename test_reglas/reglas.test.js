@@ -1241,3 +1241,26 @@ describe('Orden de los estados del pedido', () => {
     await assertSucceeds(lote.commit());
   });
 });
+
+describe('Devolver stock al cancelar', () => {
+  test('quien cancela devuelve al stock lo de ESE pedido, solo al cancelarlo', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await updateDoc(doc(db, 'productos', 'prod1'), { stock: 5 });
+      await setDoc(doc(db, 'productos', 'otro'), { idNegocio: 'n1', nombre: 'Otro', precio: 1, disponible: true, stock: 5 });
+      await updateDoc(doc(db, 'pedidos', 'ped1'), { estado: 'En preparación', lineasIds: ['prod1'], lineasCant: [1] });
+    });
+    const db = como('cajero1');
+    // Sin cancelar el pedido, no se puede subir el stock.
+    await assertFails(updateDoc(doc(db, 'productos', 'prod1'), { stock: 9, devolucionDe: 'ped1' }));
+    // Un producto que no está en el pedido, tampoco.
+    const malo = writeBatch(db);
+    malo.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    malo.update(doc(db, 'productos', 'otro'), { stock: 9, devolucionDe: 'ped1' });
+    await assertFails(malo.commit());
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    lote.update(doc(db, 'productos', 'prod1'), { stock: 6, devolucionDe: 'ped1' });
+    await assertSucceeds(lote.commit());
+  });
+});

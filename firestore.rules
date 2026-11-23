@@ -506,7 +506,21 @@ service cloud.firestore {
             && cambios().hasOnly(['stock', 'disponible'])
             && request.resource.data.stock is int
             && request.resource.data.stock >= 0
-            && request.resource.data.stock < resource.data.stock);
+            && request.resource.data.stock < resource.data.stock)
+        // Al cancelar un pedido que ya se estaba preparando, quien cancela
+        // puede devolver al stock lo de ESE pedido, en la misma operacion.
+        || (puedeCancelar()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && cambios().hasOnly(['stock', 'disponible', 'devolucionDe'])
+            && resource.data.get('stock', null) is int
+            && request.resource.data.stock is int
+            && request.resource.data.stock > resource.data.stock
+            && (!('disponible' in cambios()) || request.resource.data.disponible == true)
+            && request.resource.data.devolucionDe is string
+            && get(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado != 'Cancelado'
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado == 'Cancelado'
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.idNegocio == idNegocioActual()
+            && documentId in getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.get('lineasIds', []));
       allow delete: if isSuperAdmin()
         || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }

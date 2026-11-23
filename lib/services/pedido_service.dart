@@ -1087,10 +1087,15 @@ class PedidoService {
   /// pedido iba en camino, se borra la posición del repartidor. Un pedido
   /// ya cobrado no se cancela aquí: primero hay que devolver el dinero
   /// (egreso en caja) para que la caja cuadre.
+  ///
+  /// Con [devolverStock], lo que ya se había descontado del stock (al
+  /// empezar a prepararlo) vuelve al inventario; por ejemplo, una bebida
+  /// cerrada. Si la comida ya se preparó, se deja en false (se pierde).
   Future<void> cancelarPedido({
     required String idPedido,
     required String motivo,
     required String idUsuario,
+    bool devolverStock = false,
   }) async {
     final limpio = motivo.trim();
     if (limpio.length < 4) {
@@ -1133,6 +1138,27 @@ class PedidoService {
           // Sin permiso para verlo: el pedido se cancela igual.
         }
       }
+      // Stock a devolver: solo si ya se había descontado (desde "En
+      // preparación") y solo de productos con control de stock.
+      final devoluciones = <DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>{};
+      if (devolverStock && actual != PedidoEstado.pendiente) {
+        final cantidades = <String, int>{};
+        for (final l in DetallePedidoModel.desdePedido(data)) {
+          if (l.idProducto.isEmpty) continue;
+          cantidades[l.idProducto] = (cantidades[l.idProducto] ?? 0) + l.cantidad;
+        }
+        for (final e in cantidades.entries) {
+          final refProducto = _db.collection('productos').doc(e.key);
+          final producto = await tx.get(refProducto);
+          final stock = (producto.data()?['stock'] as num?)?.toInt();
+          if (!producto.exists || stock == null) continue;
+          devoluciones[refProducto] = {
+            'stock': stock + e.value,
+            if (stock <= 0) 'disponible': true,
+            'devolucionDe': idPedido,
+          };
+        }
+      }
       final enReparto = actual == PedidoEstado.enCamino || actual == PedidoEstado.llego;
       tx.update(ref, {
         'estado': PedidoEstado.cancelado,
@@ -1149,6 +1175,7 @@ class PedidoService {
         ).toMap(),
       );
       if (usoCupon != null) tx.delete(usoCupon);
+      devoluciones.forEach((refProducto, cambios) => tx.update(refProducto, cambios));
     });
   }
 
