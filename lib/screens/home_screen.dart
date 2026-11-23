@@ -89,14 +89,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // En celulares angostos no entran el logo con su nombre y cinco
+    // botones: el nombre se oculta y "Tamaño de letra" y "Cerrar sesión"
+    // pasan a un menú, para que nada se encime en la barra.
+    final angosto = MediaQuery.sizeOf(context).width < 480;
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            LogoNami(size: 34),
-            SizedBox(width: AppSpacing.sm),
-            WordmarkNami(alto: 26),
+            const LogoNami(size: 34),
+            if (!angosto) ...const [
+              SizedBox(width: AppSpacing.sm),
+              WordmarkNami(alto: 26),
+            ],
           ],
         ),
         actions: [
@@ -115,19 +121,51 @@ class _HomeScreenState extends State<HomeScreen> {
                 : const SizedBox.shrink(),
           ),
           // Tamaño de letra: para todos (clientes y personal).
-          const BotonTamanoTexto(),
+          if (!angosto) const BotonTamanoTexto(),
           IconButton(
             tooltip: tr('Mi cuenta'),
             icon: const Icon(Icons.manage_accounts_outlined),
             onPressed: _abrirMiCuenta,
           ),
-          IconButton(
-            tooltip: tr('Cerrar sesión'),
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ActividadService.instancia.cerrarSesion();
-            },
-          ),
+          if (angosto)
+            PopupMenuButton<String>(
+              tooltip: tr('Más opciones'),
+              icon: const Icon(Icons.more_vert),
+              onSelected: (opcion) {
+                if (opcion == 'letra') {
+                  elegirTamanoTexto(context);
+                } else {
+                  ActividadService.instancia.cerrarSesion();
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'letra',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.text_fields),
+                    title: Text(tr('Tamaño de letra')),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'salir',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.logout),
+                    title: Text(tr('Cerrar sesión')),
+                  ),
+                ),
+              ],
+            )
+          else
+            IconButton(
+              tooltip: tr('Cerrar sesión'),
+              icon: const Icon(Icons.logout),
+              onPressed: () {
+                ActividadService.instancia.cerrarSesion();
+              },
+            ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: FutureBuilder<UsuarioModel?>(
@@ -538,12 +576,8 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
                     ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      tr('Accesos rápidos').toUpperCase(),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: scheme.primary,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2,
-                          ),
+                      tr('Accesos rápidos'),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: AppSpacing.sm + 4),
                     ...filas,

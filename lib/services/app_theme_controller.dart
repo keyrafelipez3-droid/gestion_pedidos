@@ -184,7 +184,14 @@ class AppThemeController {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: textTheme.titleLarge?.copyWith(color: scheme.onSurface),
+        // Tamaño explícito: el textTheme de aquí todavía no tiene tamaños
+        // (Flutter los agrega después), así que el título de cada pantalla
+        // salía a 14 px, casi igual que el texto normal.
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          color: scheme.onSurface,
+          fontSize: 21,
+          height: 1.2,
+        ),
       ),
 
       cardTheme: CardThemeData(
@@ -200,32 +207,50 @@ class AppThemeController {
           borderRadius: brand.card,
           side: conBorde ? bordeFino : BorderSide.none,
         ),
-        margin: EdgeInsets.zero,
+        // Aire entre tarjetas seguidas (12 px entre una y otra): antes
+        // quedaban pegadas en las listas que no ponían separación propia.
+        margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm - 2),
       ),
 
+      // Campos rellenos con la etiqueta DENTRO del recuadro. Con el borde
+      // "outline" invisible la etiqueta flotaba por encima del campo y se
+      // montaba sobre lo que hubiera arriba (las letras "chocaban").
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.7),
-        border: OutlineInputBorder(
+        border: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide.none,
         ),
-        enabledBorder: OutlineInputBorder(
+        enabledBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: conBorde ? bordeFino : BorderSide.none,
         ),
-        focusedBorder: OutlineInputBorder(
+        focusedBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide(color: scheme.primary, width: 2),
         ),
-        errorBorder: OutlineInputBorder(
+        errorBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide(color: scheme.error, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.md,
+        focusedErrorBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.circular(brand.radioCampo),
+          borderSide: BorderSide(color: scheme.error, width: 2),
         ),
+        disabledBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.circular(brand.radioCampo),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm + 4,
+          AppSpacing.md,
+          AppSpacing.sm + 4,
+        ),
+        // Los textos de ayuda y error pueden ocupar dos líneas sin cortarse.
+        helperMaxLines: 3,
+        errorMaxLines: 3,
       ),
 
       filledButtonTheme: FilledButtonThemeData(

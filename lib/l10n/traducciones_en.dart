@@ -200,6 +200,7 @@ const traduccionesEn = <String, String>{
   'Mesa {numero} ({estado})': 'Table {numero} ({estado})',
   'Mesas': 'Tables',
   'Mi cuenta': 'My account',
+  'Más opciones': 'More options',
   'Mis entregas': 'My deliveries',
   'Mis pedidos': 'My orders',
   'Modalidad: {etiquetaModalidad}': 'Type: {etiquetaModalidad}',

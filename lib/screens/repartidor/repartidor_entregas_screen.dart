@@ -54,18 +54,21 @@ class RepartidorEntregasScreen extends StatelessWidget {
           iconoActivo: Icons.inventory_2,
           etiqueta: tr('Para tomar'),
           builder: (_) => _ParaTomar(idNegocio: idNegocio, usuario: usuario),
+          anchoMaximo: 820,
         ),
         DestinoPanel(
           icono: Icons.two_wheeler_outlined,
           iconoActivo: Icons.two_wheeler,
           etiqueta: tr('En camino'),
           builder: (_) => _EnCamino(idNegocio: idNegocio, usuario: usuario),
+          anchoMaximo: 820,
         ),
         DestinoPanel(
           icono: Icons.account_balance_wallet_outlined,
           iconoActivo: Icons.account_balance_wallet,
           etiqueta: tr('Mi efectivo'),
           builder: (_) => _MiEfectivo(idNegocio: idNegocio, usuario: usuario),
+          anchoMaximo: 820,
         ),
       ],
     );
@@ -142,13 +145,16 @@ class _ParaTomarState extends State<_ParaTomar> {
                     DatoTurno(dinero(llevas), tr('efectivo que llevas'), icono: Icons.payments_outlined),
                   ]),
                   const SizedBox(height: AppSpacing.md),
-                  if (pedidos.isEmpty)
+                  if (pedidos.isEmpty) ...[
+                    // El aviso de "sin pedidos" queda a la altura de la vista,
+                    // no pegado a las tarjetas de arriba.
+                    SizedBox(height: MediaQuery.sizeOf(context).height * 0.08),
                     AppEmptyState(
                       icon: Icons.delivery_dining_outlined,
                       title: tr('No hay pedidos para repartir'),
                       message: tr('Cuando la cocina deje un pedido de delivery listo, va a aparecer aquí.'),
-                    )
-                  else
+                    ),
+                  ] else
                     for (final p in pedidos) ...[
                       _TarjetaParaTomar(key: ValueKey(p.id), pedido: p, usuario: widget.usuario),
                       const SizedBox(height: AppSpacing.sm + 4),

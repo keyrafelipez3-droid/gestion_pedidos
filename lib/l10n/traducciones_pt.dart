@@ -200,6 +200,7 @@ const traduccionesPt = <String, String>{
   'Mesa {numero} ({estado})': 'Mesa {numero} ({estado})',
   'Mesas': 'Mesas',
   'Mi cuenta': 'Minha conta',
+  'Más opciones': 'Mais opções',
   'Mis entregas': 'Minhas entregas',
   'Mis pedidos': 'Meus pedidos',
   'Modalidad: {etiquetaModalidad}': 'Modalidade: {etiquetaModalidad}',
