@@ -922,4 +922,5 @@ const traduccionesEn = <String, String>{
   'Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.': 'You can only cancel it before the restaurant accepts it. If you used a coupon, you can use it again.',
   'Sí, cancelar': 'Yes, cancel',
   'El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.': 'The restaurant already accepted your order; it can no longer be cancelled here. Please contact the restaurant.',
+  'Confirma que eres tú para {accion}.': 'Confirm it\'s you to {accion}.',
 };

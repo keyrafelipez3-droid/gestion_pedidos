@@ -1,5 +1,6 @@
 package com.univalle.gestion_pedidos
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity: la necesita local_auth para mostrar la huella.
+class MainActivity : FlutterFragmentActivity()
