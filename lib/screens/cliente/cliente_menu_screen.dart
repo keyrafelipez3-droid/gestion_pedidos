@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
@@ -60,8 +62,28 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
   String get _idNegocio => widget.negocio.idNegocio;
   List<String> get _misAlergias => SesionActual.instancia.actual?.alergias ?? const [];
 
+  // Variantes y complementos del negocio, escuchados una sola vez (así
+  // agregar un producto no vuelve a leerlos todos cada vez).
+  List<VarianteModel> _variantes = const [];
+  List<ComplementoModel> _complementos = const [];
+  StreamSubscription<List<VarianteModel>>? _subVariantes;
+  StreamSubscription<List<ComplementoModel>>? _subComplementos;
+
+  @override
+  void initState() {
+    super.initState();
+    _subVariantes = CatalogoService.instancia
+        .streamVariantes(_idNegocio)
+        .listen((l) => _variantes = l, onError: (_) {});
+    _subComplementos = CatalogoService.instancia
+        .streamComplementos(_idNegocio)
+        .listen((l) => _complementos = l, onError: (_) {});
+  }
+
   @override
   void dispose() {
+    _subVariantes?.cancel();
+    _subComplementos?.cancel();
     _buscadorCtrl.dispose();
     super.dispose();
   }
@@ -110,19 +132,8 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
   /// cliente los elige en una hoja. Devuelve null si la cierra sin agregar.
   Future<ExtrasElegidos?> _elegirExtras(ProductoModel producto) async {
     const ExtrasElegidos sinExtras = (variantes: [], complementos: []);
-    List<VarianteModel> variantes;
-    List<ComplementoModel> complementos;
-    try {
-      variantes = (await CatalogoService.instancia.streamVariantes(_idNegocio).first)
-          .where((v) => v.estado && v.idProducto == producto.id)
-          .toList();
-      complementos = (await CatalogoService.instancia.streamComplementos(_idNegocio).first)
-          .where((c) => c.estado && c.seOfreceEn(producto.id))
-          .toList();
-    } catch (_) {
-      // Sin conexión: se agrega sin extras.
-      return sinExtras;
-    }
+    final variantes = _variantes.where((v) => v.estado && v.idProducto == producto.id).toList();
+    final complementos = _complementos.where((c) => c.estado && c.seOfreceEn(producto.id)).toList();
     if (variantes.isEmpty && complementos.isEmpty) return sinExtras;
     if (!mounted) return null;
 

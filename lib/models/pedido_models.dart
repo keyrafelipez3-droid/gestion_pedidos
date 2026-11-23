@@ -450,6 +450,19 @@ class DetallePedidoModel {
     };
   }
 
+  /// Suma de las líneas como la calculan las reglas: cada producto y
+  /// después sus extras (cada extra es una línea más, con la misma cantidad).
+  static double sumar(List<DetallePedidoModel> lineas) {
+    var suma = 0.0;
+    for (final l in lineas) {
+      suma += l.precioUnitario * l.cantidad;
+      for (final o in [...l.variantes, ...l.complementos]) {
+        suma += o.precio * l.cantidad;
+      }
+    }
+    return suma;
+  }
+
   /// Cuántas líneas ocupan en el pedido (cada extra es una línea más).
   static int contarLineas(List<DetallePedidoModel> lineas) =>
       lineas.fold(0, (n, l) => n + 1 + l.variantes.length + l.complementos.length);
