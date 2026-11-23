@@ -917,4 +917,9 @@ const traduccionesFr = <String, String>{
   'Resuelto': 'Résolu',
   'Solo quedan {n} de "{producto}". Cambia la cantidad para continuar.': 'Il ne reste que {n} de « {producto} ». Modifiez la quantité pour continuer.',
   'El enlace del comprobante es muy largo. Sube la imagen en vez de pegar el enlace.': 'Le lien du justificatif est trop long. Envoyez l\'image au lieu de coller le lien.',
+  'Cancelar mi pedido': 'Annuler ma commande',
+  '¿Cancelar tu pedido?': 'Annuler votre commande ?',
+  'Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.': 'Vous ne pouvez l\'annuler qu\'avant que le restaurant l\'accepte. Si vous avez utilisé un coupon, vous pourrez le réutiliser.',
+  'Sí, cancelar': 'Oui, annuler',
+  'El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.': 'Le restaurant a déjà accepté votre commande ; elle ne peut plus être annulée ici. Contactez le restaurant.',
 };

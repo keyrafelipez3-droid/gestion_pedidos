@@ -294,6 +294,19 @@ service cloud.firestore {
         || (isCocina() && p.get('cocinaCancelaPedidos', false) == true);
     }
 
+    // Orden de los estados del pedido (igual que PedidoEstado en la app):
+    // nadie puede saltarse pasos ni volver atras.
+    function transicionValida(antes, despues) {
+      let siguientes = {
+        'Pendiente': ['En preparación', 'Cancelado'],
+        'En preparación': ['Listo', 'Cancelado'],
+        'Listo': ['En camino', 'Entregado', 'Cancelado'],
+        'En camino': ['En el lugar', 'Entregado', 'Cancelado'],
+        'En el lugar': ['Entregado', 'Cancelado']
+      };
+      return despues in siguientes.get(antes, []);
+    }
+
     // Caja abierta (y todavia sin contar) del cajero que esta cobrando.
     function cajaAbiertaDelCajero(idCaja) {
       let caja = get(/databases/$(database)/documents/cajas/$(idCaja)).data;
@@ -493,7 +506,21 @@ service cloud.firestore {
             && cambios().hasOnly(['stock', 'disponible'])
             && request.resource.data.stock is int
             && request.resource.data.stock >= 0
-            && request.resource.data.stock < resource.data.stock);
+            && request.resource.data.stock < resource.data.stock)
+        // Al cancelar un pedido que ya se estaba preparando, quien cancela
+        // puede devolver al stock lo de ESE pedido, en la misma operacion.
+        || (puedeCancelar()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && cambios().hasOnly(['stock', 'disponible', 'devolucionDe'])
+            && resource.data.get('stock', null) is int
+            && request.resource.data.stock is int
+            && request.resource.data.stock > resource.data.stock
+            && (!('disponible' in cambios()) || request.resource.data.disponible == true)
+            && request.resource.data.devolucionDe is string
+            && get(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado != 'Cancelado'
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado == 'Cancelado'
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.idNegocio == idNegocioActual()
+            && documentId in getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.get('lineasIds', []));
       allow delete: if isSuperAdmin()
         || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
@@ -583,6 +610,11 @@ service cloud.firestore {
           // Si el negocio cancela el pedido que uso el cupon, en la misma
           // operacion se borra el uso y el cliente puede volver a usarlo.
           allow delete: if isSuperAdmin()
+            // El propio cliente, al cancelar su pedido Pendiente.
+            || (signedIn()
+                && request.auth.uid == uidCliente
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.estado == 'Cancelado'
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.idCliente == uidCliente)
             || (puedeCancelar()
                 && idNegocioActual() == documentId
                 && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.estado == 'Cancelado'
@@ -844,6 +876,14 @@ service cloud.firestore {
             && request.resource.data.get('facturaRazonSocial', null) == null
             && request.resource.data.get('alergias', []) == []
             && request.resource.data.get('notas', '') == '')
+        // El Cliente cancela su pedido mientras sigue Pendiente (antes de
+        // que el local lo acepte). Solo cambia el estado.
+        || (signedIn()
+            && resource.data.idCliente == request.auth.uid
+            && resource.data.get('origen', 'cliente') == 'cliente'
+            && resource.data.estado == 'Pendiente'
+            && request.resource.data.estado == 'Cancelado'
+            && cambios().hasOnly(['estado']))
         // Repartidor: toma un pedido Listo (queda asignado a el) y luego
         // avisa que llego y lo entrega. Solo cambia estado y sus datos.
         || (isRepartidor()
@@ -888,12 +928,12 @@ service cloud.firestore {
             && (
               // Cambio de estado (Cocina, Cajero o Administrador).
               (cambios().hasOnly(['estado'])
-                && request.resource.data.estado in ['Pendiente', 'En preparación', 'Listo',
-                     'En camino', 'En el lugar', 'Entregado', 'Cancelado']
+                && transicionValida(resource.data.estado, request.resource.data.estado)
                 && (request.resource.data.estado != 'Cancelado' || puedeCancelar()))
               // Cierre de un pedido en camino: tambien se borra la posicion.
               || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
                 && request.resource.data.estado in ['En camino', 'En el lugar', 'Entregado', 'Cancelado']
+                && transicionValida(resource.data.estado, request.resource.data.estado)
                 && (request.resource.data.estado != 'Cancelado' || puedeCancelar())
                 && request.resource.data.get('ubicacionRepartidor', null) == null
                 && request.resource.data.get('ubicacionActualizada', null) == null)
@@ -927,6 +967,7 @@ service cloud.firestore {
               || (isCajero()
                 && cambios().hasOnly(['estado', 'cobrado', 'idCaja'])
                 && request.resource.data.estado == 'Entregado'
+                && transicionValida(resource.data.estado, 'Entregado')
                 && resource.data.get('cobrado', false) == false
                 && request.resource.data.cobrado == true
                 && cajaAbiertaDelCajero(request.resource.data.idCaja))

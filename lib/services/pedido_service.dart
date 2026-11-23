@@ -1087,10 +1087,15 @@ class PedidoService {
   /// pedido iba en camino, se borra la posición del repartidor. Un pedido
   /// ya cobrado no se cancela aquí: primero hay que devolver el dinero
   /// (egreso en caja) para que la caja cuadre.
+  ///
+  /// Con [devolverStock], lo que ya se había descontado del stock (al
+  /// empezar a prepararlo) vuelve al inventario; por ejemplo, una bebida
+  /// cerrada. Si la comida ya se preparó, se deja en false (se pierde).
   Future<void> cancelarPedido({
     required String idPedido,
     required String motivo,
     required String idUsuario,
+    bool devolverStock = false,
   }) async {
     final limpio = motivo.trim();
     if (limpio.length < 4) {
@@ -1133,6 +1138,27 @@ class PedidoService {
           // Sin permiso para verlo: el pedido se cancela igual.
         }
       }
+      // Stock a devolver: solo si ya se había descontado (desde "En
+      // preparación") y solo de productos con control de stock.
+      final devoluciones = <DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>{};
+      if (devolverStock && actual != PedidoEstado.pendiente) {
+        final cantidades = <String, int>{};
+        for (final l in DetallePedidoModel.desdePedido(data)) {
+          if (l.idProducto.isEmpty) continue;
+          cantidades[l.idProducto] = (cantidades[l.idProducto] ?? 0) + l.cantidad;
+        }
+        for (final e in cantidades.entries) {
+          final refProducto = _db.collection('productos').doc(e.key);
+          final producto = await tx.get(refProducto);
+          final stock = (producto.data()?['stock'] as num?)?.toInt();
+          if (!producto.exists || stock == null) continue;
+          devoluciones[refProducto] = {
+            'stock': stock + e.value,
+            if (stock <= 0) 'disponible': true,
+            'devolucionDe': idPedido,
+          };
+        }
+      }
       final enReparto = actual == PedidoEstado.enCamino || actual == PedidoEstado.llego;
       tx.update(ref, {
         'estado': PedidoEstado.cancelado,
@@ -1146,6 +1172,54 @@ class PedidoService {
           estado: PedidoEstado.cancelado,
           idUsuarioQueCambio: idUsuario,
           comentario: 'Motivo: $limpio',
+        ).toMap(),
+      );
+      if (usoCupon != null) tx.delete(usoCupon);
+      devoluciones.forEach((refProducto, cambios) => tx.update(refProducto, cambios));
+    });
+  }
+
+  /// El cliente cancela su propio pedido mientras sigue Pendiente (antes de
+  /// que el local lo acepte). Si usó un cupón, lo recupera. Si el local ya
+  /// lo aceptó, lanza un error con un mensaje claro.
+  Future<void> cancelarPorCliente({required String idPedido, required String idCliente}) async {
+    final ref = _pedidos.doc(idPedido);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final data = snap.data();
+      if (data == null || data['idCliente'] != idCliente) {
+        throw PedidoEstadoException(tr('No se encontró el pedido.'));
+      }
+      if (data['estado'] != PedidoEstado.pendiente) {
+        throw PedidoEstadoException(
+            tr('El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.'));
+      }
+      DocumentReference<Map<String, dynamic>>? usoCupon;
+      final cupon = data['codigoCupon'];
+      final negocio = data['idNegocio'];
+      if (cupon is String && cupon.isNotEmpty && negocio is String) {
+        final r = _db
+            .collection('negocios')
+            .doc(negocio)
+            .collection('cupones')
+            .doc(cupon)
+            .collection('usos')
+            .doc(idCliente);
+        try {
+          final uso = await tx.get(r);
+          if (uso.exists && uso.data()?['idPedido'] == idPedido) usoCupon = r;
+        } catch (_) {
+          // Si no se puede ver el uso, el pedido se cancela igual.
+        }
+      }
+      tx.update(ref, {'estado': PedidoEstado.cancelado});
+      tx.set(
+        ref.collection('historialEstados').doc(),
+        HistorialEstadoModel(
+          id: '',
+          estado: PedidoEstado.cancelado,
+          idUsuarioQueCambio: idCliente,
+          comentario: 'Cancelado por el cliente.',
         ).toMap(),
       );
       if (usoCupon != null) tx.delete(usoCupon);
