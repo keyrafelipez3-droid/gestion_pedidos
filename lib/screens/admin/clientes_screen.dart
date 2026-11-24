@@ -8,6 +8,7 @@ import '../../widgets/app_cargando.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/consulta_paginada.dart';
+import '../../widgets/fila_adaptable.dart';
 
 /// HU-04 — "Gestionar clientes".
 /// Muestra a los clientes que ya hicieron pedidos en el negocio del
@@ -217,7 +218,7 @@ class ClientesScreen extends StatelessWidget {
                     if (i == clientes.length) return verMas!;
                     final c = clientes[i];
                     return Card(
-                      child: ListTile(
+                      child: ListTileAdaptable(
                         leading: CircleAvatar(
                           child: Text(
                             c.nombre.isNotEmpty ? c.nombre[0].toUpperCase() : '?',

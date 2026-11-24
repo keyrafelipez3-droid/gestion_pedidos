@@ -11,6 +11,7 @@ import '../../widgets/codigo_restaurante.dart';
 import '../admin/crear_empleado_screen.dart';
 import '../admin/negocio_screen.dart';
 import '../admin/personalizacion_screen.dart';
+import '../../widgets/fila_adaptable.dart';
 
 /// Detalle de UN negocio, visto por el SuperAdmin: activar/desactivar,
 /// entrar a personalizarlo o editar sus datos, y designar/gestionar sus
@@ -118,7 +119,7 @@ class _SuperAdminNegocioDetalleScreenState
               return Column(
                 children: admins.map((a) {
                   return Card(
-                    child: ListTile(
+                    child: ListTileAdaptable(
                       leading: CircleAvatar(
                         child: Text(a.nombre.isNotEmpty ? a.nombre[0].toUpperCase() : '?'),
                       ),
