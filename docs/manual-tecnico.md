@@ -64,7 +64,7 @@ Todos necesitan `npm install` la primera vez y la llave de servicio.
 | Script | Uso |
 |---|---|
 | `respaldo/respaldo.js` | `node respaldo.js ruta\serviceAccountKey.json` copia toda la base a JSON. Guarda la copia en un lugar seguro: tiene datos personales |
-| `demo/datos_demo.js` | Datos de demostración. `--listar`, `--refrescar --negocio principal`, `--mover-fechas` |
+| `demo/datos_demo.js` | Datos de demostración. `--listar`, `--pulir`, `--mover-fechas --todos --dia AAAA-MM-DD`, `--ampliar --todos --dia AAAA-MM-DD` (60 días de historial), `--refrescar`, tope `--max` |
 | `migracion-seguridad/migrar-privacidad.js` | Mueve los datos de contacto de pedidos antiguos a `privado/contacto`. Sin `--aplicar` solo muestra lo que haría |
 
 Límites del plan gratuito: 50.000 lecturas y 20.000 escrituras por día. No corras dos scripts grandes el mismo día.

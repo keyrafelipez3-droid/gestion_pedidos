@@ -11,7 +11,16 @@
 //   node datos_demo.js LLAVE --listar               ver los restaurantes y su id
 //   node datos_demo.js LLAVE --negocio ID_NEGOCIO   llenar ese restaurante
 //   node datos_demo.js LLAVE --todos                llenar todos los restaurantes
-//   node datos_demo.js LLAVE --mover-fechas --negocio ID   correr las fechas para que el día más nuevo sea hoy
+//   node datos_demo.js LLAVE --mover-fechas --todos [--dia AAAA-MM-DD]
+//                                                   correr las fechas: el historial termina el día
+//                                                   anterior a --dia (por defecto hoy) y los pedidos
+//                                                   "de hoy" quedan en ese día (o --negocio ID)
+//   node datos_demo.js LLAVE --ampliar --todos [--dia AAAA-MM-DD]
+//                                                   completar 60 días de historial (para comparar
+//                                                   periodos). Va después de --mover-fechas
+//   node datos_demo.js LLAVE --pulir                textos, personal y reseñas creíbles en los
+//                                                   restaurantes de ejemplo (no crea cuentas)
+//   --max N   tope de escrituras de la corrida (por defecto 18000; el plan gratis permite 20000 por día)
 //   node datos_demo.js LLAVE --refrescar            pedidos de hoy a la hora actual (día de la defensa)
 //   node datos_demo.js LLAVE --cliente CORREO       pedidos de ejemplo para tu cuenta de cliente
 //                                                   (en Febu Garu; otro restaurante: --negocio ID)
@@ -178,6 +187,17 @@ const DIRECCIONES = [
   ['Casa', 'Av. Blanco Galindo km 2, calle 5', 'Casa de dos pisos, rejas verdes', 'Sur'],
   ['Depa', 'Calle Lanza #455', 'Timbre 2B', 'Centro'],
   ['Casa', 'Av. Melchor Pérez #890', 'Al lado de la tienda Don Pepe', 'Norte'],
+];
+
+/** Motivos de cancelación variados (como los escribe el personal). */
+const MOTIVOS_CANCELACION = [
+  'El cliente pidió cancelar',
+  'El cliente no contestó el teléfono para confirmar la dirección',
+  'Se terminó el producto y el cliente no quiso cambiarlo',
+  'Dirección fuera de la zona de delivery',
+  'Pedido duplicado por error',
+  'El cliente cambió de planes',
+  'Demora en la cocina por pedido grande; el cliente prefirió cancelar',
 ];
 
 const NOTAS = ['', '', '', '', 'Sin cebolla, por favor', 'Bien cocido', 'Salsa aparte', 'Sin picante', 'Para llevar cubiertos'];
@@ -423,13 +443,124 @@ async function crearPedido(w, ctx, { fecha, estado, modalidad, mesa, cobrado, id
     await w.set(ref.collection('historialEstados').doc(), {
       estado: e,
       idUsuarioQueCambio: quien,
-      comentario: e === 'Cancelado' ? 'El cliente pidió cancelar' : '',
+      comentario: e === 'Cancelado' ? `Motivo: ${elegir(MOTIVOS_CANCELACION)}` : '',
       fecha: ts(hora),
     });
+    if (e === 'Cancelado') await w.update(ref, { fechaCancelacion: ts(hora) });
     const siguiente = masMinutos(hora, entero(4, 12));
-    hora = siguiente > new Date() ? new Date() : siguiente;
+    // Si el pedido es de ahora, su historial no puede quedar en el futuro.
+    // (Los pedidos que se crean para un día que todavía no llega, con
+    // --dia, los acomoda --refrescar ese día.)
+    hora = siguiente > new Date() && fecha <= new Date() ? new Date() : siguiente;
   }
   return { id: ref.id, total, costoEnvio, metodoPago, estado, fecha };
+}
+
+/**
+ * Pedidos de un día del historial (entregados y algunos cancelados) y, si hay
+ * Cajero y es el restaurante completo, la caja cerrada de ese día.
+ * [d] = cuántos días antes de "hoy" (solo para variar egresos y diferencias).
+ * [factor] escala la cantidad de pedidos (menos de 1 = días más flojos).
+ * Devuelve cuántos pedidos creó.
+ */
+async function generarDia(w, ctx, { dia, d, completo, clientes, mesas, cajero, sucursal, repartidores, ultimoPorCliente, factor = 1 }) {
+  const idNegocio = ctx.idNegocio;
+  let creados = 0;
+  const finDeSemana = dia.getDay() === 0 || dia.getDay() === 5 || dia.getDay() === 6;
+  const n = Math.max(1, Math.round((completo ? entero(finDeSemana ? 9 : 5, finDeSemana ? 15 : 10) : entero(2, 5)) * factor));
+
+  // Caja del día (si hay Cajero)
+  let caja = null;
+  if (cajero && completo) {
+    caja = { ref: db.collection('cajas').doc(), efectivo: 0, transferencia: 0, qr: 0, cobros: [] };
+  }
+
+  for (let i = 0; i < n; i++) {
+    const fecha = new Date(dia);
+    fecha.setHours(elegir([12, 12, 13, 13, 14, 19, 20, 20, 21]), entero(0, 59), 0, 0);
+    const modalidad = elegir(completo ? ['Mesa', 'Recoger', 'Delivery', 'Delivery', 'Recoger'] : ['Recoger', 'Delivery']);
+    const mesa = modalidad === 'Mesa' && mesas.length ? elegir(mesas) : null;
+    const cliente = elegir(clientes);
+    const estado = azar() < 0.07 ? 'Cancelado' : 'Entregado';
+    const metodoPago = elegir(['Efectivo', 'Efectivo', 'QR', 'QR', 'Transferencia']);
+    const repartidor = modalidad === 'Delivery' && estado === 'Entregado' ? elegir(repartidores) : null;
+    const cobrado = estado === 'Entregado';
+    const p = await crearPedido(w, ctx, {
+      fecha,
+      estado,
+      modalidad: mesa || modalidad !== 'Mesa' ? modalidad : 'Recoger',
+      mesa,
+      cobrado,
+      idCaja: cobrado && caja ? caja.ref.id : null,
+      repartidor,
+      cliente,
+      metodoPago,
+      origen: modalidad === 'Mesa' && azar() < 0.5 ? 'cajero' : 'cliente',
+    });
+    creados++;
+    ultimoPorCliente[cliente.id] = fecha;
+    if (caja && cobrado) {
+      const monto = dinero(p.total + p.costoEnvio);
+      if (metodoPago === 'Efectivo') caja.efectivo += monto;
+      else if (metodoPago === 'QR') caja.qr += monto;
+      else caja.transferencia += monto;
+      caja.cobros.push({ id: p.id, monto, metodoPago, fecha });
+    }
+  }
+
+  if (caja) {
+    const apertura = new Date(dia);
+    apertura.setHours(11, 30, 0, 0);
+    const cierre = new Date(dia);
+    cierre.setHours(22, 30, 0, 0);
+    const inicial = 200;
+    const egreso = d % 4 === 0 ? 45 : 0;
+    const esperado = dinero(inicial + caja.efectivo - egreso);
+    const diferencia = d % 9 === 0 ? -10 : d % 13 === 0 ? 5 : 0;
+    await w.set(caja.ref, {
+      idNegocio,
+      idSucursal: sucursal.id,
+      idCajero: cajero.id,
+      nombreCajero: cajero.nombre ?? 'Cajero',
+      estado: 'Cerrada',
+      montoInicial: inicial,
+      fechaApertura: ts(apertura),
+      montoContado: dinero(esperado + diferencia),
+      fechaConteo: ts(cierre),
+      fechaCierre: ts(cierre),
+      montoEsperado: esperado,
+      diferencia,
+      observacionCierre: diferencia < 0 ? 'Faltaron Bs 10, se revisó con el administrador' : '',
+      totalEfectivo: dinero(caja.efectivo),
+      totalTransferencia: dinero(caja.transferencia),
+      totalQr: dinero(caja.qr),
+      totalIngresos: 0,
+      totalEgresos: egreso,
+      ...MARCA,
+    });
+    for (const c of caja.cobros) {
+      await w.set(caja.ref.collection('movimientos').doc(`cobro_${c.id}`), {
+        tipo: 'Cobro',
+        concepto: `Pedido #${c.id.substring(0, 6)}`,
+        monto: c.monto,
+        metodoPago: c.metodoPago,
+        idPedido: c.id,
+        idUsuario: cajero.id,
+        fecha: ts(c.fecha),
+      });
+    }
+    if (egreso) {
+      await w.set(caja.ref.collection('movimientos').doc(), {
+        tipo: 'Egreso',
+        concepto: 'Compra de gas',
+        monto: egreso,
+        metodoPago: 'Efectivo',
+        idUsuario: cajero.id,
+        fecha: ts(masMinutos(apertura, 120)),
+      });
+    }
+  }
+  return creados;
 }
 
 async function llenarNegocio(idNegocio, { completo = true, platosSimples, dias: diasPedidos } = {}) {
@@ -550,100 +681,7 @@ async function llenarNegocio(idNegocio, { completo = true, platosSimples, dias: 
   let cuantosPedidos = 0;
   for (let d = dias; d >= 1; d--) {
     const dia = new Date(hoy.getTime() - d * 86400000);
-    const finDeSemana = dia.getDay() === 0 || dia.getDay() === 5 || dia.getDay() === 6;
-    const n = completo ? entero(finDeSemana ? 9 : 5, finDeSemana ? 15 : 10) : entero(2, 5);
-
-    // Caja del día (si hay Cajero)
-    let caja = null;
-    if (cajero && completo) {
-      caja = { ref: db.collection('cajas').doc(), efectivo: 0, transferencia: 0, qr: 0, cobros: [] };
-    }
-
-    for (let i = 0; i < n; i++) {
-      const fecha = new Date(dia);
-      fecha.setHours(elegir([12, 12, 13, 13, 14, 19, 20, 20, 21]), entero(0, 59), 0, 0);
-      const modalidad = elegir(completo ? ['Mesa', 'Recoger', 'Delivery', 'Delivery', 'Recoger'] : ['Recoger', 'Delivery']);
-      const mesa = modalidad === 'Mesa' && mesas.length ? elegir(mesas) : null;
-      const cliente = elegir(clientes);
-      const estado = azar() < 0.07 ? 'Cancelado' : 'Entregado';
-      const metodoPago = elegir(['Efectivo', 'Efectivo', 'QR', 'QR', 'Transferencia']);
-      const repartidor = modalidad === 'Delivery' && estado === 'Entregado' ? elegir(repartidores) : null;
-      const cobrado = estado === 'Entregado';
-      const p = await crearPedido(w, ctx, {
-        fecha,
-        estado,
-        modalidad: mesa || modalidad !== 'Mesa' ? modalidad : 'Recoger',
-        mesa,
-        cobrado,
-        idCaja: cobrado && caja ? caja.ref.id : null,
-        repartidor,
-        cliente,
-        metodoPago,
-        origen: modalidad === 'Mesa' && azar() < 0.5 ? 'cajero' : 'cliente',
-      });
-      cuantosPedidos++;
-      ultimoPorCliente[cliente.id] = fecha;
-      if (caja && cobrado) {
-        const monto = dinero(p.total + p.costoEnvio);
-        if (metodoPago === 'Efectivo') caja.efectivo += monto;
-        else if (metodoPago === 'QR') caja.qr += monto;
-        else caja.transferencia += monto;
-        caja.cobros.push({ id: p.id, monto, metodoPago, fecha });
-      }
-    }
-
-    if (caja) {
-      const apertura = new Date(dia);
-      apertura.setHours(11, 30, 0, 0);
-      const cierre = new Date(dia);
-      cierre.setHours(22, 30, 0, 0);
-      const inicial = 200;
-      const egreso = d % 4 === 0 ? 45 : 0;
-      const esperado = dinero(inicial + caja.efectivo - egreso);
-      const diferencia = d % 9 === 0 ? -10 : d % 13 === 0 ? 5 : 0;
-      await w.set(caja.ref, {
-        idNegocio,
-        idSucursal: sucursal.id,
-        idCajero: cajero.id,
-        nombreCajero: cajero.nombre ?? 'Cajero',
-        estado: 'Cerrada',
-        montoInicial: inicial,
-        fechaApertura: ts(apertura),
-        montoContado: dinero(esperado + diferencia),
-        fechaConteo: ts(cierre),
-        fechaCierre: ts(cierre),
-        montoEsperado: esperado,
-        diferencia,
-        observacionCierre: diferencia < 0 ? 'Faltaron Bs 10, se revisó con el administrador' : '',
-        totalEfectivo: dinero(caja.efectivo),
-        totalTransferencia: dinero(caja.transferencia),
-        totalQr: dinero(caja.qr),
-        totalIngresos: 0,
-        totalEgresos: egreso,
-        ...MARCA,
-      });
-      for (const c of caja.cobros) {
-        await w.set(caja.ref.collection('movimientos').doc(`cobro_${c.id}`), {
-          tipo: 'Cobro',
-          concepto: `Pedido #${c.id.substring(0, 6)}`,
-          monto: c.monto,
-          metodoPago: c.metodoPago,
-          idPedido: c.id,
-          idUsuario: cajero.id,
-          fecha: ts(c.fecha),
-        });
-      }
-      if (egreso) {
-        await w.set(caja.ref.collection('movimientos').doc(), {
-          tipo: 'Egreso',
-          concepto: 'Compra de gas',
-          monto: egreso,
-          metodoPago: 'Efectivo',
-          idUsuario: cajero.id,
-          fecha: ts(masMinutos(apertura, 120)),
-        });
-      }
-    }
+    cuantosPedidos += await generarDia(w, ctx, { dia, d, completo, clientes, mesas, cajero, sucursal, repartidores, ultimoPorCliente });
   }
   console.log(`  Ventas: ${cuantosPedidos} pedidos de los últimos ${dias} días`);
 
@@ -895,65 +933,502 @@ async function refrescar(idNegocio) {
 
 const DIA = 24 * 60 * 60000;
 const correr = (t, dias) => ts(new Date(t.toDate().getTime() + dias * DIA));
+const diasEntre = (a, b) => Math.round((inicioDia(b) - inicioDia(a)) / DIA);
+
+/** Día de la demostración: --dia AAAA-MM-DD (por defecto, hoy). */
+function diaObjetivo() {
+  const texto = opcion('--dia');
+  if (!texto) return inicioDia(new Date());
+  const [a, m, d] = texto.split('-').map(Number);
+  if (!a || !m || !d) throw new Error(`Fecha no válida en --dia: ${texto} (usa AAAA-MM-DD, por ejemplo 2026-11-25)`);
+  return new Date(a, m - 1, d);
+}
+
+/** Tope de escrituras de esta corrida (--max N). Por defecto 18.000. */
+const LIMITE_ESCRITURAS = Number(opcion('--max') ?? 18000);
+let escriturasHechas = 0;
+
+/** Restaurantes que tienen pedidos de ejemplo (para --todos). */
+async function negociosConDemo() {
+  const lista = [];
+  for (const n of (await db.collection('negocios').get()).docs) {
+    const q = await db.collection('pedidos').where('idNegocio', '==', n.id).where('demoDatos', '==', true).limit(1).get();
+    if (!q.empty) lista.push({ id: n.id, demo: n.data().demoDatos === true });
+  }
+  // Primero el restaurante principal, luego los reales y al final los de
+  // ejemplo: si se llega al tope, lo que queda para otro día es lo menos visto.
+  const orden = (x) => (x.id === 'principal' ? 0 : x.demo ? 2 : 1);
+  return lista.sort((a, b) => orden(a) - orden(b)).map((x) => x.id);
+}
+
+/** Clientes de ejemplo (demo_...) o una cuenta real cargada con --cliente. */
+const esDeEjemplo = (id) => String(id ?? '').startsWith('demo_');
 
 /**
- * Corre las fechas de los datos de ejemplo de un restaurante para que el día
- * más nuevo sea hoy: pedidos y su historial, cajas y sus movimientos,
- * reseñas, fichas de clientes y vencimiento de cupones. Solo toca lo marcado
- * como ejemplo. Se usa el día de la defensa, y después se corre --refrescar.
+ * Corre las fechas de los datos de ejemplo de un restaurante para que el
+ * historial termine el día anterior a [objetivo] y los pedidos "de hoy"
+ * (demoHoy) caigan en [objetivo]. Toca pedidos y su historial, cajas y sus
+ * movimientos, reseñas, fichas de clientes y vencimiento de cupones; solo lo
+ * marcado como ejemplo.
+ *
+ * El corrimiento se calcula SIN los pedidos "de hoy": --refrescar los pone
+ * a la hora actual, y si se contaran el script creería que todo está al día
+ * aunque el historial siga en octubre. Los pedidos de las cuentas reales
+ * (--cliente) se corren aparte, porque se cargaron otro día.
+ *
+ * Primero cuenta cuántas escrituras necesita y, si pasan del tope, no
+ * escribe nada (así nunca queda un restaurante a medio mover).
  */
-async function moverFechas(idNegocio) {
+async function moverFechas(idNegocio, objetivo) {
   const negocioRef = db.collection('negocios').doc(idNegocio);
+  const nombre = (await negocioRef.get()).data()?.nombre ?? idNegocio;
   const pedidos = (await db.collection('pedidos').where('idNegocio', '==', idNegocio).where('demoDatos', '==', true).get()).docs;
   if (pedidos.length === 0) {
-    console.log('Ese restaurante no tiene pedidos de ejemplo.');
+    console.log(`${nombre}: no tiene pedidos de ejemplo.`);
     return;
   }
-  const ultimo = pedidos.reduce((a, d) => Math.max(a, d.data().fechaCreacion.toMillis()), 0);
-  const dias = Math.round((inicioDia(new Date()) - inicioDia(new Date(ultimo))) / DIA);
-  if (dias <= 0) {
-    console.log('Las fechas ya están al día.');
-    return;
-  }
-  console.log(`Corriendo las fechas ${dias} días hacia adelante...`);
-  const w = new Escritor();
 
+  // Cuántos días se corre cada grupo (historial de ejemplo / cuentas reales).
+  const corrimiento = { ejemplo: 0, cuenta: 0 };
+  for (const grupo of ['ejemplo', 'cuenta']) {
+    const hist = pedidos.filter(
+      (p) => !p.data().demoHoy && (grupo === 'ejemplo') === esDeEjemplo(p.data().idCliente),
+    );
+    if (hist.length === 0) continue;
+    const ultimo = new Date(hist.reduce((a, p) => Math.max(a, p.data().fechaCreacion.toMillis()), 0));
+    corrimiento[grupo] = diasEntre(ultimo, objetivo) - 1;
+  }
+
+  // Plan de cambios (todavía no escribe nada).
+  const cambios = [];
   for (const p of pedidos) {
-    await w.update(p.ref, { fechaCreacion: correr(p.data().fechaCreacion, dias) });
+    const datos = p.data();
+    const dias = datos.demoHoy
+      ? diasEntre(datos.fechaCreacion.toDate(), objetivo)
+      : corrimiento[esDeEjemplo(datos.idCliente) ? 'ejemplo' : 'cuenta'];
+    if (dias === 0) continue;
+    const c = { fechaCreacion: correr(datos.fechaCreacion, dias) };
+    if (datos.fechaCancelacion) c.fechaCancelacion = correr(datos.fechaCancelacion, dias);
+    cambios.push([p.ref, c]);
     for (const h of (await p.ref.collection('historialEstados').get()).docs) {
-      if (h.data().fecha) await w.update(h.ref, { fecha: correr(h.data().fecha, dias) });
+      if (h.data().fecha) cambios.push([h.ref, { fecha: correr(h.data().fecha, dias) }]);
     }
   }
 
-  const cajas = (await db.collection('cajas').where('idNegocio', '==', idNegocio).where('demoDatos', '==', true).get()).docs;
-  for (const c of cajas) {
-    const cambios = {};
-    for (const campo of ['fechaApertura', 'fechaConteo', 'fechaCierre']) {
-      if (c.data()[campo]) cambios[campo] = correr(c.data()[campo], dias);
+  const dias = corrimiento.ejemplo;
+  let cuantasCajas = 0;
+  if (dias !== 0) {
+    const cajas = (await db.collection('cajas').where('idNegocio', '==', idNegocio).where('demoDatos', '==', true).get()).docs;
+    cuantasCajas = cajas.length;
+    for (const c of cajas) {
+      const cc = {};
+      for (const campo of ['fechaApertura', 'fechaConteo', 'fechaCierre']) {
+        if (c.data()[campo]) cc[campo] = correr(c.data()[campo], dias);
+      }
+      if (Object.keys(cc).length > 0) cambios.push([c.ref, cc]);
+      for (const m of (await c.ref.collection('movimientos').get()).docs) {
+        if (m.data().fecha) cambios.push([m.ref, { fecha: correr(m.data().fecha, dias) }]);
+      }
     }
-    if (Object.keys(cambios).length > 0) await w.update(c.ref, cambios);
-    for (const m of (await c.ref.collection('movimientos').get()).docs) {
-      if (m.data().fecha) await w.update(m.ref, { fecha: correr(m.data().fecha, dias) });
+    for (const cu of (await negocioRef.collection('cupones').where('demoDatos', '==', true).get()).docs) {
+      if (cu.data().vence) cambios.push([cu.ref, { vence: correr(cu.data().vence, dias) }]);
     }
   }
-
   for (const r of (await negocioRef.collection('resenas').where('demoDatos', '==', true).get()).docs) {
-    if (r.data().fecha) await w.update(r.ref, { fecha: correr(r.data().fecha, dias) });
+    const d = r.id.startsWith('demo_resena_') ? corrimiento.ejemplo : corrimiento.cuenta;
+    if (d !== 0 && r.data().fecha) cambios.push([r.ref, { fecha: correr(r.data().fecha, d) }]);
   }
   for (const c of (await negocioRef.collection('clientes').where('demoDatos', '==', true).get()).docs) {
-    const cambios = {};
+    const d = esDeEjemplo(c.id) ? corrimiento.ejemplo : corrimiento.cuenta;
+    if (d === 0) continue;
+    const cc = {};
     for (const campo of ['fechaPrimerPedido', 'ultimoPedido']) {
-      if (c.data()[campo]) cambios[campo] = correr(c.data()[campo], dias);
+      if (c.data()[campo]) cc[campo] = correr(c.data()[campo], d);
     }
-    if (Object.keys(cambios).length > 0) await w.update(c.ref, cambios);
-  }
-  for (const cu of (await negocioRef.collection('cupones').where('demoDatos', '==', true).get()).docs) {
-    if (cu.data().vence) await w.update(cu.ref, { vence: correr(cu.data().vence, dias) });
+    if (Object.keys(cc).length > 0) cambios.push([c.ref, cc]);
   }
 
+  if (cambios.length === 0) {
+    console.log(`${nombre}: las fechas ya están al día.`);
+    return;
+  }
+  if (escriturasHechas + cambios.length > LIMITE_ESCRITURAS) {
+    console.log(
+      `${nombre}: necesita ${cambios.length} escrituras y solo quedan ${LIMITE_ESCRITURAS - escriturasHechas} ` +
+        `del tope (--max). No toqué nada; córrelo mañana o sube --max.`,
+    );
+    return;
+  }
+  const w = new Escritor();
+  for (const [ref, c] of cambios) await w.update(ref, c);
   await w.cerrar();
-  console.log(`Listo: ${pedidos.length} pedidos y ${cajas.length} cajas corridos ${dias} días (${w.total} escrituras).`);
-  console.log('Ahora corre --refrescar con el mismo --negocio para poner los pedidos de hoy a la hora actual.');
+  escriturasHechas += w.total;
+  console.log(
+    `${nombre}: historial corrido ${corrimiento.ejemplo} días` +
+      (corrimiento.cuenta ? `, pedidos de cuentas reales ${corrimiento.cuenta} días` : '') +
+      `, ${cuantasCajas} cajas (${w.total} escrituras).`,
+  );
+}
+
+// ----------------------------------------------------------------- ampliar
+// Completa el historial hasta 60 días antes del día de la demostración: los
+// paneles comparan cada periodo con el anterior (hoy con ayer, 7 días con
+// los 7 anteriores, 30 días con los 30 anteriores) y sin ese historial las
+// comparaciones salen vacías. Agrega días HACIA ATRÁS desde el pedido más
+// antiguo que ya existe: no toca ni repite lo que ya hay, y si se corta por
+// el tope de escrituras se vuelve a correr otro día y sigue donde quedó.
+// Los días más antiguos tienen un poco menos de pedidos, así los paneles
+// muestran crecimiento. Si un restaurante no tiene pedidos "de hoy", le
+// agrega unos pocos (para que "Hoy" no salga en cero).
+
+const DIAS_HISTORIAL = 60;
+
+async function ampliarNegocio(idNegocio, objetivo) {
+  const negocioRef = db.collection('negocios').doc(idNegocio);
+  const negocio = await negocioRef.get();
+  const nombre = negocio.data()?.nombre ?? idNegocio;
+  semilla = [...idNegocio].reduce((a, c) => (a * 37 + c.charCodeAt(0)) % 2147483647, 20261124);
+  const pedidos = (await db.collection('pedidos').where('idNegocio', '==', idNegocio).where('demoDatos', '==', true).get()).docs
+    .map((d) => d.data())
+    .filter((p) => esDeEjemplo(p.idCliente));
+  const hist = pedidos.filter((p) => !p.demoHoy);
+  if (hist.length === 0) {
+    console.log(`${nombre}: no tiene historial de ejemplo (primero llénalo con --negocio).`);
+    return;
+  }
+  const masNuevo = new Date(hist.reduce((a, p) => Math.max(a, p.fechaCreacion.toMillis()), 0));
+  if (diasEntre(masNuevo, objetivo) > 1) {
+    console.log(`${nombre}: el historial termina el ${masNuevo.toLocaleDateString('es-BO')}. Primero corre --mover-fechas con el mismo --dia.`);
+    return;
+  }
+  const masViejo = inicioDia(new Date(hist.reduce((a, p) => Math.min(a, p.fechaCreacion.toMillis()), Infinity)));
+  const desde = new Date(objetivo.getTime() - DIAS_HISTORIAL * DIA);
+  const faltan = diasEntre(desde, masViejo);
+
+  const completo = !negocio.data()?.demoDatos;
+  // La sucursal que más pedidos tiene (donde trabaja el personal).
+  const conteo = {};
+  for (const p of hist) conteo[p.idSucursal] = (conteo[p.idSucursal] ?? 0) + 1;
+  const idSucursal = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0][0];
+  const sucursal = await db.collection('sucursales').doc(idSucursal).get();
+  const personal = (await db.collection('usuarios').where('idNegocio', '==', idNegocio).get()).docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((u) => u.estado !== false);
+  const primero = (rol) => personal.find((u) => u.rol === rol);
+  const cajero = primero('Cajero');
+  const repartidores = personal.filter((u) => u.rol === 'Repartidor');
+  const clientes = (await negocioRef.collection('clientes').where('demoDatos', '==', true).get()).docs
+    .filter((d) => esDeEjemplo(d.id))
+    .map((d) => ({ id: d.id, nombre: d.data().nombre, telefono: d.data().telefono ?? '' }));
+  if (clientes.length === 0) {
+    console.log(`${nombre}: no encontré clientes de ejemplo.`);
+    return;
+  }
+  const mesas = completo && sucursal.exists
+    ? (await sucursal.ref.collection('mesas').get()).docs.map((d) => ({ id: d.id, ref: d.ref, ...d.data() }))
+    : [];
+  const w = new Escritor();
+  const productos = await menuDe(idNegocio, w);
+  const ctx = { idNegocio, idSucursal, productos, admin: primero('Administrador')?.id ?? 'demo', cajero, cocina: primero('Cocina') };
+  const ultimoPorCliente = {};
+
+  // Cuánto puede escribir un día como máximo (para no pasar del tope).
+  const maxPorDia = completo ? 15 * 9 + 60 : 5 * 8 + 10;
+  let creados = 0;
+  let diasHechos = 0;
+  for (let k = 1; k <= faltan; k++) {
+    if (escriturasHechas + w.total + maxPorDia > LIMITE_ESCRITURAS) break;
+    const dia = new Date(masViejo.getTime() - k * DIA);
+    const antes = diasEntre(dia, objetivo);
+    creados += await generarDia(w, ctx, {
+      dia, d: antes, completo, clientes, mesas, cajero, sucursal, repartidores, ultimoPorCliente,
+      factor: antes > 30 ? 0.75 : 0.85,
+    });
+    await w.cerrar();
+    diasHechos++;
+  }
+
+  // Pedidos "de hoy" para los restaurantes que no tienen ninguno.
+  let deHoy = 0;
+  if (!pedidos.some((p) => p.demoHoy) && escriturasHechas + w.total + 60 <= LIMITE_ESCRITURAS) {
+    const esHoy = diasEntre(new Date(), objetivo) === 0;
+    const base = esHoy ? new Date() : masMinutos(objetivo, 13 * 60);
+    for (const [estado, modalidad, min] of [['Entregado', 'Recoger', 95], ['Entregado', 'Delivery', 70], ['Listo', 'Recoger', 15], ['Pendiente', 'Delivery', 4]]) {
+      const conRepartidor = modalidad === 'Delivery' && estado === 'Entregado' && repartidores.length > 0;
+      await crearPedido(w, ctx, {
+        fecha: masMinutos(base, -min),
+        hoy: true,
+        estado,
+        modalidad,
+        cobrado: estado === 'Entregado',
+        repartidor: conRepartidor ? repartidores[0] : null,
+        cliente: elegir(clientes),
+        metodoPago: elegir(['Efectivo', 'QR']),
+        origen: 'cliente',
+      });
+      deHoy++;
+    }
+    await w.cerrar();
+  }
+  escriturasHechas += w.total;
+  const resto = faltan - diasHechos;
+  console.log(
+    `${nombre}: ${creados} pedidos en ${diasHechos} días más de historial` +
+      (deHoy ? ` y ${deHoy} pedidos de hoy` : '') +
+      ` (${w.total} escrituras)` +
+      (resto > 0 ? `. Faltan ${resto} días: llegó al tope, córrelo otra vez mañana.` : faltan <= 0 ? '. Ya tenía los 60 días.' : '.'),
+  );
+}
+
+// ------------------------------------------------------------------- pulir
+// Deja creíbles los restaurantes de ejemplo: descripción y dirección reales,
+// nombre de sucursal, personal (sin cuentas de acceso: no crea usuarios en
+// Authentication), repartidor sin "(ejemplo)", clientes con nombres propios
+// de cada ciudad, reseñas que hablan de SU menú y solicitudes pendientes que
+// no repiten restaurantes que ya funcionan. Se puede correr más de una vez.
+
+const PULIR = {
+  'Cevichería Mar Azul': {
+    descripcion: 'Ceviches y mariscos frescos del día, al estilo limeño.',
+    direccion: 'Av. Petit Thouars 5120, Miraflores', sucursal: 'Miraflores', correo: 'pedidos@marazul.example.com',
+    personal: [['Administrador', 'Renzo Salazar'], ['Cajero', 'Milagros Huamán'], ['Cocina', 'Julio Ccori']],
+    repartidor: 'Diego Paredes',
+    clientes: ['Lucía Mendoza', 'Martín Quispe', 'Valeria Rojas', 'Sebastián Castro', 'Camila Torres', 'Andrés Vílchez'],
+    resenas: [
+      [5, 'El ceviche clásico estaba fresquísimo y con el punto justo de limón.'],
+      [5, 'La jalea mixta llegó crocante y bien servida. Muy recomendable.'],
+      [4, 'Rico el arroz con mariscos; el delivery tardó unos minutos más.'],
+      [5, 'La chicha morada es casera de verdad. Volveremos.'],
+      [4, 'Buena atención y porciones generosas para el precio.'],
+    ],
+  },
+  'Taquería La Esquina': {
+    descripcion: 'Tacos al pastor, tortas ahogadas y aguas frescas de la casa.',
+    direccion: 'Av. Chapultepec Sur 215, Col. Americana', sucursal: 'Chapultepec', correo: 'hola@laesquina.example.com',
+    personal: [['Administrador', 'Ana Gutiérrez'], ['Cajero', 'Luis Navarro'], ['Cocina', 'Rosa Jiménez']],
+    repartidor: 'Iván Ramírez',
+    clientes: ['Fernanda López', 'Ricardo Hernández', 'Daniela Ortiz', 'Alejandro Ruiz', 'Paola Sánchez', 'Jorge Cárdenas'],
+    resenas: [
+      [5, 'Los tacos al pastor son los mejores de la colonia. La salsa verde, increíble.'],
+      [5, 'La torta ahogada pica rico y llega bien empacada.'],
+      [4, 'Buena quesadilla; el agua de horchata un poco dulce para mi gusto.'],
+      [5, 'Pedí para la oficina y todo llegó a tiempo y caliente.'],
+      [4, 'Precios justos y buen sabor. Repetiré.'],
+    ],
+  },
+  'Salteñería Doña Mari': {
+    descripcion: 'Salteñas jugosas horneadas cada mañana desde 2015.',
+    direccion: 'Calle Junín #415, zona Central', sucursal: 'Central', correo: 'pedidos@donamari.example.com',
+    personal: [['Administrador', 'Mariela Quispe'], ['Cajero', 'Rubén Aguilar'], ['Cocina', 'Teodora Condori']],
+    repartidor: 'Wilson Mamani',
+    clientes: ['Rocío Arancibia', 'Gonzalo Padilla', 'Ximena Barrientos', 'Mauricio Sandoval', 'Patricia Calvimontes', 'Álvaro Durán'],
+    resenas: [
+      [5, 'Las salteñas de pollo son jugosas como deben ser. Llegaron calientitas.'],
+      [5, 'El api morado con las empanadas, perfecto para la mañana.'],
+      [4, 'Muy ricas; a las 10 ya se acaban las de carne, hay que pedir temprano.'],
+      [5, 'La mejor salteña de Sucre, sin exagerar.'],
+      [4, 'Buen precio y atención amable.'],
+    ],
+  },
+  'Café Altura': {
+    descripcion: 'Café de especialidad de los Yungas, repostería y sándwiches.',
+    direccion: 'Av. 20 de Octubre #2340, Sopocachi', sucursal: 'Sopocachi', correo: 'hola@cafealtura.example.com',
+    personal: [['Administrador', 'Lucía Fernández'], ['Cajero', 'Marcelo Ticona'], ['Cocina', 'Elena Choque']],
+    repartidor: 'Franz Apaza',
+    clientes: ['Natalia Loza', 'Pablo Urquizo', 'Andrea Salinas', 'Rodrigo Valda', 'Carla Morales', 'Esteban Rivero'],
+    resenas: [
+      [5, 'El capuchino tiene muy buen cuerpo y la torta de chocolate es húmeda.'],
+      [5, 'Ideal para pedir a la oficina, el café llega caliente.'],
+      [4, 'Rico el sándwich de pollo; me gustaría más variedad de jugos.'],
+      [5, 'Café de verdad, se nota que es de los Yungas.'],
+      [4, 'Lugar tranquilo y buena atención.'],
+    ],
+  },
+  'Parrillada El Gaucho': {
+    descripcion: 'Parrilla a leña con carnes chapacas y vino tarijeño.',
+    direccion: 'Av. La Paz esquina Ciro Trigo #780', sucursal: 'Las Panosas', correo: 'reservas@elgaucho.example.com',
+    personal: [['Administrador', 'Óscar Baldiviezo'], ['Cajero', 'Silvia Ruiz'], ['Cocina', 'Ramiro Echazú']],
+    repartidor: 'Hernán Vaca',
+    clientes: ['Mónica Castellanos', 'Julián Arce', 'Verónica Ávila', 'Cristian Mealla', 'Lorena Tejerina', 'Marcos Gareca'],
+    resenas: [
+      [5, 'La parrillada para dos alcanza para tres. Carne en su punto.'],
+      [5, 'El chorizo tarijeño es buenísimo, con su llajua.'],
+      [4, 'Muy rica la carne; la ensalada podría ser más grande.'],
+      [5, 'El vino de la casa acompaña perfecto. Excelente para el domingo.'],
+      [4, 'Buena atención, el pedido llegó bien empacado.'],
+    ],
+  },
+  'Pizzería Don Vito': {
+    descripcion: 'Pizza al horno de piedra y pastas caseras.',
+    direccion: 'Av. Pando #1120, Recoleta', sucursal: 'Recoleta', correo: 'pedidos@donvito.example.com',
+    personal: [['Administrador', 'Vittorio Lanza'], ['Cajero', 'Jimena Rocha'], ['Cocina', 'Freddy Montaño']],
+    repartidor: 'Kevin Terrazas',
+    clientes: ['Sofía Antezana', 'Diego Camacho', 'Valentina Prado', 'Joaquín Veizaga', 'Mariana Soria', 'Bruno Zambrana'],
+    resenas: [
+      [5, 'La pizza margarita tiene masa delgada y crocante, como en Italia.'],
+      [5, 'La lasaña es casera y bien cargada. Muy recomendada.'],
+      [4, 'Rica la pepperoni; llegó un poco tibia por la lluvia.'],
+      [5, 'Pedimos para el cumpleaños y todos quedaron felices.'],
+      [4, 'Buena relación precio y calidad.'],
+    ],
+  },
+  'Sushi Kento': {
+    descripcion: 'Sushi, ramen y cocina nikkei preparados al momento.',
+    direccion: 'Av. San Martín #455, Equipetrol', sucursal: 'Equipetrol', correo: 'hola@kento.example.com',
+    personal: [['Administrador', 'Kenji Nakamura'], ['Cajero', 'Daniela Justiniano'], ['Cocina', 'Hiroshi Taira']],
+    repartidor: 'Luis Añez',
+    clientes: ['Gabriela Suárez', 'Fabián Roca', 'Melissa Saucedo', 'Renato Áñez', 'Carolina Vaca', 'Ignacio Paz'],
+    resenas: [
+      [5, 'El roll acevichado es espectacular, pescado muy fresco.'],
+      [5, 'El ramen tiene un caldo con mucho sabor. Perfecto para la noche.'],
+      [4, 'Ricas las gyozas; me gustaría que traigan más salsa de soya.'],
+      [5, 'Presentación impecable, todo llegó ordenado.'],
+      [4, 'Buen sushi en Santa Cruz, volveré a pedir.'],
+    ],
+  },
+  'Burger Andina': {
+    descripcion: 'Hamburguesas de carne andina a la parrilla y batidos naturales.',
+    direccion: 'Calle 21 de Calacoto #8050', sucursal: 'Calacoto', correo: 'pedidos@burgerandina.example.com',
+    personal: [['Administrador', 'Sergio Villca'], ['Cajero', 'Fabiola Quisbert'], ['Cocina', 'Edwin Limachi']],
+    repartidor: 'Ronald Huanca',
+    clientes: ['Daniela Pinto', 'Miguel Ángel Rada', 'Fernanda Chávez', 'Hugo Alanoca', 'Brenda Calle', 'Samuel Copa'],
+    resenas: [
+      [5, 'La hamburguesa doble es enorme y jugosa. Las papas, crocantes.'],
+      [5, 'El batido de frutilla es natural, se nota la fruta.'],
+      [4, 'Muy rica la clásica; el pan podría estar más tostado.'],
+      [5, 'Llegó rápido a Calacoto y bien caliente.'],
+      [4, 'Buen precio para la calidad.'],
+    ],
+  },
+};
+
+/** Solicitudes de ejemplo que repetían restaurantes que ya funcionan. */
+const SOLICITUDES_NUEVAS = {
+  'Salteñería Doña Mari': 'Salteñas La Tradicional',
+  'Café Altura': 'Café del Prado',
+  'Cevichería Mar Azul': 'Cevichería El Muelle',
+  'Taquería La Esquina': 'Taquería Los Compadres',
+};
+
+const sinTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const correoDe = (nombre, dominio) => {
+  const [n, a] = sinTildes(nombre).split(' ');
+  return `${n}.${a ?? 'equipo'}@${dominio}`;
+};
+const nombreCorto = (nombre) => {
+  const p = nombre.split(' ');
+  return `${p[0]} ${p[1]?.[0] ?? ''}.`;
+};
+
+async function pulirNegocio(doc) {
+  const datos = PULIR[doc.data().nombre];
+  if (!datos || !doc.data().demoDatos) return 0;
+  const id = doc.id;
+  const w = new Escritor();
+  const dominio = datos.correo.split('@')[1];
+
+  // Restaurante y sucursal
+  await w.update(doc.ref, { descripcion: datos.descripcion, direccion: datos.direccion, correoContacto: datos.correo });
+  for (const s of (await db.collection('sucursales').where('idNegocio', '==', id).get()).docs) {
+    if (s.data().demoDatos && s.data().nombre === 'Sucursal Central') {
+      await w.update(s.ref, { nombre: `Sucursal ${datos.sucursal}`, direccion: datos.direccion });
+    }
+  }
+
+  // Personal: solo el registro (sin cuenta de acceso en Authentication).
+  const personal = (await db.collection('usuarios').where('idNegocio', '==', id).get()).docs;
+  const sucursal = (await db.collection('sucursales').where('idNegocio', '==', id).limit(1).get()).docs[0];
+  for (const [rol, nombre] of datos.personal) {
+    if (personal.some((u) => u.data().rol === rol)) continue;
+    await w.set(db.collection('usuarios').doc(`demo_${id.slice(0, 8)}_${rol.toLowerCase()}`), {
+      nombre,
+      email: correoDe(nombre, dominio),
+      telefono: '',
+      rol,
+      fotoPerfil: '',
+      idSucursal: rol === 'Administrador' ? null : sucursal?.id ?? null,
+      idNegocio: id,
+      estado: true,
+      fechaRegistro: ts(masMinutos(new Date(), -60 * 24 * 70)),
+      notificacionesActivas: true,
+      ...MARCA,
+    });
+  }
+
+  // Repartidor sin "(ejemplo)" (y su nombre en los pedidos que entregó).
+  const pedidos = (await db.collection('pedidos').where('idNegocio', '==', id).where('demoDatos', '==', true).get()).docs;
+  for (const u of personal) {
+    if (u.data().rol !== 'Repartidor' || !String(u.data().nombre).includes('(ejemplo)')) continue;
+    await w.update(u.ref, { nombre: datos.repartidor, email: correoDe(datos.repartidor, dominio) });
+    for (const p of pedidos) {
+      if (p.data().idRepartidor === u.id) await w.update(p.ref, { nombreRepartidor: datos.repartidor });
+    }
+  }
+
+  // Clientes con nombres propios de cada restaurante (antes eran los mismos en todos).
+  const negocioRef = db.collection('negocios').doc(id);
+  const nuevos = {};
+  for (const c of (await negocioRef.collection('clientes').where('demoDatos', '==', true).get()).docs) {
+    const i = Number(c.id.split('_cli')[1]);
+    const nombre = datos.clientes[i];
+    if (!nombre || c.data().nombre === nombre) continue;
+    nuevos[c.id] = nombre;
+    await w.update(c.ref, { nombre });
+    const u = db.collection('usuarios').doc(c.id);
+    if ((await u.get()).exists) await w.update(u, { nombre });
+  }
+  for (const p of pedidos) {
+    const nombre = nuevos[p.data().idCliente];
+    if (nombre) await w.update(p.ref, { nombreCliente: nombre });
+  }
+
+  // Reseñas que hablan de su menú (5 por restaurante).
+  const resenas = (await negocioRef.collection('resenas').where('demoDatos', '==', true).get()).docs;
+  const clientes = (await negocioRef.collection('clientes').where('demoDatos', '==', true).get()).docs.filter((c) => esDeEjemplo(c.id));
+  for (const [i, [calificacion, comentario]] of datos.resenas.entries()) {
+    const rid = `demo_resena_${id.slice(0, 6)}_${i}`;
+    const c = clientes[i % Math.max(clientes.length, 1)];
+    const nombre = c ? nuevos[c.id] ?? c.data().nombre : 'Cliente';
+    const previa = resenas.find((r) => r.id === rid);
+    const campos = { calificacion, comentario, nombreCliente: nombreCorto(nombre) };
+    if (previa) {
+      await w.update(previa.ref, campos);
+    } else {
+      await w.set(negocioRef.collection('resenas').doc(rid), {
+        idNegocio: id,
+        idPedido: rid,
+        idCliente: c?.id ?? '',
+        ...campos,
+        fecha: ts(masMinutos(new Date(), -60 * 24 * (3 + i * 5))),
+        estado: 'Visible',
+        ...MARCA,
+      });
+    }
+  }
+  await w.cerrar();
+  console.log(`${doc.data().nombre}: listo (${w.total} escrituras)`);
+  return w.total;
+}
+
+async function pulir() {
+  let total = 0;
+  for (const n of (await db.collection('negocios').where('demoDatos', '==', true).get()).docs) total += await pulirNegocio(n);
+  // Solicitudes pendientes de ejemplo que repetían un restaurante activo.
+  for (const s of (await db.collection('solicitudesNegocio').where('demo', '==', true).get()).docs) {
+    const nuevo = SOLICITUDES_NUEVAS[s.data().nombreNegocio];
+    if (s.data().estado !== 'Pendiente') continue;
+    // Que no parezcan olvidadas desde octubre: llegaron en los últimos días.
+    const fecha = ts(masMinutos(new Date(), -60 * (6 + 20 * (total % 5))));
+    if (nuevo) {
+      await s.ref.update({ nombreNegocio: nuevo, fecha });
+      total++;
+      console.log(`Solicitud: "${s.data().nombreNegocio}" ahora es "${nuevo}"`);
+    } else {
+      await s.ref.update({ fecha });
+      total++;
+    }
+  }
+  console.log(`Pulido terminado (${total} escrituras).`);
 }
 
 // ----------------------------------------------------------------- cliente
@@ -1161,8 +1636,20 @@ if (args.includes('--listar')) {
   await listar();
 } else if (args.includes('--borrar')) {
   await borrarTodo();
-} else if (args.includes('--mover-fechas')) {
-  await moverFechas(opcion('--negocio') ?? 'principal');
+} else if (args.includes('--mover-fechas') || args.includes('--ampliar')) {
+  const objetivo = diaObjetivo();
+  const ids = args.includes('--todos') ? await negociosConDemo() : [opcion('--negocio') ?? 'principal'];
+  console.log(`Día de la demostración: ${objetivo.toLocaleDateString('es-BO')} (tope: ${LIMITE_ESCRITURAS} escrituras)`);
+  for (const id of ids) {
+    if (args.includes('--mover-fechas')) await moverFechas(id, objetivo);
+    else await ampliarNegocio(id, objetivo);
+  }
+  console.log(`Total de esta corrida: ${escriturasHechas} escrituras.`);
+  if (args.includes('--mover-fechas')) {
+    console.log('El día de la demostración corre --refrescar para poner los pedidos de hoy a la hora actual.');
+  }
+} else if (args.includes('--pulir')) {
+  await pulir();
 } else if (args.includes('--refrescar')) {
   await refrescar(opcion('--negocio'));
   console.log('\nListo. Recarga la app.');
@@ -1182,7 +1669,7 @@ if (args.includes('--listar')) {
   await crearOtrosNegocios();
   console.log('\nListo. Recarga la app para ver los datos.');
 } else {
-  console.error('Falta una opción: --listar, --negocio ID, --todos, --refrescar, --cliente CORREO o --borrar');
+  console.error('Falta una opción: --listar, --negocio ID, --todos, --mover-fechas, --ampliar, --pulir, --refrescar, --cliente CORREO o --borrar');
   process.exit(1);
 }
 process.exit(0);
