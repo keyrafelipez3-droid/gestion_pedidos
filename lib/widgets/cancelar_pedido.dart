@@ -53,7 +53,7 @@ Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) a
     );
     ActividadService.instancia.registrar(
       ActividadTipo.pedido,
-      'Canceló el pedido #${pedido.id.substring(0, 6)} (${dinero(pedido.total)}). Motivo: $motivo',
+      'Canceló el pedido #${pedido.id.substring(0, 6).toUpperCase()} (${dinero(pedido.total)}). Motivo: $motivo',
     );
     messenger.showSnackBar(const SnackBar(content: Text('Pedido cancelado. El cliente verá el motivo.')));
   } catch (e) {
@@ -93,7 +93,7 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
       // Con el teclado abierto el contenido se desplaza en vez de
       // encimarse con los botones.
       scrollable: true,
-      title: Text('Cancelar pedido #${widget.pedido.id.substring(0, 6)}'),
+      title: Text('Cancelar pedido #${widget.pedido.id.substring(0, 6).toUpperCase()}'),
       content: SizedBox(
         width: 460,
         child: Form(

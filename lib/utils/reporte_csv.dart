@@ -41,7 +41,7 @@ String csvVentas(
     filas.add([
       f == null ? '' : '${dos(f.day)}/${dos(f.month)}/${f.year}',
       f == null ? '' : '${dos(f.hour)}:${dos(f.minute)}',
-      '#${p.id.length >= 6 ? p.id.substring(0, 6) : p.id}',
+      '#${p.id.length >= 6 ? p.id.substring(0, 6).toUpperCase() : p.id}',
       nombresSucursal[p.idSucursal] ?? p.idSucursal,
       p.etiquetaModalidad,
       p.metodoPago,

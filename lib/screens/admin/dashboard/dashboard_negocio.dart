@@ -449,7 +449,7 @@ class _PanelEnCurso extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '#${p.id.substring(0, 6)} · ${p.etiquetaModalidad} · ${p.estado}',
+                      '#${p.id.substring(0, 6).toUpperCase()} · ${p.etiquetaModalidad} · ${p.estado}',
                       style: texto.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -725,7 +725,7 @@ class _PanelUltimosPedidos extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '#${p.id.substring(0, 6)} · ${p.etiquetaModalidad}',
+                                  '#${p.id.substring(0, 6).toUpperCase()} · ${p.etiquetaModalidad}',
                                   style: texto.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                                   overflow: TextOverflow.ellipsis,
                                 ),

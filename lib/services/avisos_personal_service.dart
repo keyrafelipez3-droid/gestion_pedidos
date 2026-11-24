@@ -113,7 +113,7 @@ List<AvisoPersonal> detectarAvisos(Map<String, String>? vistos, List<ElementoVig
 }
 
 /// Número corto del pedido (#abc123).
-String numeroPedido(String id) => id.length >= 6 ? id.substring(0, 6) : id;
+String numeroPedido(String id) => (id.length >= 6 ? id.substring(0, 6) : id).toUpperCase();
 
 /// Avisos de cada fuente según el rol. Son funciones puras para poder
 /// probarlas sin Firebase.

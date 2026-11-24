@@ -68,7 +68,7 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Ticket #{id}', {'id': widget.pedido.id.substring(0, 6)}))),
+      appBar: AppBar(title: Text(tr('Ticket #{id}', {'id': widget.pedido.id.substring(0, 6).toUpperCase()}))),
       body: FutureBuilder<_DatosTicket>(
         future: _datos,
         builder: (context, s) {
@@ -124,7 +124,7 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
     final n = d.negocio;
     final logo = n.logoUrl.trim().isEmpty ? '' : '<img class="logo" src="${esc(n.logoUrl.trim())}" alt="">';
     return '''<!doctype html><html lang="${IdiomaController.instancia.codigo.value}"><head><meta charset="utf-8">
-<title>Ticket ${esc(p.id.substring(0, 6))}</title>
+<title>Ticket ${esc(p.id.substring(0, 6).toUpperCase())}</title>
 <style>
   body{font-family:Poppins,Arial,sans-serif;color:#1a1200;margin:0;padding:24px;}
   .ticket{max-width:340px;margin:0 auto;border:1px dashed #bbb;padding:20px;}
@@ -146,7 +146,7 @@ class _TicketPedidoScreenState extends State<TicketPedidoScreen> {
     ${n.telefono.isEmpty ? '' : '<p class="gris">${esc(tr('Tel. {telefono}', {'telefono': n.telefono}))}</p>'}
   </div>
   <hr>
-  <p class="gris"><b>${esc(tr('Pedido #{id}', {'id': p.id.substring(0, 6)}))}</b></p>
+  <p class="gris"><b>${esc(tr('Pedido #{id}', {'id': p.id.substring(0, 6).toUpperCase()}))}</b></p>
   <p class="gris">${esc(tr('Fecha: {fechaCreacion}', {'fechaCreacion': _fecha(p.fechaCreacion)}))}</p>
   <p class="gris">${esc(tr('Modalidad: {etiquetaModalidad}', {'etiquetaModalidad': p.etiquetaModalidad}))}</p>
   ${p.nombreCliente == null ? '' : '<p class="gris">${esc(tr('Cliente: {nombreCliente}', {'nombreCliente': p.nombreCliente}))}</p>'}
@@ -228,7 +228,7 @@ class _Recibo extends StatelessWidget {
               Text('${datos.sucursal!.nombre} · ${datos.sucursal!.direccion}', textAlign: TextAlign.center, style: gris),
             if (n.telefono.isNotEmpty) Text(tr('Tel. {telefono}', {'telefono': n.telefono}), textAlign: TextAlign.center, style: gris),
             linea(),
-            Text(tr('Pedido #{id}', {'id': pedido.id.substring(0, 6)}), style: t(texto.bodyMedium)?.copyWith(fontWeight: FontWeight.w700)),
+            Text(tr('Pedido #{id}', {'id': pedido.id.substring(0, 6).toUpperCase()}), style: t(texto.bodyMedium)?.copyWith(fontWeight: FontWeight.w700)),
             Text(tr('Fecha: {fechaCreacion}', {'fechaCreacion': fecha(pedido.fechaCreacion)}), style: gris),
             Text(tr('Modalidad: {etiquetaModalidad}', {'etiquetaModalidad': pedido.etiquetaModalidad}), style: gris),
             if (pedido.nombreCliente != null) Text(tr('Cliente: {nombreCliente}', {'nombreCliente': pedido.nombreCliente}), style: gris),

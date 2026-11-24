@@ -252,6 +252,7 @@ const traduccionesPt = <String, String>{
   'Número no válido para {nombre}': 'Número inválido para {nombre}',
   'O pega un link': 'Ou cole um link',
   'Ocupada': 'Ocupada',
+  'El servidor está ocupado en este momento. Espera un minuto e intenta de nuevo.': 'O servidor está ocupado no momento. Espere um minuto e tente novamente.',
   'Ocurrió un error inesperado. Intenta de nuevo.': 'Ocorreu um erro inesperado. Tente novamente.',
   'Operación cancelada.': 'Operação cancelada.',
   'Pago no verificado': 'Pagamento não verificado',

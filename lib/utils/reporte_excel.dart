@@ -51,7 +51,7 @@ Uint8List excelVentas(
     hoja.fila([
       f == null ? _vacia() : _numero(_serialFecha(f), _E.fecha),
       _texto(f == null ? '' : '${dos(f.hour)}:${dos(f.minute)}'),
-      _texto('#${p.id.length >= 6 ? p.id.substring(0, 6) : p.id}'),
+      _texto('#${p.id.length >= 6 ? p.id.substring(0, 6).toUpperCase() : p.id}'),
       _texto(sucursal(p)),
       _texto(p.etiquetaModalidad),
       _texto(p.metodoPago),
