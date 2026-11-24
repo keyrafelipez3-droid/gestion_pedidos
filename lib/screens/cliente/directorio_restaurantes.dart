@@ -277,7 +277,7 @@ class _TarjetaDirectorio extends StatelessWidget {
   }
 }
 
-/// Pantalla con todos los restaurantes (desde "Más restaurantes"). Abajo
+/// Pantalla con todos los restaurantes (desde "Añadir restaurante"). Abajo
 /// queda la opción de entrar con el código o el enlace del restaurante.
 class DirectorioRestaurantesScreen extends StatelessWidget {
   final Set<String> misIds;

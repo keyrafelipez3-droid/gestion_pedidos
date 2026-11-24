@@ -947,4 +947,6 @@ const traduccionesEn = <String, String>{
   'Ya es uno de tus restaurantes': 'Already one of your restaurants',
   'Restaurantes donde puedes pedir': 'Restaurants where you can order',
   'Inicia sesión o crea tu cuenta y elige uno. No necesitas código.': 'Sign in or create your account and pick one. No code needed.',
+  'Añadir restaurante': 'Add restaurant',
+  'Con su código o desde la lista. Tus restaurantes de antes se quedan.': 'With its code or from the list. Your previous restaurants stay.',
 };

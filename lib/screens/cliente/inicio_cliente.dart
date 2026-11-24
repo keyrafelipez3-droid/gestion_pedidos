@@ -97,16 +97,16 @@ class InicioCliente extends StatelessWidget {
         tr('Tus datos, alergias y preferencias'),
         onMiCuenta,
       ),
-      if (lista != null && lista.isNotEmpty)
-        (
-          Icons.storefront_outlined,
-          tr('Más restaurantes'),
-          tr('Elige de la lista o usa su código'),
-          () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => DirectorioRestaurantesScreen(misIds: {for (final n in lista) n.idNegocio}),
-              )),
-        ),
     ];
+
+    // Un cliente puede tener varios restaurantes: "Añadir restaurante"
+    // abre la lista con logos (y la opción del código) sin quitar los que
+    // ya tiene.
+    void anadirRestaurante() => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => DirectorioRestaurantesScreen(
+            misIds: {for (final n in lista ?? const <NegocioModel>[]) n.idNegocio},
+          ),
+        ));
 
     return SafeArea(
       child: LayoutBuilder(
@@ -196,6 +196,21 @@ class InicioCliente extends StatelessWidget {
                         onPressed: () => abrirRestaurante(context, unico, fotoRespaldo: fotoComidaPorIndice(0)),
                         icon: const Icon(Icons.restaurant_menu),
                         label: Text(tr('Ver el menú y pedir')),
+                      ),
+                    ],
+                    if (lista != null && lista.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                        onPressed: anadirRestaurante,
+                        icon: const Icon(Icons.add_business_outlined),
+                        label: Text(tr('Añadir restaurante')),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        tr('Con su código o desde la lista. Tus restaurantes de antes se quedan.'),
+                        textAlign: TextAlign.center,
+                        style: textos.bodySmall,
                       ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
