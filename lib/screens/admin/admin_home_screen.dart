@@ -32,6 +32,7 @@ import 'sucursales_screen.dart';
 import 'ventas_screen.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/avisos_personal.dart';
 
 /// Identifica qué sección del panel está activa (un valor por ítem del
 /// sidebar, para que el resaltado refleje lo que la persona tocó).
@@ -436,6 +437,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           subtitulo: usuario.rol,
           secciones: _secciones(context, esAmplio: esAmplio, usuario: usuario),
           onCerrarSesion: cerrarSesion,
+          accion: const CampanaAvisosPersonal(),
         );
 
         if (esAmplio) {
@@ -479,7 +481,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         }
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Panel de administración')),
+          appBar: AppBar(
+            title: const Text('Panel de administración'),
+            actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+          ),
           drawer: Drawer(width: 280, child: sidebar),
           body: _ContenidoDashboard(usuario: usuario),
         );

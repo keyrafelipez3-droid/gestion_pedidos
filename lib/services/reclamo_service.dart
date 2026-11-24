@@ -29,6 +29,11 @@ class ReclamoService {
   Stream<List<ReclamoModel>> streamTodos(String idNegocio) =>
       _reclamos(idNegocio).snapshots().map(_ordenar);
 
+  /// Los [limite] reclamos más recientes del negocio (solo el
+  /// Administrador). Para los avisos: no lee todos los reclamos.
+  Stream<List<ReclamoModel>> streamRecientes(String idNegocio, {int limite = 15}) =>
+      _reclamos(idNegocio).orderBy('fecha', descending: true).limit(limite).snapshots().map(_ordenar);
+
   /// El cliente presenta un reclamo. Lanza un Exception con un mensaje claro
   /// si algo no está bien.
   Future<void> crear({

@@ -16,6 +16,7 @@ import '../../widgets/logo_nami.dart';
 import '../cuenta/dos_pasos_screen.dart';
 import '../legal/legal_screen.dart';
 import 'registro_screen.dart';
+import '../../widgets/resenas_destacadas.dart';
 
 /// HU-02 — Pantalla de inicio de sesión.
 /// ("Iniciar sesión con mis credenciales")
@@ -671,6 +672,8 @@ class _Formulario extends StatelessWidget {
             ],
           )),
           entra(const EtiquetaVersion()),
+          // Las mejores reseñas de los clientes, antes de entrar.
+          entra(const ResenasDestacadas()),
         ],
       ),
     );

@@ -26,7 +26,10 @@ import {
   deleteField,
   doc,
   getDoc,
+  collectionGroup,
   getDocs,
+  limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -1296,6 +1299,29 @@ describe('Reseñas', () => {
     await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE')));
     await assertFails(deleteDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pE')));
     await assertSucceeds(deleteDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE')));
+  });
+
+  test('antes de entrar se ven solo las reseñas visibles, de a 20 como máximo', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'negocios/n1/resenas', 'pV'), { ...resena('pV'), fecha: Timestamp.now() });
+      await setDoc(doc(db, 'negocios/n2/resenas', 'pW'), { ...resena('pW', { idNegocio: 'n2' }), fecha: Timestamp.now() });
+      await setDoc(doc(db, 'negocios/n1/resenas', 'pH'), { ...resena('pH', { estado: 'Oculta' }), fecha: Timestamp.now() });
+    });
+    const anon = env.unauthenticatedContext().firestore();
+    const visibles = (n) => query(collectionGroup(anon, 'resenas'), where('estado', '==', 'Visible'),
+      orderBy('calificacion', 'desc'), orderBy('fecha', 'desc'), limit(n));
+    const r = await assertSucceeds(getDocs(visibles(20)));
+    if (r.size !== 2) throw new Error(`se esperaban 2 reseñas visibles y llegaron ${r.size}`);
+    // Más de 20, sin límite, o incluyendo las ocultas: no.
+    await assertFails(getDocs(visibles(21)));
+    await assertFails(getDocs(query(collectionGroup(anon, 'resenas'), where('estado', '==', 'Visible'))));
+    await assertFails(getDocs(query(collectionGroup(anon, 'resenas'), limit(5))));
+    // Una reseña suelta (aunque sea visible) sigue necesitando sesión.
+    await assertFails(getDoc(doc(anon, 'negocios/n1/resenas', 'pV')));
+    await assertFails(getDoc(doc(anon, 'negocios/n1/resenas', 'pH')));
+    // Y nadie escribe por esta vía.
+    await assertFails(setDoc(doc(anon, 'negocios/n1/resenas', 'pX'), resena('pX')));
   });
 
   test('un cliente bloqueado no reseña', async () => {

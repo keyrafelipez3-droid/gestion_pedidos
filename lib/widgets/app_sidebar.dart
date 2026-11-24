@@ -41,12 +41,16 @@ class AppSidebar extends StatelessWidget {
   final List<AppSidebarSection> secciones;
   final VoidCallback? onCerrarSesion;
 
+  /// Botón a la derecha del título (por ejemplo, la campanita de avisos).
+  final Widget? accion;
+
   const AppSidebar({
     super.key,
     required this.tituloNegocio,
     this.subtitulo,
     required this.secciones,
     this.onCerrarSesion,
+    this.accion,
   });
 
   @override
@@ -85,6 +89,7 @@ class AppSidebar extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (accion != null) accion!,
                 ],
               ),
             ),

@@ -55,7 +55,7 @@ void main() {
     final privacidad = _todo(TextosLegales.politicaPrivacidad());
     expect(privacidad, contains('CCPA'));
     expect(privacidad, contains('13 años'));
-    expect(privacidad, contains('Cookies'));
+    expect(privacidad, contains('COOKIES'));
     expect(_todo(TextosLegales.terminos()), contains('sin los impuestos de venta'));
   });
 

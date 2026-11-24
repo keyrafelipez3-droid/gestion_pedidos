@@ -19,6 +19,9 @@ import '../../widgets/mapa_seguimiento.dart';
 import '../../widgets/panel_personal.dart';
 import '../../widgets/tarjeta_pedido_personal.dart';
 import '../../widgets/texto_traducido.dart';
+import '../../widgets/avisos_personal.dart';
+import '../../widgets/boton_entregas_realizadas.dart';
+import '../../utils/reporte_entregas.dart';
 
 /// Efectivo que el repartidor todavía tiene que entregar en caja (sin sus
 /// propinas): pedidos entregados, pagados en efectivo y no rendidos.
@@ -126,7 +129,10 @@ class _ParaTomarState extends State<_ParaTomar> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Entregas'))),
+      appBar: AppBar(
+        title: Text(tr('Entregas')),
+        actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+      ),
       body: StreamBuilder<List<PedidoModel>>(
         stream: _disponibles,
         builder: (context, s) => StreamBuilder<List<PedidoModel>>(
@@ -295,7 +301,10 @@ class _EnCaminoState extends State<_EnCamino> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tr('En camino'))),
+      appBar: AppBar(
+        title: Text(tr('En camino')),
+        actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+      ),
       body: StreamBuilder<List<PedidoModel>>(
         stream: _mias,
         builder: (context, s) {
@@ -563,7 +572,24 @@ class _MiEfectivoState extends State<_MiEfectivo> {
     final scheme = theme.colorScheme;
     final semantic = context.semanticColors;
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Mi efectivo'))),
+      appBar: AppBar(
+        title: Text(tr('Mi efectivo')),
+        actions: [
+          BotonEntregasRealizadas(
+            cargar: () async {
+              final hoy = DateTime.now();
+              return reporteEntregasDeLaSesion(
+                pedidos: await PedidoService.instancia
+                    .streamEntregadosHoy(widget.idNegocio, widget.usuario.idUsuario)
+                    .first,
+                periodo: 'Hoy, ${ReporteEntregas.fecha(hoy)}',
+              );
+            },
+          ),
+          const CampanaAvisosPersonal(),
+          const SizedBox(width: AppSpacing.xs),
+        ],
+      ),
       body: StreamBuilder<List<PedidoModel>>(
         stream: _hoy,
         builder: (context, s) {

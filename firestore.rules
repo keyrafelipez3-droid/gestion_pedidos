@@ -1238,6 +1238,18 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    // ------------------------------------------- resenas destacadas
+    // Pantalla de inicio de sesion: cualquiera, incluso sin sesion, puede
+    // listar las resenas VISIBLES de todos los negocios (consulta de grupo
+    // "resenas"), de a 20 como maximo. Solo listar: no se lee una resena
+    // suelta ni las ocultas. Muestran lo mismo que ya ven los clientes:
+    // nombre corto, estrellas y comentario (ver Politica de privacidad).
+    match /{ruta=**}/resenas/{resenaId} {
+      allow list: if resource.data.estado == 'Visible'
+        && request.query.limit != null
+        && request.query.limit <= 20;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

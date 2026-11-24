@@ -935,4 +935,7 @@ const traduccionesEn = <String, String>{
   'Tu cuenta fue desactivada. Consulta con el administrador.': 'Your account was deactivated. Please contact the administrator.',
   'Cambiaron los permisos de tu cuenta. Vuelve a iniciar sesión.': 'Your account permissions changed. Please sign in again.',
   'Confirma que eres tú para {accion}.': 'Confirm it\'s you to {accion}.',
+  'Lo que dicen nuestros clientes': 'What our customers say',
+  'Pasamos los términos y la política de privacidad a un formato formal, listo para imprimir y firmar, y ahora las mejores reseñas pueden mostrarse en la pantalla de inicio de sesión. Revisa los cambios y acéptalos para seguir pidiendo.':
+      'We rewrote the terms and the privacy policy in a formal format, ready to print and sign, and the best reviews may now be shown on the sign-in screen. Review the changes and accept them to keep ordering.',
 };
