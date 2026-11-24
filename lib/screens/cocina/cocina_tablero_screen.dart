@@ -131,22 +131,35 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
           appBar: AppBar(
             title: Text(tr('Cocina')),
             actions: [
-              // En el celular el botón queda corto ("Pausar" / "Reanudar")
-              // para que no se monte sobre el título.
+              // En el celular el botón es solo un ícono (con su nombre al
+              // mantenerlo presionado) para que el título "Cocina" se lea
+              // completo.
               if (s != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.sm),
-                  child: s.pedidosPausados
-                      ? FilledButton.icon(
-                          onPressed: () => _cambiarPausa(s),
-                          icon: const Icon(Icons.play_arrow),
-                          label: Text(angosto ? tr('Reanudar') : tr('Reanudar pedidos')),
-                        )
-                      : OutlinedButton.icon(
-                          onPressed: () => _cambiarPausa(s),
-                          icon: const Icon(Icons.pause),
-                          label: Text(angosto ? tr('Pausar') : tr('Pausar pedidos nuevos')),
-                        ),
+                  padding: const EdgeInsets.only(right: AppSpacing.xs),
+                  child: angosto
+                      ? (s.pedidosPausados
+                          ? IconButton.filled(
+                              onPressed: () => _cambiarPausa(s),
+                              tooltip: tr('Reanudar pedidos'),
+                              icon: const Icon(Icons.play_arrow),
+                            )
+                          : IconButton.outlined(
+                              onPressed: () => _cambiarPausa(s),
+                              tooltip: tr('Pausar pedidos nuevos'),
+                              icon: const Icon(Icons.pause),
+                            ))
+                      : s.pedidosPausados
+                          ? FilledButton.icon(
+                              onPressed: () => _cambiarPausa(s),
+                              icon: const Icon(Icons.play_arrow),
+                              label: Text(tr('Reanudar pedidos')),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: () => _cambiarPausa(s),
+                              icon: const Icon(Icons.pause),
+                              label: Text(tr('Pausar pedidos nuevos')),
+                            ),
                 ),
               if (idNegocio != null)
                 BotonEntregasRealizadas(

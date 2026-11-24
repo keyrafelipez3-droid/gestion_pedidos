@@ -75,10 +75,24 @@ void main() {
         expect(tester.getTopLeft(mensaje).dx, greaterThan(tamano.width / 2));
       }
 
+      // No tapa nada: la barra superior y los botones quedan DEBAJO del
+      // mensaje, no detrás.
+      final tarjeta = tester.getRect(find.ancestor(of: mensaje, matching: find.byType(Material)).first);
+      for (final f in [find.byType(AppBar), find.text('mensaje'), find.text('campana')]) {
+        expect(tester.getRect(f).overlaps(tarjeta), isFalse, reason: '$f queda tapado');
+      }
+      // Letras negras sobre fondo blanco.
+      final estilo = tester.widget<DefaultTextStyle>(
+        find.ancestor(of: mensaje, matching: find.byType(DefaultTextStyle)).first,
+      );
+      expect(estilo.style.color, const Color(0xFF111111));
+
       // La X lo cierra.
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
       expect(find.text('Guardado'), findsNothing);
+      // Y todo vuelve a su lugar.
+      expect(tester.getTopLeft(find.byType(AppBar)).dy, 0);
     });
   }
 
