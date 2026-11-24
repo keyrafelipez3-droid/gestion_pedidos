@@ -28,10 +28,25 @@ class DashboardPlataforma extends StatefulWidget {
 class _DashboardPlataformaState extends State<DashboardPlataforma> {
   PeriodoDashboard _periodo = PeriodoDashboard.semana;
   late final DateTime _hoy = inicioDelDia(DateTime.now());
-  // 60 días: el periodo más largo (30) y su anterior; cambiar de periodo
-  // solo recalcula en memoria.
-  late final Stream<List<PedidoModel>> _pedidos =
-      DashboardService.instancia.streamPedidosPlataforma(_hoy.subtract(const Duration(days: 59)));
+  // Se leen solo los días que pide el periodo elegido (ver diasACargar):
+  // 14 al entrar y 60 recién si se elige "30 días". Volver a un periodo
+  // más corto solo recalcula en memoria.
+  late int _diasCargados = diasACargar(_periodo);
+  late Stream<List<PedidoModel>> _pedidos = _abrirPedidos();
+
+  Stream<List<PedidoModel>> _abrirPedidos() =>
+      DashboardService.instancia.streamPedidosPlataforma(_hoy.subtract(Duration(days: _diasCargados - 1)));
+
+  void _elegirPeriodo(PeriodoDashboard p) {
+    setState(() {
+      _periodo = p;
+      final dias = diasACargar(p);
+      if (dias > _diasCargados) {
+        _diasCargados = dias;
+        _pedidos = _abrirPedidos();
+      }
+    });
+  }
   late final Stream<List<NegocioModel>> _negocios = NegocioService.instancia.streamNegocios();
   late final Stream<List<UsuarioModel>> _admins = AdminService.instancia.streamAdministradores();
   late final Stream<List<UsuarioModel>> _clientes = AdminService.instancia.streamTodosLosClientes();
@@ -117,7 +132,7 @@ class _DashboardPlataformaState extends State<DashboardPlataforma> {
                 ),
               ],
             ),
-            SelectorPeriodo(valor: _periodo, onChanged: (p) => setState(() => _periodo = p)),
+            SelectorPeriodo(valor: _periodo, onChanged: _elegirPeriodo),
           ],
         ),
         const SizedBox(height: AppSpacing.md),

@@ -703,16 +703,19 @@ class PedidoService {
 
   /// Pedidos del negocio que todavía no terminan (Pendiente, En
   /// preparación, Listo, En camino, En el lugar), del más antiguo al más
-  /// nuevo. Una consulta por estado (solo igualdades, sin índices nuevos)
+  /// nuevo (ver [_porEstados]).
+  Stream<List<PedidoModel>> streamPedidosEnCurso(String idNegocio) => _porEstados(idNegocio, const [
+        PedidoEstado.pendiente,
+        PedidoEstado.enPreparacion,
+        PedidoEstado.listo,
+        PedidoEstado.enCamino,
+        PedidoEstado.llego,
+      ]);
+
+  /// Pedidos del negocio en cualquiera de [estados], del más antiguo al más
+  /// nuevo: una consulta por estado (solo igualdades, sin índices nuevos)
   /// que se combinan en vivo.
-  Stream<List<PedidoModel>> streamPedidosEnCurso(String idNegocio) {
-    const estados = [
-      PedidoEstado.pendiente,
-      PedidoEstado.enPreparacion,
-      PedidoEstado.listo,
-      PedidoEstado.enCamino,
-      PedidoEstado.llego,
-    ];
+  Stream<List<PedidoModel>> _porEstados(String idNegocio, List<String> estados) {
     final porEstado = List<List<PedidoModel>>.generate(estados.length, (_) => const []);
     final recibidos = List<bool>.filled(estados.length, false);
     final subs = <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
@@ -733,7 +736,7 @@ class PedidoService {
               .listen((qs) {
             porEstado[i] = qs.docs.map(PedidoModel.fromSnapshot).toList();
             recibidos[i] = true;
-            // Recién cuando las 5 consultas respondieron se publica la lista
+            // Recién cuando todas las consultas respondieron se publica la lista
             // (antes se veía un número parcial que luego "saltaba").
             if (recibidos.every((r) => r)) {
               final todos = porEstado.expand((l) => l).toList()
@@ -770,11 +773,10 @@ class PedidoService {
   /// (no necesita ver los ya entregados o cancelados). Antes leía TODOS los
   /// pedidos del negocio (cientos de lecturas cada vez); ahora solo los que
   /// están en curso.
+  /// Solo abre 2 consultas (Pendiente y En preparación), no las 5 de
+  /// [streamPedidosEnCurso]: menos lecturas en el plan gratuito.
   Stream<List<PedidoModel>> streamPedidosCocina(String idNegocio) =>
-      streamPedidosEnCurso(idNegocio).map((lista) => lista
-          .where((p) =>
-              p.estado == PedidoEstado.pendiente || p.estado == PedidoEstado.enPreparacion)
-          .toList());
+      _porEstados(idNegocio, const [PedidoEstado.pendiente, PedidoEstado.enPreparacion]);
 
   /// Un solo pedido, en vivo (detalle). Lee 1 documento, no la lista
   /// completa del negocio.

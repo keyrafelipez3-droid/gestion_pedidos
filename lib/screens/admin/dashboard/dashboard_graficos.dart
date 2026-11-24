@@ -34,6 +34,12 @@ enum PeriodoDashboard {
   }
 }
 
+/// Días de pedidos que hay que leer para ver [periodo] y compararlo con el
+/// anterior: 14 para Hoy y 7 días, 60 solo cuando se elige 30 días. Así
+/// entrar al panel no lee dos meses de pedidos (plan gratuito: 50.000
+/// lecturas por día).
+int diasACargar(PeriodoDashboard periodo) => periodo == PeriodoDashboard.mes ? 60 : 14;
+
 /// Botones Hoy / 7 días / 30 días.
 class SelectorPeriodo extends StatelessWidget {
   final PeriodoDashboard valor;

@@ -60,6 +60,7 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
   late Stream<List<CajaModel>> _cajas;
   late Stream<List<SucursalModel>> _sucursales;
   late DateTime _hoy;
+  int _diasCargados = 14;
 
   @override
   void initState() {
@@ -75,7 +76,16 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
 
   void _abrir() {
     _hoy = inicioDelDia(DateTime.now());
-    final desde = _hoy.subtract(const Duration(days: 59));
+    _diasCargados = diasACargar(_periodo);
+    _abrirPedidos();
+    _enCurso = PedidoService.instancia.streamPedidosEnCurso(widget.idNegocio);
+    _cajas = DashboardService.instancia.streamCajasAbiertas(widget.idNegocio);
+    _sucursales = SucursalService.instancia.streamSucursales(widget.idNegocio);
+  }
+
+  /// Ventas y cancelados de los últimos [_diasCargados] días.
+  void _abrirPedidos() {
+    final desde = _hoy.subtract(Duration(days: _diasCargados - 1));
     final hasta = _hoy.add(const Duration(days: 1));
     _ventas = PedidoService.instancia.streamVentas(
       idNegocio: widget.idNegocio,
@@ -88,9 +98,19 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
       desde: desde,
       hasta: hasta,
     );
-    _enCurso = PedidoService.instancia.streamPedidosEnCurso(widget.idNegocio);
-    _cajas = DashboardService.instancia.streamCajasAbiertas(widget.idNegocio);
-    _sucursales = SucursalService.instancia.streamSucursales(widget.idNegocio);
+  }
+
+  /// Cambia el periodo; si necesita más días de los ya leídos (30 días),
+  /// recién entonces los pide.
+  void _elegirPeriodo(PeriodoDashboard p) {
+    setState(() {
+      _periodo = p;
+      final dias = diasACargar(p);
+      if (dias > _diasCargados) {
+        _diasCargados = dias;
+        _abrirPedidos();
+      }
+    });
   }
 
   @override
@@ -185,7 +205,7 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
               runSpacing: AppSpacing.sm,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                SelectorPeriodo(valor: _periodo, onChanged: (p) => setState(() => _periodo = p)),
+                SelectorPeriodo(valor: _periodo, onChanged: _elegirPeriodo),
                 OutlinedButton.icon(
                   onPressed: ventas == null
                       ? null
