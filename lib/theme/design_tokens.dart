@@ -30,31 +30,9 @@ class AppBrand {
   static const String nombre = 'Nami';
   static const String eslogan = 'Pedidos de comida';
 
-  /// Un logo para cada momento del día: mañana (plato verde), tarde
-  /// (plato locoto con vapor) y noche (cuchara sobre verde oliva).
-  static const String logoManana = 'assets/images/logo_dia.png';
-  static const String logoTarde = 'assets/images/logo_nami.png';
-  static const String logoNoche = 'assets/images/logo_noche.png';
-
-  /// 'manana' de 6:00 a 11:59, 'tarde' de 12:00 a 18:59 y 'noche' de
-  /// 19:00 a 5:59.
-  static String momento([DateTime? ahora]) {
-    final hora = (ahora ?? DateTime.now()).hour;
-    if (hora >= 6 && hora < 12) return 'manana';
-    if (hora >= 12 && hora < 19) return 'tarde';
-    return 'noche';
-  }
-
-  static String get logoAsset {
-    switch (momento()) {
-      case 'manana':
-        return logoManana;
-      case 'tarde':
-        return logoTarde;
-      default:
-        return logoNoche;
-    }
-  }
+  /// El único logo de la marca: el plato locoto con vapor ("el de la
+  /// tarde"). Se usa en todos los íconos y en la app a toda hora.
+  static const String logoAsset = 'assets/images/logo_nami.png';
 
   static const String fuente = 'Poppins';
 

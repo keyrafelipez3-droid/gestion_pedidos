@@ -12,6 +12,7 @@ import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/app_sidebar.dart';
 import '../../widgets/app_stat_card.dart';
+import '../../widgets/logo_nami.dart';
 import '../cuenta/mi_cuenta_screen.dart';
 import '../superadmin/superadmin_negocios_screen.dart';
 import '../superadmin/superadmin_solicitudes_screen.dart';
@@ -587,10 +588,15 @@ class _BannerBienvenida extends StatelessWidget {
         // de raíz.
         height: 156,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          // Franja formal con el color de la marca (berenjena), igual que
+          // el saludo de la pantalla de Inicio.
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0B0B0B), Color(0xFF2A2418)],
+            colors: [
+              AppBrand.berenjena,
+              Color.lerp(AppBrand.berenjena, scheme.primary, 0.45)!,
+            ],
           ),
         ),
         child: Stack(
@@ -627,27 +633,43 @@ class _BannerBienvenida extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          nombre.isEmpty ? _saludo() : '${_saludo()}, $nombre',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
+                          _saludo().toUpperCase(),
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: AppBrand.aji,
+                                letterSpacing: 1.4,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
+                        if (nombre.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            nombre,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ],
                         const SizedBox(height: 4),
                         Text(
                           subtitulo,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.9),
+                                color: Colors.white.withValues(alpha: 0.85),
                               ),
                         ),
                       ],
                     ),
                   ),
                   if (!tieneImagen)
-                    Icon(
-                      Icons.storefront,
-                      size: 48,
-                      color: scheme.primary,
+                    const ExcludeSemantics(
+                      child: Opacity(
+                        opacity: 0.9,
+                        child: LogoNami(size: 72, conFondo: false),
+                      ),
                     ),
                 ],
               ),
@@ -675,23 +697,23 @@ class _FilaEstadisticas extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final semantic = context.semanticColors;
-    return Wrap(
-      spacing: AppSpacing.md,
-      runSpacing: AppSpacing.md,
-      children: [
+    final tarjetas = [
         AppStatCard(
+          ancho: null,
           icon: Icons.fastfood_outlined,
           color: scheme.primary,
           etiqueta: 'Productos',
           stream: CatalogoService.instancia.streamProductos(idNegocio).map((l) => l.length),
         ),
         AppStatCard(
+          ancho: null,
           icon: Icons.category_outlined,
           color: scheme.tertiary,
           etiqueta: 'Categorías',
           stream: CatalogoService.instancia.streamCategorias(idNegocio).map((l) => l.length),
         ),
         AppStatCard(
+          ancho: null,
           icon: Icons.people_outline,
           color: semantic.info,
           etiqueta: 'Clientes',
@@ -700,18 +722,50 @@ class _FilaEstadisticas extends StatelessWidget {
               .map((l) => l.length),
         ),
         AppStatCard(
+          ancho: null,
           icon: Icons.badge_outlined,
           color: semantic.warning,
           etiqueta: 'Empleados',
           stream: AdminService.instancia.streamEmpleados(idNegocio).map((l) => l.length),
         ),
         AppStatCard(
+          ancho: null,
           icon: Icons.location_city_outlined,
           color: semantic.success,
           etiqueta: 'Sucursales',
           stream: SucursalService.instancia.streamSucursales(idNegocio).map((l) => l.length),
         ),
-      ],
+    ];
+    // Las tarjetas llenan siempre todo el ancho: 5 en una fila en pantallas
+    // anchas, 3 + 2 en tablet y 2 + 2 + 1 en el celular (la última fila se
+    // reparte el espacio, así no queda un hueco vacío al costado).
+    return LayoutBuilder(
+      builder: (context, restricciones) {
+        final w = restricciones.maxWidth;
+        final columnas = w >= 820 ? 5 : (w >= 520 ? 3 : 2);
+        final filas = <List<Widget>>[];
+        for (var i = 0; i < tarjetas.length; i += columnas) {
+          filas.add(tarjetas.sublist(i, (i + columnas).clamp(0, tarjetas.length)));
+        }
+        return Column(
+          children: [
+            for (var f = 0; f < filas.length; f++) ...[
+              if (f > 0) const SizedBox(height: AppSpacing.md),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < filas[f].length; i++) ...[
+                      if (i > 0) const SizedBox(width: AppSpacing.md),
+                      Expanded(child: filas[f][i]),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

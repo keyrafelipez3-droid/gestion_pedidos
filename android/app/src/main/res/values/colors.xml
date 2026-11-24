@@ -4,4 +4,5 @@
     <color name="caro_negro">#FF070605</color>
     <!-- Verde menta del ícono de Nami (fondo del ícono adaptativo). -->
     <color name="nami_menta">#FFE6F7EF</color>
+    <color name="nami_berenjena">#FF2A1730</color>
 </resources>

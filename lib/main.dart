@@ -20,6 +20,8 @@ import 'utils/navegacion.dart';
 import 'widgets/aviso_actualizacion.dart';
 import 'widgets/aviso_almacenamiento.dart';
 import 'widgets/aviso_sin_conexion.dart';
+import 'widgets/mensajero_nami.dart';
+import 'widgets/panel_lateral.dart';
 import 'widgets/vigilante_inactividad.dart';
 
 Future<void> main() async {
@@ -102,13 +104,20 @@ class MyApp extends StatelessWidget {
       builder: (context, negocio, _) {
         return MaterialApp(
           navigatorKey: navigatorKey,
-          scaffoldMessengerKey: mensajesKey,
-          // Cierra la sesión del personal tras 20 minutos sin uso.
+          // Los mensajes cortos (SnackBar) se muestran arriba, no abajo
+          // (ver MensajeroNami). Cierra la sesión del personal tras 20
+          // minutos sin uso.
           builder: (context, child) => EscalaTexto(
-            child: VigilanteInactividad(
-              child: AvisoActualizacion(
-                child: AvisoSinConexion(
-                  child: AvisoAlmacenamiento(child: child ?? const SizedBox.shrink()),
+            child: MensajeroNami(
+              key: mensajesKey,
+              child: VigilanteInactividad(
+                child: AvisoActualizacion(
+                  child: AvisoSinConexion(
+                    child: AvisoAlmacenamiento(
+                      // Panel de avisos fijo a la derecha en pantallas anchas.
+                      child: AnfitrionPanelLateral(child: child ?? const SizedBox.shrink()),
+                    ),
+                  ),
                 ),
               ),
             ),

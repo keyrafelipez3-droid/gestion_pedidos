@@ -961,11 +961,22 @@ describe('Lista pública de restaurantes (inicio de sesión)', () => {
     await assertFails(getDoc(doc(anon, 'negocios', 'n1')));
   });
 
-  test('la lista pública solo acepta nombre, logo, color y ciudad', async () => {
+  test('la lista pública solo acepta nombre, logo, color, ciudad y el código', async () => {
     await assertSucceeds(setDoc(doc(como('super1'), 'directorio', 'n1'), publico));
     await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, nit: '123' }));
-    await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, codigo: 'POLLO1' }));
     await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, nombre: '' }));
+  });
+
+  test('la tarjeta muestra el código real del restaurante, nunca uno inventado o de otro', async () => {
+    // POLLO1 es el código de n1; OTRA22 es de n2.
+    await assertSucceeds(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, codigo: 'POLLO1' }));
+    await assertSucceeds(setDoc(doc(como('admin1'), 'directorio', 'n1'), { ...publico, codigo: 'POLLO1' }));
+    await assertSucceeds(setDoc(doc(como('admin1'), 'directorio', 'n1'), { ...publico, codigo: '' }));
+    await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, codigo: 'OTRA22' }));
+    await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, codigo: 'NOEXISTE' }));
+    await assertFails(setDoc(doc(como('admin1'), 'directorio', 'n1'), { ...publico, codigo: 'OTRA22' }));
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(anon, 'directorio', 'n1')));
   });
 
   test('el Administrador publica solo su restaurante, y solo si está activo', async () => {
