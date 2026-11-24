@@ -181,9 +181,12 @@ class _LoginScreenState extends State<LoginScreen>
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _iniciarSesion,
       onOlvide: _olvidePassword,
-      onVerRestaurantes: (esAmplio && MediaQuery.sizeOf(context).height >= 600)
-          ? null
-          : _verRestaurantes,
+      // En el celular el acceso va arriba, en la barra (no en el formulario);
+      // en una ventana de computadora muy baja, sin carrusel, va en el
+      // formulario.
+      onVerRestaurantes: (esAmplio && MediaQuery.sizeOf(context).height < 600)
+          ? _verRestaurantes
+          : null,
       entrada: _entrada,
       inicioEntrada: _finBienvenida - 0.02,
     );
@@ -253,12 +256,32 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       backgroundColor: scheme.surface,
       floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
-      floatingActionButton: const SafeArea(
+      floatingActionButton: SafeArea(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            BotonTamanoTexto(color: Colors.white),
-            BotonIdioma(color: Colors.white),
+            // Botón compacto y bien visible para ver los restaurantes con
+            // su código, sin llenar la pantalla de tarjetas.
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: AppSpacing.xs),
+              child: FilledButton.icon(
+                onPressed: _verRestaurantes,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppBrand.aji,
+                  foregroundColor: AppBrand.berenjena,
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
+                  minimumSize: const Size(0, 44),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                icon: const Icon(Icons.storefront_outlined, size: 20),
+                label: Text(tr('Restaurantes')),
+              ),
+            ),
+            const BotonTamanoTexto(color: Colors.white),
+            const BotonIdioma(color: Colors.white),
           ],
         ),
       ),
