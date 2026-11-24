@@ -37,4 +37,13 @@ void main() {
     expect(elegidas.map((r) => r.id), ['a', 'c']);
     expect(ResenaService.seleccionarDestacadas([_r('x', 5, 'Bien'), _r('y', 5, 'Bien')], maximo: 1).length, 1);
   });
+
+  test('el mismo comentario en dos restaurantes se muestra una sola vez', () {
+    final elegidas = ResenaService.seleccionarDestacadas([
+      _r('a', 5, 'La mejor salteña de Sucre, sin exagerar.', dia: 3),
+      _r('b', 5, '  la mejor salteña de Sucre,  sin exagerar. ', dia: 2),
+      _r('c', 5, 'Café de verdad.', dia: 1),
+    ]);
+    expect(elegidas.map((r) => r.id), ['a', 'c']);
+  });
 }

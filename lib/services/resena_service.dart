@@ -59,7 +59,8 @@ class ResenaService {
   }
 
   /// De las reseñas visibles elige las que se muestran antes de entrar: 4 o
-  /// 5 estrellas, con comentario, una por cliente, primero las de más
+  /// 5 estrellas, con comentario, una por cliente y sin comentarios
+  /// repetidos, primero las de más
   /// estrellas y, entre ellas, las más recientes.
   static List<ResenaModel> seleccionarDestacadas(List<ResenaModel> resenas, {int maximo = 3}) {
     final candidatas = resenas
@@ -75,10 +76,16 @@ class ResenaService {
         return (b.fecha ?? DateTime(0)).compareTo(a.fecha ?? DateTime(0));
       });
     final clientes = <String>{};
+    // El mismo comentario en dos restaurantes (o de dos clientes) se
+    // muestra una sola vez.
+    final textos = <String>{};
     final elegidas = <ResenaModel>[];
     for (final r in candidatas) {
       if (elegidas.length >= maximo) break;
+      final texto = r.comentario.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      if (textos.contains(texto)) continue;
       if (r.idCliente.isNotEmpty && !clientes.add(r.idCliente)) continue;
+      textos.add(texto);
       elegidas.add(r);
     }
     return elegidas;
