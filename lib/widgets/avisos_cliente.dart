@@ -41,7 +41,7 @@ class _OyenteAvisosState extends State<OyenteAvisos> {
         duration: const Duration(seconds: 6),
         content: Row(
           children: [
-            Icon(iconoAviso(a.estado), color: Colors.white),
+            Icon(iconoAviso(a.estado)),
             const SizedBox(width: AppSpacing.sm),
             Expanded(child: Text(a.texto)),
           ],
