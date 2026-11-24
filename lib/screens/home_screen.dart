@@ -24,6 +24,7 @@ import '../widgets/aparecer_suave.dart';
 import '../widgets/app_status_badge.dart';
 import '../widgets/app_fotos_comida.dart';
 import '../widgets/avisos_cliente.dart';
+import '../widgets/avisos_personal.dart';
 import '../widgets/codigo_restaurante.dart';
 import '../widgets/logo_nami.dart';
 import 'admin/admin_home_screen.dart';
@@ -118,7 +119,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       const BotonIdioma(),
                     ],
                   )
-                : const SizedBox.shrink(),
+                // Personal: su campanita de avisos, también a la derecha.
+                : const CampanaAvisosPersonal(),
           ),
           // Tamaño de letra: para todos (clientes y personal).
           if (!angosto) const BotonTamanoTexto(),
@@ -205,7 +207,15 @@ class _HomeScreenState extends State<HomeScreen> {
               // cliente acepta los términos vigentes.
               child: PuertaAcuerdos(
                 usuario: usuario,
-                child: _ContenidoInicio(usuario: usuario, onMiCuenta: _abrirMiCuenta),
+                // El personal recibe los avisos de su rol (pedidos nuevos,
+                // cancelados, entregas, reseñas, solicitudes...) recién
+                // después de los dos pasos y de firmar su acuerdo.
+                child: usuario.esCliente
+                    ? _ContenidoInicio(usuario: usuario, onMiCuenta: _abrirMiCuenta)
+                    : OyenteAvisosPersonal(
+                        usuario: usuario,
+                        child: _ContenidoInicio(usuario: usuario, onMiCuenta: _abrirMiCuenta),
+                      ),
               ),
             ),
           );

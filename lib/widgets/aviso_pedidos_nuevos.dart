@@ -15,6 +15,10 @@ import '../utils/formato.dart';
 /// Los pedidos que ya existían al abrir la pantalla no avisan; solo los
 /// que llegan después. Se puede silenciar con el botón de la campana.
 class AvisoPedidosNuevos extends StatefulWidget {
+  /// Cuántas pantallas con este aviso están abiertas. Mientras haya una,
+  /// la campanita del personal no repite el mensaje de pedido nuevo.
+  static int abiertos = 0;
+
   final String idNegocio;
   final Widget child;
 
@@ -33,6 +37,7 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
   @override
   void initState() {
     super.initState();
+    AvisoPedidosNuevos.abiertos++;
     _escuchar();
   }
 
@@ -48,6 +53,7 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
 
   @override
   void dispose() {
+    AvisoPedidosNuevos.abiertos--;
     _sub?.cancel();
     super.dispose();
   }

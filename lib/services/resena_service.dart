@@ -33,6 +33,11 @@ class ResenaService {
   Stream<List<ResenaModel>> streamTodas(String idNegocio) =>
       _resenas(idNegocio).snapshots().map(_ordenar);
 
+  /// Las [limite] reseñas más recientes del negocio, visibles u ocultas
+  /// (solo el Administrador). Para los avisos: no lee todas las reseñas.
+  Stream<List<ResenaModel>> streamRecientes(String idNegocio, {int limite = 15}) =>
+      _resenas(idNegocio).orderBy('fecha', descending: true).limit(limite).snapshots().map(_ordenar);
+
   /// La reseña de un pedido, o null si todavía no se escribió.
   Stream<ResenaModel?> streamDePedido(String idNegocio, String idPedido) =>
       _resenas(idNegocio)
