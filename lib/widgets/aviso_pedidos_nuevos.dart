@@ -84,7 +84,7 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
         duration: const Duration(seconds: 8),
         content: Row(
           children: [
-            const Icon(Icons.notifications_active, color: Colors.white),
+            const Icon(Icons.notifications_active),
             const SizedBox(width: 10),
             Expanded(child: Text(texto)),
           ],

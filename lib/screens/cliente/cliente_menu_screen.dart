@@ -887,48 +887,116 @@ class _BarraCarrito extends StatelessWidget {
         final cantidad = items.fold<int>(0, (acc, i) => acc + i.cantidad);
         final total = CarritoService.instancia.calcularTotal(items);
         final scheme = Theme.of(context).colorScheme;
+        final textos = Theme.of(context).textTheme;
+        final sinAnimacion = MediaQuery.of(context).disableAnimations;
+        final estiloFuerte = textos.titleMedium?.copyWith(
+          color: scheme.onPrimary,
+          fontWeight: FontWeight.w800,
+        );
+        void abrir() => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TemaNegocio(
+                  negocio: negocio,
+                  child: CarritoScreen(negocio: negocio, idSucursal: idSucursal!),
+                ),
+              ),
+            );
+        // Barra del carrito bien visible: más alta, con borde y sombra del
+        // color de la marca, la cantidad en un globito de color contrario y
+        // una flecha. Entra deslizándose desde abajo y el globito "salta"
+        // cada vez que se agrega algo.
+        final barra = Material(
+          color: scheme.primary,
+          elevation: 6,
+          shadowColor: Colors.black54,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: scheme.onPrimary.withValues(alpha: 0.35), width: 1.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: idSucursal == null ? null : abrir,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 64),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(Icons.shopping_cart_rounded, color: scheme.onPrimary, size: 30),
+                        PositionedDirectional(
+                          top: -8,
+                          end: -12,
+                          child: TweenAnimationBuilder<double>(
+                            key: ValueKey(cantidad),
+                            tween: Tween(begin: sinAnimacion ? 1 : 0.6, end: 1),
+                            duration: sinAnimacion ? Duration.zero : const Duration(milliseconds: 450),
+                            curve: Curves.elasticOut,
+                            builder: (context, escala, hijo) => Transform.scale(scale: escala, child: hijo),
+                            child: Container(
+                              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                              padding: const EdgeInsets.symmetric(horizontal: 5),
+                              alignment: Alignment.center,
+                              // Rojo de "aviso", igual en todos los
+                              // temas: llama la atención sobre cualquier color.
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD32F2F),
+                                borderRadius: BorderRadius.circular(11),
+                                border: Border.all(color: scheme.primary, width: 2),
+                              ),
+                              child: Text(
+                                '$cantidad',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: AppSpacing.md + 4),
+                    Expanded(
+                      child: Text(
+                        tr('Ver carrito ({cantidad})', {'cantidad': cantidad}),
+                        style: estiloFuerte,
+                      ),
+                    ),
+                    Text(dinero(total), style: estiloFuerte),
+                    const SizedBox(width: AppSpacing.xs),
+                    Icon(Icons.arrow_forward_rounded, color: scheme.onPrimary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
         return SafeArea(
+          top: false,
           child: Center(
             heightFactor: 1,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 860),
               child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              ),
-              onPressed: idSucursal == null
-                  ? null
-                  : () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => TemaNegocio(
-                            negocio: negocio,
-                            child: CarritoScreen(
-                              negocio: negocio,
-                              idSucursal: idSucursal!,
-                            ),
-                          ),
-                        ),
-                      ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.shopping_cart_outlined),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(tr('Ver carrito ({cantidad})', {'cantidad': cantidad})),
-                    ],
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: sinAnimacion ? 1 : 0, end: 1),
+                  duration: sinAnimacion ? Duration.zero : const Duration(milliseconds: 380),
+                  curve: Curves.easeOutBack,
+                  builder: (context, t, hijo) => Opacity(
+                    opacity: t.clamp(0.0, 1.0),
+                    child: Transform.translate(offset: Offset(0, (1 - t) * 40), child: hijo),
                   ),
-                  Text(
-                    dinero(total),
-                    style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onPrimary),
-                  ),
-                ],
+                  child: barra,
+                ),
               ),
-            ),
-          ),
             ),
           ),
         );

@@ -70,7 +70,7 @@ class _OyenteAvisosPersonalState extends State<OyenteAvisosPersonal> {
         duration: const Duration(seconds: 6),
         content: Row(
           children: [
-            Icon(iconoAvisoPersonal(a.tipo), color: Colors.white),
+            Icon(iconoAvisoPersonal(a.tipo)),
             const SizedBox(width: AppSpacing.sm),
             Expanded(child: Text(a.texto)),
           ],
