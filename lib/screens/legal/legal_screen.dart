@@ -37,9 +37,10 @@ class LegalScreen extends StatelessWidget {
             onPressed: () async {
               final ok = await imprimirDocumentoLegal(
                 titulo: titulo,
-                subtitulo: version,
-                resumen: resumen,
+                subtitulo: '${AppConfig.nombrePlataforma} · $version',
                 secciones: secciones,
+                // Todos los roles menos el SuperAdmin: espacio para firmar.
+                espacioFirma: espacioFirmaDeLaSesion(),
               );
               if (!ok && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(

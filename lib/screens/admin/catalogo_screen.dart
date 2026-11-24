@@ -16,6 +16,7 @@ import '../../services/sesion_actual.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../widgets/app_cargando.dart';
 import '../../utils/formato.dart';
+import '../../widgets/campo_desplegable.dart';
 
 class CatalogoScreen extends StatefulWidget {
   /// Pestaña con la que se abre la pantalla (0=Categorías, 1=Productos,
@@ -92,6 +93,9 @@ class _CategoriasTab extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(item == null ? 'Nueva categoría' : 'Editar categoría'),
         content: SizedBox(
           width: 420,
@@ -490,7 +494,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                         ),
                     ],
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    CampoDesplegable<String>(
                       initialValue: idCategoria.isEmpty ? null : idCategoria,
                       decoration: const InputDecoration(
                         labelText: 'Categoría',
@@ -881,10 +885,31 @@ class _ComplementosTab extends StatelessWidget {
       text: item == null ? '' : item.precio.toStringAsFixed(2),
     );
     final key = GlobalKey<FormState>();
+    // Productos en los que se ofrece (ninguno marcado = en todos).
+    final idNegocio = SesionActual.instancia.idNegocio!;
+    var productos = <ProductoModel>[];
+    try {
+      productos = (await CatalogoService.instancia.streamProductos(idNegocio).first)
+          .where((p) => p.estado)
+          .toList();
+    } catch (_) {
+      // Sin conexión: se puede guardar igual, sin cambiar los productos.
+    }
+    final elegidos = <String>{...?item?.productos};
+    if (!context.mounted) {
+      nombre.dispose();
+      descripcion.dispose();
+      precio.dispose();
+      return;
+    }
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogo) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(item == null ? 'Nuevo extra' : 'Editar extra'),
         content: SizedBox(
           width: 420,
@@ -925,6 +950,35 @@ class _ComplementosTab extends StatelessWidget {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    elegidos.isEmpty
+                        ? 'Se ofrece en: todos los productos'
+                        : 'Se ofrece en: ${elegidos.length} producto(s)',
+                    style: Theme.of(ctx).textTheme.labelLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final p in productos)
+                      FilterChip(
+                        label: Text(p.nombre),
+                        selected: elegidos.contains(p.id),
+                        onSelected: (marcado) => setDialogo(() {
+                          if (marcado) {
+                            elegidos.add(p.id);
+                          } else {
+                            elegidos.remove(p.id);
+                          }
+                        }),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -943,6 +997,7 @@ class _ComplementosTab extends StatelessWidget {
                     precio: double.parse(precio.text.replaceAll(',', '.')),
                     estado: item?.estado ?? true,
                     idNegocio: SesionActual.instancia.idNegocio,
+                    productos: elegidos.toList(),
                   ),
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -956,6 +1011,7 @@ class _ComplementosTab extends StatelessWidget {
             child: const Text('Guardar'),
           ),
         ],
+      ),
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -997,7 +1053,8 @@ class _ComplementosTab extends StatelessWidget {
                   title: Text(item.nombre),
                   subtitle: Text(
                     '${dinero(item.precio)} · '
-                    '${item.descripcion.isEmpty ? 'Sin descripción' : item.descripcion}',
+                    '${item.descripcion.isEmpty ? 'Sin descripción' : item.descripcion} · '
+                    '${item.productos.isEmpty ? 'Todos los productos' : '${item.productos.length} producto(s)'}',
                   ),
                   onTap: () => _editar(context, item: item),
                   trailing: Wrap(
@@ -1057,6 +1114,9 @@ class _VariantesTab extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
+          // Con el teclado abierto el contenido se desplaza en vez de
+          // encimarse con los botones.
+          scrollable: true,
           title: Text(item == null ? 'Nueva variante' : 'Editar variante'),
           content: SizedBox(
             width: 420,
@@ -1065,7 +1125,7 @@ class _VariantesTab extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<String>(
+                  CampoDesplegable<String>(
                     initialValue: idProducto,
                     decoration: const InputDecoration(
                       labelText: 'Producto',

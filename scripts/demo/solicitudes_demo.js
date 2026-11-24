@@ -47,11 +47,14 @@ async function contarCuentas() {
 const hace = (dias, horas = 0) =>
   admin.firestore.Timestamp.fromDate(new Date(Date.now() - (dias * 24 + horas) * 3600 * 1000));
 
+// Los nombres no repiten los restaurantes de ejemplo que ya funcionan
+// (los crea datos_demo.js), para que el SuperAdmin no vea una solicitud de
+// un negocio que ya está activo.
 const ejemplos = [
   {
     clave: 'salteneria',
     nombreSolicitante: 'Mariela Quispe',
-    nombreNegocio: 'Salteñería Doña Mari',
+    nombreNegocio: 'Salteñas La Tradicional',
     ciudad: 'Cochabamba',
     telefono: '+59171234567',
     nit: '4512378019',
@@ -71,7 +74,7 @@ const ejemplos = [
   {
     clave: 'cafe',
     nombreSolicitante: 'Lucía Fernández',
-    nombreNegocio: 'Café Altura',
+    nombreNegocio: 'Café del Prado',
     ciudad: 'La Paz',
     telefono: '+59172201133',
     nit: '',
@@ -81,7 +84,7 @@ const ejemplos = [
   {
     clave: 'cevicheria',
     nombreSolicitante: 'Renzo Salazar',
-    nombreNegocio: 'Cevichería Mar Azul',
+    nombreNegocio: 'Cevichería El Muelle',
     ciudad: 'Lima, Perú',
     telefono: '+51987654321',
     nit: '20601234567',
@@ -91,7 +94,7 @@ const ejemplos = [
   {
     clave: 'taqueria',
     nombreSolicitante: 'Ana Gutiérrez',
-    nombreNegocio: 'Taquería La Esquina',
+    nombreNegocio: 'Taquería Los Compadres',
     ciudad: 'Guadalajara, México',
     telefono: '+523312345678',
     nit: 'GUTA850312AB1',

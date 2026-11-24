@@ -11,6 +11,7 @@ import 'l10n/idioma.dart';
 import 'l10n/tamano_texto.dart';
 import 'models/negocio_model.dart';
 import 'screens/auth_gate.dart';
+import 'screens/legal/legal_screen.dart';
 import 'services/app_theme_controller.dart';
 import 'services/codigo_negocio_service.dart';
 import 'services/registro_errores.dart';
@@ -124,10 +125,25 @@ class MyApp extends StatelessWidget {
           // negocio, guardada junto con el resto de la personalización.
           darkTheme: AppThemeController.instancia.buildTheme(Brightness.dark),
           themeMode: negocio?.modoOscuro == true ? ThemeMode.dark : ThemeMode.light,
-          home: const AuthGate(),
+          home: _pantallaInicial(),
         );
       },
       ),
     );
   }
+}
+
+/// En la web, /privacidad y /terminos se pueden abrir sin iniciar sesión:
+/// Play Store pide un enlace público a la Política de privacidad.
+Widget _pantallaInicial() {
+  if (kIsWeb) {
+    final ruta = Uri.base.path.replaceAll(RegExp(r'/+$'), '');
+    if (ruta == '/privacidad') {
+      return const LegalScreen(tipo: TipoTextoLegal.politicaPrivacidad);
+    }
+    if (ruta == '/terminos') {
+      return const LegalScreen(tipo: TipoTextoLegal.terminos);
+    }
+  }
+  return const AuthGate();
 }

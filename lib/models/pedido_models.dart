@@ -93,6 +93,10 @@ class PedidoModel {
   final String notas;
   final DateTime? fechaCreacion;
 
+  /// Cuándo se canceló (solo pedidos cancelados desde esta versión; los
+  /// anteriores no la tienen).
+  final DateTime? fechaCancelacion;
+
   /// `cliente` (por defecto, pedidos de la app) o `cajero` (pedido de mesa
   /// registrado por el personal; en ese caso `idCliente` queda vacío).
   final String origen;
@@ -191,6 +195,7 @@ class PedidoModel {
     this.total = 0,
     this.notas = '',
     this.fechaCreacion,
+    this.fechaCancelacion,
     this.origen = PedidoOrigen.cliente,
     this.creadoPor,
     this.numeroMesa,
@@ -240,6 +245,16 @@ class PedidoModel {
   bool get esParaMasTarde =>
       programadoPara != null &&
       programadoPara!.isAfter(DateTime.now().add(const Duration(minutes: 45)));
+
+  /// Pedido sin terminar que quedó olvidado: pasó más de un día desde que
+  /// se hizo (o desde la hora para la que se programó). Solo se usa en el
+  /// dashboard para avisar al Administrador y dejarlo cerrar.
+  bool get abandonado {
+    if (estado == PedidoEstado.entregado || estado == PedidoEstado.cancelado) return false;
+    final desde = programadoPara ?? fechaCreacion;
+    if (desde == null || esParaMasTarde) return false;
+    return DateTime.now().difference(desde) > const Duration(hours: 24);
+  }
 
   bool get esDelivery => modalidad == PedidoModalidad.delivery;
 
@@ -331,6 +346,7 @@ class PedidoModel {
       total: rawTotal is num ? rawTotal.toDouble() : 0,
       notas: data['notas'] as String? ?? '',
       fechaCreacion: ts?.toDate(),
+      fechaCancelacion: (data['fechaCancelacion'] as Timestamp?)?.toDate(),
       origen: data['origen'] as String? ?? PedidoOrigen.cliente,
       creadoPor: data['creadoPor'] as String?,
       numeroMesa: data['numeroMesa'] as String?,
@@ -400,13 +416,62 @@ class DetallePedidoModel {
 
   /// Campos del pedido con sus líneas. Cada producto tiene un solo precio
   /// en el pedido (el mapa `precios`); el subtotal de cada línea se calcula.
-  static Map<String, dynamic> camposDeLineas(List<DetallePedidoModel> lineas) => {
-        'lineasIds': [for (final l in lineas) l.idProducto],
-        'lineasCant': [for (final l in lineas) l.cantidad],
-        'lineasNombre': [for (final l in lineas) l.nombreProducto],
-        'lineasNotas': [for (final l in lineas) l.notas],
-        'precios': {for (final l in lineas) l.idProducto: l.precioUnitario},
-      };
+  ///
+  /// Las variantes y complementos elegidos van como líneas propias, justo
+  /// después de su producto y con la misma cantidad, para que las reglas
+  /// también revisen su precio. `lineasTipo` dice qué es cada línea:
+  /// 'p' producto, 'v' variante, 'c' complemento.
+  static Map<String, dynamic> camposDeLineas(List<DetallePedidoModel> lineas) {
+    final ids = <String>[];
+    final cant = <int>[];
+    final nombres = <String>[];
+    final notas = <String>[];
+    final tipos = <String>[];
+    final precios = <String, double>{};
+    void agregar(String id, int c, String nombre, String nota, String tipo, double precio) {
+      ids.add(id);
+      cant.add(c);
+      nombres.add(nombre);
+      notas.add(nota);
+      tipos.add(tipo);
+      precios[id] = precio;
+    }
+
+    for (final l in lineas) {
+      agregar(l.idProducto, l.cantidad, l.nombreProducto, l.notas, 'p', l.precioUnitario);
+      for (final v in l.variantes) {
+        agregar(v.id, l.cantidad, '+ ${v.nombre}', '', 'v', v.precio);
+      }
+      for (final c in l.complementos) {
+        agregar(c.id, l.cantidad, '+ ${c.nombre}', '', 'c', c.precio);
+      }
+    }
+    return {
+      'lineasIds': ids,
+      'lineasCant': cant,
+      'lineasNombre': nombres,
+      'lineasNotas': notas,
+      'lineasTipo': tipos,
+      'precios': precios,
+    };
+  }
+
+  /// Suma de las líneas como la calculan las reglas: cada producto y
+  /// después sus extras (cada extra es una línea más, con la misma cantidad).
+  static double sumar(List<DetallePedidoModel> lineas) {
+    var suma = 0.0;
+    for (final l in lineas) {
+      suma += l.precioUnitario * l.cantidad;
+      for (final o in [...l.variantes, ...l.complementos]) {
+        suma += o.precio * l.cantidad;
+      }
+    }
+    return suma;
+  }
+
+  /// Cuántas líneas ocupan en el pedido (cada extra es una línea más).
+  static int contarLineas(List<DetallePedidoModel> lineas) =>
+      lineas.fold(0, (n, l) => n + 1 + l.variantes.length + l.complementos.length);
 
   /// Lee las líneas de los datos de un pedido (lista vacía si no tiene).
   static List<DetallePedidoModel> desdePedido(Map<String, dynamic> data) {
@@ -416,15 +481,40 @@ class DetallePedidoModel {
     final nombres = data['lineasNombre'] is List ? data['lineasNombre'] as List : const [];
     final notas = data['lineasNotas'] is List ? data['lineasNotas'] as List : const [];
     final precios = data['precios'] is Map ? data['precios'] as Map : const {};
+    final tipos = data['lineasTipo'] is List ? data['lineasTipo'] as List : const [];
     final lista = <DetallePedidoModel>[];
     for (var i = 0; i < ids.length; i++) {
       final id = ids[i] as String? ?? '';
       final precio = (precios[id] as num?)?.toDouble() ?? 0;
       final cantidad = i < cant.length ? (cant[i] as num?)?.toInt() ?? 1 : 1;
+      final nombre = i < nombres.length ? nombres[i] as String? ?? '' : '';
+      final tipo = i < tipos.length ? tipos[i] : 'p';
+      // Una variante o un complemento se junta con su producto (la línea
+      // anterior), como estaba en el carrito.
+      if ((tipo == 'v' || tipo == 'c') && lista.isNotEmpty) {
+        final opcion = OpcionSeleccionada(
+          id: id,
+          nombre: nombre.startsWith('+ ') ? nombre.substring(2) : nombre,
+          precio: precio,
+        );
+        final p = lista.removeLast();
+        lista.add(DetallePedidoModel(
+          id: p.id,
+          idProducto: p.idProducto,
+          nombreProducto: p.nombreProducto,
+          precioUnitario: p.precioUnitario,
+          cantidad: p.cantidad,
+          variantes: tipo == 'v' ? [...p.variantes, opcion] : p.variantes,
+          complementos: tipo == 'c' ? [...p.complementos, opcion] : p.complementos,
+          notas: p.notas,
+          subtotal: p.subtotal + precio * p.cantidad,
+        ));
+        continue;
+      }
       lista.add(DetallePedidoModel(
         id: '$i',
         idProducto: id,
-        nombreProducto: i < nombres.length ? nombres[i] as String? ?? '' : '',
+        nombreProducto: nombre,
         precioUnitario: precio,
         cantidad: cantidad,
         notas: i < notas.length ? notas[i] as String? ?? '' : '',
@@ -491,4 +581,18 @@ class HistorialEstadoModel {
       fecha: ts?.toDate(),
     );
   }
+}
+
+/// Une las dos listas de pedidos cancelados (por fecha de cancelación y
+/// por fecha de creación), sin repetir ninguno, del cancelado más reciente
+/// al más antiguo. Los pedidos sin fecha de cancelación (cancelados antes
+/// de que existiera) se ordenan por su fecha de creación.
+List<PedidoModel> unirCancelados(List<PedidoModel> porCancelacion, List<PedidoModel> porCreacion) {
+  final porId = <String, PedidoModel>{};
+  for (final p in [...porCreacion, ...porCancelacion]) {
+    porId[p.id] = p;
+  }
+  DateTime fecha(PedidoModel p) =>
+      p.fechaCancelacion ?? p.fechaCreacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+  return porId.values.toList()..sort((a, b) => fecha(b).compareTo(fecha(a)));
 }

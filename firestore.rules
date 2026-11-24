@@ -244,6 +244,10 @@ service cloud.firestore {
         && p.lineasCant is list
         && p.lineasNombre is list && p.lineasNombre.size() == p.lineasIds.size()
         && p.lineasNotas is list && p.lineasNotas.size() == p.lineasIds.size()
+        // Que es cada linea: producto, variante o complemento (opcional).
+        && (!('lineasTipo' in p)
+            || (p.lineasTipo is list && p.lineasTipo.size() == p.lineasIds.size()
+                && p.lineasTipo.hasOnly(['p', 'v', 'c'])))
         && p.precios is map
         && p.subtotal is number
         && p.get('descuento', 0) is number
@@ -287,11 +291,40 @@ service cloud.firestore {
 
     // Quien puede cancelar pedidos: el Administrador siempre; el Cajero y
     // la Cocina segun los permisos de su negocio.
+    // Fecha de cancelacion de un pedido: es opcional (las versiones
+    // anteriores de la app no la mandan), pero si viene debe ser la hora
+    // del servidor y solo al pasar a Cancelado.
+    function fechaCancelacionValida() {
+      return !cambios().hasAny(['fechaCancelacion'])
+        || (request.resource.data.estado == 'Cancelado'
+            && resource.data.estado != 'Cancelado'
+            && request.resource.data.fechaCancelacion == request.time);
+    }
+
+    // Motivo obligatorio (bloquear un cliente u ocultar su resena): texto
+    // de 5 a 140 letras, igual que en la app (utils/motivo_obligatorio.dart).
+    function motivoValido(m) {
+      return m is string && m.trim().size() >= 5 && m.size() <= 140;
+    }
+
     function puedeCancelar() {
       let p = permisosDe(idNegocioActual());
       return isAdmin()
         || (isCajero() && p.get('cajeroCancelaPedidos', true) == true)
         || (isCocina() && p.get('cocinaCancelaPedidos', false) == true);
+    }
+
+    // Orden de los estados del pedido (igual que PedidoEstado en la app):
+    // nadie puede saltarse pasos ni volver atras.
+    function transicionValida(antes, despues) {
+      let siguientes = {
+        'Pendiente': ['En preparación', 'Cancelado'],
+        'En preparación': ['Listo', 'Cancelado'],
+        'Listo': ['En camino', 'Entregado', 'Cancelado'],
+        'En camino': ['En el lugar', 'Entregado', 'Cancelado'],
+        'En el lugar': ['Entregado', 'Cancelado']
+      };
+      return despues in siguientes.get(antes, []);
     }
 
     // Caja abierta (y todavia sin contar) del cajero que esta cobrando.
@@ -361,6 +394,10 @@ service cloud.firestore {
             && cambios().hasOnly(['nombre', 'telefono', 'fotoPerfil', 'notificacionesActivas', 'alergias',
                                   'acuerdoPersonal', 'terminosVersion', 'terminosAceptadosEn'])
             && alergiasValidas(request.resource.data.get('alergias', []))
+            && (!cambios().hasAny(['nombre'])
+                || (request.resource.data.nombre is string && request.resource.data.nombre.size() <= 80))
+            && (!cambios().hasAny(['telefono'])
+                || (request.resource.data.telefono is string && request.resource.data.telefono.size() <= 20))
             && (!cambios().hasAny(['acuerdoPersonal']) || acuerdoValido(request.resource.data.acuerdoPersonal))
             && (!cambios().hasAny(['terminosVersion', 'terminosAceptadosEn'])
                 || (request.resource.data.terminosVersion is string
@@ -489,7 +526,25 @@ service cloud.firestore {
             && cambios().hasOnly(['stock', 'disponible'])
             && request.resource.data.stock is int
             && request.resource.data.stock >= 0
-            && request.resource.data.stock < resource.data.stock);
+            && request.resource.data.stock < resource.data.stock)
+        // Al cancelar un pedido que ya se estaba preparando, quien cancela
+        // puede devolver al stock lo de ESE pedido, en la misma operacion.
+        || (puedeCancelar()
+            && resource.data.get('idNegocio', null) == idNegocioActual()
+            && cambios().hasOnly(['stock', 'disponible', 'devolucionDe', 'devolucionCombo'])
+            && resource.data.get('stock', null) is int
+            && request.resource.data.stock is int
+            && request.resource.data.stock > resource.data.stock
+            && (!('disponible' in cambios()) || request.resource.data.disponible == true)
+            && request.resource.data.devolucionDe is string
+            && get(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado != 'Cancelado'
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.estado == 'Cancelado'
+            && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.idNegocio == idNegocioActual()
+            && (documentId in getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.get('lineasIds', [])
+                // o viene dentro de un combo de ese pedido
+                || (request.resource.data.get('devolucionCombo', null) is string
+                    && request.resource.data.devolucionCombo in getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.devolucionDe)).data.get('lineasIds', [])
+                    && documentId in get(/databases/$(database)/documents/productos/$(request.resource.data.devolucionCombo)).data.get('comboIds', []))));
       allow delete: if isSuperAdmin()
         || (isAdmin() && resource.data.get('idNegocio', null) == idNegocioActual());
     }
@@ -563,7 +618,9 @@ service cloud.firestore {
         match /usos/{uidCliente} {
           allow read: if isSuperAdmin()
             || (isAdmin() && idNegocioActual() == documentId)
-            || (signedIn() && request.auth.uid == uidCliente);
+            || (signedIn() && request.auth.uid == uidCliente)
+            // Quien cancela pedidos lo consulta para devolver el cupon.
+            || (puedeCancelar() && idNegocioActual() == documentId);
           allow create: if signedIn()
             && request.auth.uid == uidCliente
             && request.resource.data.keys().hasOnly(['idPedido', 'fecha'])
@@ -573,7 +630,19 @@ service cloud.firestore {
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.get('codigoCupon', '') == codigo
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.idNegocio == documentId
             && getAfter(/databases/$(database)/documents/pedidos/$(request.resource.data.idPedido)).data.fechaCreacion == request.time;
-          allow update, delete: if isSuperAdmin();
+          allow update: if isSuperAdmin();
+          // Si el negocio cancela el pedido que uso el cupon, en la misma
+          // operacion se borra el uso y el cliente puede volver a usarlo.
+          allow delete: if isSuperAdmin()
+            // El propio cliente, al cancelar su pedido Pendiente.
+            || (signedIn()
+                && request.auth.uid == uidCliente
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.estado == 'Cancelado'
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.idCliente == uidCliente)
+            || (puedeCancelar()
+                && idNegocioActual() == documentId
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.estado == 'Cancelado'
+                && getAfter(/databases/$(database)/documents/pedidos/$(resource.data.idPedido)).data.idCliente == uidCliente);
         }
       }
 
@@ -618,7 +687,10 @@ service cloud.firestore {
             && fichaValida(request.resource.data))
           || (isAdmin()
             && idNegocioActual() == documentId
-            && cambios().hasOnly(['bloqueado', 'motivoBloqueo', 'fechaBloqueo', 'idAdminBloqueo']));
+            && cambios().hasOnly(['bloqueado', 'motivoBloqueo', 'fechaBloqueo', 'idAdminBloqueo'])
+            // Para bloquear hay que escribir el motivo.
+            && (request.resource.data.bloqueado != true
+                || motivoValido(request.resource.data.get('motivoBloqueo', null))));
 
         allow delete: if isSuperAdmin();
       }
@@ -659,10 +731,71 @@ service cloud.firestore {
           || (isAdmin()
               && idNegocioActual() == documentId
               && cambios().hasOnly(['estado', 'motivoModeracion', 'fechaModeracion', 'idAdminModeracion'])
-              && request.resource.data.estado in ['Visible', 'Oculta']);
+              && request.resource.data.estado in ['Visible', 'Oculta']
+              // Para ocultarla hay que escribir el motivo.
+              && (request.resource.data.estado != 'Oculta'
+                  || motivoValido(request.resource.data.get('motivoModeracion', null))));
 
         allow delete: if isSuperAdmin()
           || (signedIn() && resource.data.idCliente == request.auth.uid);
+      }
+
+      // Libro de reclamos del restaurante. El cliente presenta su reclamo
+      // (solo en un restaurante al que entro, y si nombra un pedido, tiene
+      // que ser suyo y de este negocio) y lo puede seguir. El Administrador
+      // del negocio lo atiende: lo pasa a "En revision" o lo resuelve con
+      // una respuesta. Nadie lo borra (salvo el SuperAdmin). Si el cliente
+      // elimina su cuenta, solo puede quitar su nombre del reclamo.
+      match /reclamos/{reclamoId} {
+        function pedidoDelCliente(id) {
+          let pedido = get(/databases/$(database)/documents/pedidos/$(id)).data;
+          return pedido.idCliente == request.auth.uid
+            && pedido.get('idNegocio', null) == documentId;
+        }
+
+        allow read: if isSuperAdmin()
+          || (isAdmin() && idNegocioActual() == documentId)
+          || (signedIn() && resource.data.idCliente == request.auth.uid);
+
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(
+               ['idNegocio', 'idCliente', 'nombreCliente', 'idPedido',
+                'motivo', 'descripcion', 'estado', 'fecha'])
+          && request.resource.data.idCliente == request.auth.uid
+          && request.resource.data.idNegocio == documentId
+          && request.resource.data.estado == 'Abierto'
+          && request.resource.data.fecha == request.time
+          && request.resource.data.motivo in ['Pedido incompleto', 'Producto en mal estado',
+               'Demora en la entrega', 'Cobro incorrecto', 'Mala atencion', 'Otro']
+          && request.resource.data.descripcion is string
+          && request.resource.data.descripcion.size() >= 10
+          && request.resource.data.descripcion.size() <= 1000
+          && request.resource.data.nombreCliente is string
+          && request.resource.data.nombreCliente.size() <= 60
+          && request.resource.data.idPedido is string
+          && request.resource.data.idPedido.size() <= 40
+          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)/misNegocios/$(documentId))
+          && (request.resource.data.idPedido == ''
+              || pedidoDelCliente(request.resource.data.idPedido));
+
+        allow update: if isSuperAdmin()
+          || (isAdmin()
+              && idNegocioActual() == documentId
+              && cambios().hasOnly(['estado', 'respuesta', 'fechaRespuesta', 'idRespondio'])
+              && request.resource.data.estado in ['En revision', 'Resuelto']
+              && request.resource.data.get('respuesta', '') is string
+              && request.resource.data.get('respuesta', '').size() <= 1000
+              && (request.resource.data.estado != 'Resuelto'
+                  || request.resource.data.get('respuesta', '').size() >= 5)
+              && (!('fechaRespuesta' in cambios()) || request.resource.data.fechaRespuesta == request.time)
+              && (!('idRespondio' in cambios()) || request.resource.data.idRespondio == request.auth.uid))
+          || (signedIn()
+              && resource.data.idCliente == request.auth.uid
+              && cambios().hasOnly(['idCliente', 'nombreCliente'])
+              && request.resource.data.idCliente == 'cuenta-eliminada'
+              && request.resource.data.nombreCliente == '');
+
+        allow delete: if isSuperAdmin();
       }
     }
 
@@ -704,6 +837,13 @@ service cloud.firestore {
           && lineasValidas(request.resource.data, pedidoId)
           && request.resource.data.get('notas', '') is string
           && request.resource.data.get('notas', '').size() <= 500
+          // Enlace del comprobante y nombre (delivery): de tamano normal.
+          && (request.resource.data.get('comprobantePagoUrl', null) == null
+              || (request.resource.data.comprobantePagoUrl is string
+                  && request.resource.data.comprobantePagoUrl.size() <= 500))
+          && (request.resource.data.get('nombreCliente', null) == null
+              || (request.resource.data.nombreCliente is string
+                  && request.resource.data.nombreCliente.size() <= 80))
           && request.resource.data.idNegocio is string
           && request.resource.data.fechaCreacion == request.time
           && request.resource.data.keys().hasOnly(
@@ -714,7 +854,7 @@ service cloud.firestore {
                 'nombreCliente', 'alergias', 'idiomaCliente',
                 'descuento', 'propina', 'codigoCupon', 'programadoPara',
                 'costoEnvio', 'zonaEntrega', 'conFactura',
-                'lineasIds', 'lineasCant', 'lineasNombre', 'lineasNotas', 'precios', 'subtotal'])
+                'lineasIds', 'lineasCant', 'lineasNombre', 'lineasNotas', 'lineasTipo', 'precios', 'subtotal'])
           && extrasPedidoValidos(request.resource.data)
           && cuponUnaVez(request.resource.data)
           && envioValido(request.resource.data)
@@ -725,6 +865,11 @@ service cloud.firestore {
           // HU-47: la sucursal no tiene los pedidos en pausa.
           && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
                .data.get('pedidosPausados', false) != true
+          // La sucursal y el negocio siguen activos.
+          && get(/databases/$(database)/documents/sucursales/$(request.resource.data.idSucursal))
+               .data.get('estado', true) != false
+          && get(/databases/$(database)/documents/negocios/$(request.resource.data.idNegocio))
+               .data.get('estado', true) != false
           && !clienteBloqueado(request.resource.data.idNegocio, request.auth.uid)
           // Solo puede pedir en un restaurante al que entro con su codigo y
           // cuyas condiciones vigentes acepto.
@@ -766,6 +911,15 @@ service cloud.firestore {
             && request.resource.data.get('facturaRazonSocial', null) == null
             && request.resource.data.get('alergias', []) == []
             && request.resource.data.get('notas', '') == '')
+        // El Cliente cancela su pedido mientras sigue Pendiente (antes de
+        // que el local lo acepte). Solo cambia el estado.
+        || (signedIn()
+            && resource.data.idCliente == request.auth.uid
+            && resource.data.get('origen', 'cliente') == 'cliente'
+            && resource.data.estado == 'Pendiente'
+            && request.resource.data.estado == 'Cancelado'
+            && cambios().hasOnly(['estado', 'fechaCancelacion'])
+            && fechaCancelacionValida())
         // Repartidor: toma un pedido Listo (queda asignado a el) y luego
         // avisa que llego y lo entrega. Solo cambia estado y sus datos.
         || (isRepartidor()
@@ -809,13 +963,15 @@ service cloud.firestore {
             && sucursalPermitida(resource.data.get('idSucursal', null))
             && (
               // Cambio de estado (Cocina, Cajero o Administrador).
-              (cambios().hasOnly(['estado'])
-                && request.resource.data.estado in ['Pendiente', 'En preparación', 'Listo',
-                     'En camino', 'En el lugar', 'Entregado', 'Cancelado']
+              (cambios().hasOnly(['estado', 'fechaCancelacion'])
+                && fechaCancelacionValida()
+                && transicionValida(resource.data.estado, request.resource.data.estado)
                 && (request.resource.data.estado != 'Cancelado' || puedeCancelar()))
               // Cierre de un pedido en camino: tambien se borra la posicion.
-              || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada'])
+              || (cambios().hasOnly(['estado', 'ubicacionRepartidor', 'ubicacionActualizada', 'fechaCancelacion'])
+                && fechaCancelacionValida()
                 && request.resource.data.estado in ['En camino', 'En el lugar', 'Entregado', 'Cancelado']
+                && transicionValida(resource.data.estado, request.resource.data.estado)
                 && (request.resource.data.estado != 'Cancelado' || puedeCancelar())
                 && request.resource.data.get('ubicacionRepartidor', null) == null
                 && request.resource.data.get('ubicacionActualizada', null) == null)
@@ -849,6 +1005,7 @@ service cloud.firestore {
               || (isCajero()
                 && cambios().hasOnly(['estado', 'cobrado', 'idCaja'])
                 && request.resource.data.estado == 'Entregado'
+                && transicionValida(resource.data.estado, 'Entregado')
                 && resource.data.get('cobrado', false) == false
                 && request.resource.data.cobrado == true
                 && cajaAbiertaDelCajero(request.resource.data.idCaja))
@@ -1063,7 +1220,11 @@ service cloud.firestore {
              ['mensaje', 'pila', 'contexto', 'plataforma', 'version', 'idUsuario', 'rol', 'idNegocio', 'fecha'])
         && request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 500
         && request.resource.data.get('pila', '') is string && request.resource.data.get('pila', '').size() <= 3000
-        && request.resource.data.get('contexto', '') is string && request.resource.data.get('contexto', '').size() <= 300;
+        && request.resource.data.get('contexto', '') is string && request.resource.data.get('contexto', '').size() <= 300
+        && request.resource.data.get('plataforma', '') is string && request.resource.data.get('plataforma', '').size() <= 20
+        && request.resource.data.get('version', '') is string && request.resource.data.get('version', '').size() <= 30
+        && request.resource.data.get('rol', '') is string && request.resource.data.get('rol', '').size() <= 30
+        && request.resource.data.get('idNegocio', '') is string && request.resource.data.get('idNegocio', '').size() <= 60;
       allow read, delete: if isSuperAdmin();
       allow update: if false;
     }
@@ -1075,6 +1236,18 @@ service cloud.firestore {
     match /plataforma/{documento} {
       allow read: if true;
       allow write: if isSuperAdmin();
+    }
+
+    // ------------------------------------------- resenas destacadas
+    // Pantalla de inicio de sesion: cualquiera, incluso sin sesion, puede
+    // listar las resenas VISIBLES de todos los negocios (consulta de grupo
+    // "resenas"), de a 20 como maximo. Solo listar: no se lee una resena
+    // suelta ni las ocultas. Muestran lo mismo que ya ven los clientes:
+    // nombre corto, estrellas y comentario (ver Politica de privacidad).
+    match /{ruta=**}/resenas/{resenaId} {
+      allow list: if resource.data.estado == 'Visible'
+        && request.query.limit != null
+        && request.query.limit <= 20;
     }
 
     match /{document=**} {

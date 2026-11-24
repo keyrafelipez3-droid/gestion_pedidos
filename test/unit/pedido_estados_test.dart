@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gestion_pedidos/models/carrito_models.dart';
 import 'package:gestion_pedidos/models/pedido_models.dart';
 
 /// Reglas de negocio de los estados del pedido: qué cambios se permiten.
@@ -104,6 +105,37 @@ void main() {
       expect(leidas.first.subtotal, 70);
       expect(leidas.last.nombreProducto, 'Soda');
       expect(DetallePedidoModel.desdePedido(const {}), isEmpty);
+    });
+
+    test('los extras van como líneas propias y se juntan al leerlas', () {
+      const lineas = [
+        DetallePedidoModel(
+          id: '',
+          idProducto: 'p1',
+          nombreProducto: 'Pollo',
+          precioUnitario: 35,
+          cantidad: 2,
+          variantes: [OpcionSeleccionada(id: 'v1', nombre: 'Grande', precio: 5)],
+          complementos: [OpcionSeleccionada(id: 'c1', nombre: 'Queso', precio: 3)],
+          subtotal: 86,
+        ),
+        DetallePedidoModel(
+            id: '', idProducto: 'p2', nombreProducto: 'Soda', precioUnitario: 8, cantidad: 1, subtotal: 8),
+      ];
+      final campos = DetallePedidoModel.camposDeLineas(lineas);
+      expect(campos['lineasIds'], ['p1', 'v1', 'c1', 'p2']);
+      expect(campos['lineasCant'], [2, 2, 2, 1]);
+      expect(campos['lineasTipo'], ['p', 'v', 'c', 'p']);
+      expect(campos['precios'], {'p1': 35, 'v1': 5, 'c1': 3, 'p2': 8});
+      expect(DetallePedidoModel.contarLineas(lineas), 4);
+      // El subtotal incluye los extras: 2 × (35 + 5 + 3) + 8.
+      expect(DetallePedidoModel.sumar(lineas), 94);
+      final leidas = DetallePedidoModel.desdePedido(campos);
+      expect(leidas.length, 2);
+      expect(leidas.first.variantes.single.nombre, 'Grande');
+      expect(leidas.first.complementos.single.precio, 3);
+      expect(leidas.first.subtotal, 86);
+      expect(leidas.last.subtotal, 8);
     });
   });
 }

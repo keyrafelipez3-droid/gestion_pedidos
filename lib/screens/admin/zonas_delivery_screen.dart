@@ -43,6 +43,9 @@ class _ZonasDeliveryScreenState extends State<ZonasDeliveryScreen> {
     final resultado = await showDialog<MapEntry<String, double>>(
       context: context,
       builder: (ctx) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(nombreActual == null ? 'Nueva zona' : 'Editar zona'),
         content: Form(
           key: key,

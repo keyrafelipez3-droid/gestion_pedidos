@@ -16,7 +16,7 @@ class AppConfig {
 
   /// Subir esta versión cada vez que cambien los textos legales. Se guarda
   /// junto con la aceptación de cada usuario.
-  static const String versionTerminos = '2026-10-27';
+  static const String versionTerminos = '2026-11-24';
 
   /// App Check (protección contra bots). Clave de sitio de reCAPTCHA v3
   /// para la versión web: vacía = desactivado. Ver Claude outputs/SEGURIDAD.md.
@@ -81,6 +81,9 @@ class AppConfig {
   /// Google Play pide este enlace en el formulario "Seguridad de los
   /// datos".
   static const String urlEliminacionCuenta = '$urlWeb/eliminar-cuenta.html';
+
+  /// Política de privacidad pública (sin iniciar sesión), para Play Store.
+  static const String urlPrivacidad = '$urlWeb/privacidad';
 
   /// Dirección de la versión web publicada en Firebase Hosting.
   static const String urlWeb = 'https://gestion-pedidos-univalle.web.app';

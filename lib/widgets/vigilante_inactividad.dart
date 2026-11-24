@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -29,23 +30,38 @@ class VigilanteInactividad extends StatefulWidget {
   State<VigilanteInactividad> createState() => _VigilanteInactividadState();
 }
 
-class _VigilanteInactividadState extends State<VigilanteInactividad> {
+class _VigilanteInactividadState extends State<VigilanteInactividad> with WidgetsBindingObserver {
   DateTime _ultimaActividad = DateTime.now();
   bool _avisado = false;
   Timer? _reloj;
+
+  /// Mientras se está cerrando la sesión no se vuelve a revisar. Antes,
+  /// si guardar el registro tardaba, se juntaban varios cierres y uno de
+  /// ellos sacaba a la persona apenas volvía a entrar.
+  bool _cerrando = false;
 
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_tecla);
+    WidgetsBinding.instance.addObserver(this);
     _reloj = Timer.periodic(const Duration(seconds: 15), (_) => _revisar());
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_tecla);
+    WidgetsBinding.instance.removeObserver(this);
     _reloj?.cancel();
     super.dispose();
+  }
+
+  /// En el celular, volver a abrir la app cuenta como actividad: el propio
+  /// teléfono ya tiene su bloqueo, y no se corta la sesión apenas se abre.
+  /// En la computadora de la caja (web) se sigue contando el tiempo.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState estado) {
+    if (!kIsWeb && estado == AppLifecycleState.resumed) _actividad();
   }
 
   bool _tecla(KeyEvent _) {
@@ -62,6 +78,7 @@ class _VigilanteInactividadState extends State<VigilanteInactividad> {
   }
 
   Future<void> _revisar() async {
+    if (_cerrando) return;
     final u = SesionActual.instancia.actual;
     if (u == null || u.esCliente || u.rol == Rol.cocina || u.rol == Rol.repartidor) {
       _ultimaActividad = DateTime.now();
@@ -84,13 +101,25 @@ class _VigilanteInactividadState extends State<VigilanteInactividad> {
 
   Future<void> _cerrarSesion() async {
     final u = SesionActual.instancia.actual;
-    if (u != null) {
-      await ActividadService.instancia.registrar(
-        ActividadTipo.sesion,
-        'Sesión cerrada por inactividad (${widget.limite.inMinutes} min)',
-      );
-      ActividadService.instancia.olvidarSesion(u.idUsuario);
-    }
+    if (u == null) return;
+    _cerrando = true;
+    try {
+      // El registro no puede demorar el cierre (sin conexión, la escritura
+      // queda esperando): se espera como máximo 3 segundos.
+      await ActividadService.instancia
+          .registrar(
+            ActividadTipo.sesion,
+            'Sesión cerrada por inactividad (${widget.limite.inMinutes} min)',
+          )
+          .timeout(const Duration(seconds: 3), onTimeout: () {});
+    } catch (_) {}
+    ActividadService.instancia.olvidarSesion(u.idUsuario);
+    _cerrando = false;
+    // Si mientras tanto la sesión ya cambió (cerró sesión, o entró otra
+    // vez), no se cierra la nueva.
+    if (AuthService.instancia.usuarioActualAuth?.uid != u.idUsuario) return;
+    // Si en esos segundos la persona tocó la app, sigue conectada.
+    if (DateTime.now().difference(_ultimaActividad) < widget.limite) return;
     _avisado = false;
     _ultimaActividad = DateTime.now();
     navigatorKey.currentState?.popUntil((r) => r.isFirst);

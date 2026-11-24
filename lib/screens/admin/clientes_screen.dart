@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/cliente_negocio_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/sesion_actual.dart';
+import '../../utils/motivo_obligatorio.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
@@ -86,28 +87,40 @@ class ClientesScreen extends StatelessWidget {
     }
 
     final motivoCtrl = TextEditingController();
+    final formulario = GlobalKey<FormState>();
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text('¿Bloquear a ${cliente.nombre}?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'No podrá hacer pedidos en tu negocio hasta que lo desbloquees. '
-              'En los demás negocios no se ve afectado.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: motivoCtrl,
-              maxLength: 140,
-              decoration: const InputDecoration(
-                labelText: 'Motivo (opcional)',
-                border: OutlineInputBorder(),
+        content: Form(
+          key: formulario,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'No podrá hacer pedidos en tu negocio hasta que lo desbloquees. '
+                'En los demás negocios no se ve afectado.',
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              // El motivo es obligatorio: no se bloquea a un cliente sin
+              // dejar escrito por qué.
+              TextFormField(
+                controller: motivoCtrl,
+                autofocus: true,
+                maxLength: motivoMaximo,
+                validator: validarMotivo,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo del bloqueo *',
+                  helperText: 'Obligatorio. Ej.: pedidos falsos repetidos.',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -115,7 +128,11 @@ class ClientesScreen extends StatelessWidget {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () {
+              if (formulario.currentState?.validate() ?? false) {
+                Navigator.of(context).pop(true);
+              }
+            },
             child: const Text('Bloquear'),
           ),
         ],

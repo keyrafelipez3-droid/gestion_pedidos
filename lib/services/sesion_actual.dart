@@ -1,10 +1,15 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
 import '../models/permisos_negocio.dart';
 import '../models/usuario_model.dart';
+import '../utils/navegacion.dart';
 import 'app_theme_controller.dart';
 import 'auth_service.dart';
+import 'pedido_service.dart';
 import 'permisos_service.dart';
 
 /// Guarda en memoria el `UsuarioModel` de quien tiene la sesión abierta,
@@ -41,6 +46,7 @@ class SesionActual {
       return;
     }
     usuario.value = u;
+    if (u != null) _vigilar(u);
     // El panel del personal se muestra siempre en español.
     IdiomaController.instancia.soloEspanol(u != null && !u.esCliente);
     if (u?.idNegocio != null) {
@@ -58,7 +64,10 @@ class SesionActual {
   /// Devuelve el usuario ya cargado, o lo carga si todavía no se hizo
   /// (ej. al entrar directo a una pantalla sin pasar por HomeScreen).
   Future<UsuarioModel?> obtener() async {
-    if (usuario.value == null) {
+    // Si quedó en memoria el usuario de otra sesión (por ejemplo, la sesión
+    // se cerró sin pasar por "Cerrar sesión"), se vuelve a cargar.
+    final uid = AuthService.instancia.usuarioActualAuth?.uid;
+    if (usuario.value == null || usuario.value!.idUsuario != uid) {
       await cargar();
     }
     return usuario.value;
@@ -67,10 +76,60 @@ class SesionActual {
   /// Se llama al cerrar sesión, para que la próxima persona que inicie
   /// sesión en el mismo dispositivo no vea datos ni tema de la anterior.
   void limpiar() {
+    _vigilancia?.cancel();
+    _vigilancia = null;
     usuario.value = null;
+    PedidoService.olvidarDatosLeidos();
     permisos = PermisosNegocio.porDefecto;
     IdiomaController.instancia.soloEspanol(false);
     AppThemeController.instancia.limpiar();
+  }
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _vigilancia;
+
+  /// Escucha el documento del usuario mientras tiene la sesión abierta. Si
+  /// el Administrador lo da de baja o le cambia el rol, el negocio o la
+  /// sucursal, la sesión se cierra al momento (no espera a que vuelva a
+  /// entrar). Otros cambios (nombre, firma del acuerdo) se actualizan solos.
+  void _vigilar(UsuarioModel u) {
+    _vigilancia?.cancel();
+    _vigilancia = FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(u.idUsuario)
+        .snapshots()
+        .listen((doc) {
+      final actual = usuario.value;
+      // Un documento borrado es la propia eliminación de la cuenta: de eso
+      // se encarga Mi cuenta.
+      if (actual == null || actual.idUsuario != doc.id || !doc.exists) return;
+      // Solo cuenta lo que confirma el servidor (la copia guardada en el
+      // dispositivo puede ser de antes).
+      if (doc.metadata.isFromCache) return;
+      final nuevo = UsuarioModel.fromSnapshot(doc);
+      if (!nuevo.estado) {
+        _cerrarSesion(tr('Tu cuenta fue desactivada. Consulta con el administrador.'));
+      } else if (!actual.esCliente &&
+          (nuevo.rol != actual.rol ||
+              nuevo.idNegocio != actual.idNegocio ||
+              nuevo.idSucursal != actual.idSucursal)) {
+        _cerrarSesion(tr('Cambiaron los permisos de tu cuenta. Vuelve a iniciar sesión.'));
+      } else if (nuevo.rol == actual.rol) {
+        // Un cliente cuya solicitud de negocio se aprobó pasa a
+        // Administrador al tocar "Ir al panel" (vuelve a cargar la cuenta).
+        usuario.value = nuevo;
+      }
+    }, onError: (_) {
+      // Sin permiso o sin conexión: se sigue con lo que ya se cargó.
+    });
+  }
+
+  Future<void> _cerrarSesion(String mensaje) async {
+    navigatorKey.currentState?.popUntil((r) => r.isFirst);
+    limpiar();
+    await AuthService.instancia.cerrarSesion();
+    mensajesKey.currentState
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   UsuarioModel? get actual => usuario.value;

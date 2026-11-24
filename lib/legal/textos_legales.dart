@@ -19,8 +19,11 @@ class SeccionLegal {
 /// la ubicación del repartidor), hay que actualizar este archivo y subir
 /// `AppConfig.versionTerminos`.
 ///
-/// Todos los documentos usan los mismos términos: "el restaurante" (el
-/// negocio que atiende), "la plataforma" (la app) y "tú" (quien lee).
+/// Los documentos están redactados en forma formal, en tercera persona y
+/// por cláusulas (PRIMERA.-, SEGUNDA.-…), para poder imprimirlos y firmarlos:
+/// "EL TITULAR", "LA PLATAFORMA", "EL USUARIO", "EL RESTAURANTE" y "EL
+/// CLIENTE". Cada cláusula tiene su "En simple" para leerla en la pantalla;
+/// la versión impresa va sin esas ayudas.
 class TextosLegales {
   TextosLegales._();
 
@@ -48,284 +51,290 @@ class TextosLegales {
             '${Paises.actual.autoridadConsumidor}.',
       ];
 
+  /// Política de privacidad, redactada en forma de documento formal (tercera
+  /// persona y cláusulas PRIMERA.-, SEGUNDA.-…), lista para imprimir y
+  /// firmar. Cada cláusula conserva su "En simple" para la pantalla.
   static List<SeccionLegal> politicaPrivacidad() {
     final p = Paises.actual;
-    return [
-        SeccionLegal('1. Quién es responsable', enSimple: 'La plataforma es la herramienta; el restaurante atiende tu pedido. Si tienes dudas sobre tus datos, escríbenos.', [
-          '${AppConfig.nombrePlataforma} es una plataforma ofrecida por '
-              '${AppConfig.titularPlataforma} para que distintos negocios '
-              'reciban y gestionen pedidos. Cada negocio aparece identificado '
-              'en su ficha y es quien atiende tu pedido.',
-          'Responsable del tratamiento de tus datos: '
-              '${AppConfig.titularPlataforma}, con domicilio en '
-              '${AppConfig.ciudadPais}. Para consultas sobre tus datos escribe a '
-              '${AppConfig.correoPrivacidad}.',
-          'Esta política sigue lo que exige ${p.leyDatos}, en ${p.nombre}: '
-              'pedir tu consentimiento, decirte para qué usamos tus datos y '
-              'respetar tus derechos sobre ellos.',
-        ]),
-        SeccionLegal('2. Qué datos recopilamos', enSimple: 'Guardamos solo lo necesario para atender tus pedidos: tus datos de contacto, tus direcciones y tus pedidos.', [
-          'Datos de tu cuenta: nombre, correo electrónico y teléfono. Tu '
-              'contraseña la gestiona el servicio de autenticación de Google '
-              'Firebase y nosotros no podemos verla.',
-          'Datos de entrega: las direcciones que guardes en tu cuenta. Si '
-              'eliges delivery, tu nombre y teléfono se guardan junto al '
-              'pedido para que el repartidor pueda contactarte.',
-          'Ubicación: el punto que marques en el mapa al guardar una dirección '
-              'de entrega. Si usas "Mi ubicación", el dispositivo te pide '
-              'permiso y la usamos solo para colocar ese punto; no la '
-              'guardamos de forma continua.',
-          'Ubicación del repartidor: mientras tu pedido de delivery va en '
-              'camino, el repartidor comparte su posición con la plataforma '
-              'y tú la ves en un mapa. Esa posición se borra cuando el pedido '
-              'se entrega.',
-          'Reseñas: si calificas un pedido, se publican tu nombre corto '
-              '(por ejemplo "Ana P."), las estrellas y tu comentario para los '
-              'demás clientes de ese negocio. Puedes borrarla cuando quieras.',
-          'Datos de tus pedidos: productos, total, forma de pago, notas y '
-              'estado, y el comprobante de pago si lo subes.',
-          'Imágenes que subas: foto de perfil y comprobantes de pago.',
-          'Alergias: si las marcas en tu cuenta o en un pedido, se guardan en '
-              'tu cuenta y en el pedido para que la cocina las vea. Es un dato '
-              'de salud: solo lo usamos para preparar tu pedido con seguridad y '
-              'puedes quitarlo cuando quieras en "Mi cuenta".',
-          'Datos para factura: si pides factura, tu número tributario o documento y la razón social '
-              'se guardan en el pedido para el negocio y, para no volver a '
-              'escribirlos, en tu dispositivo.',
-          'Idioma, tamaño de letra, avisos y si ya viste el aviso de almacenamiento: se guardan '
-              'solo en tu dispositivo (ver "Cookies y almacenamiento").',
-          'Copia para usar sin internet: en la app del celular se guarda en tu '
-              'teléfono una copia de los datos ya cargados, para que la app '
-              'funcione si se corta la conexión. En la versión web no se guarda '
-              'ninguna copia en el navegador.',
-          'Informes de fallas: si la app tiene una falla inesperada, se guarda '
-              'un informe técnico (mensaje de error, versión de la app, tipo de '
-              'dispositivo, tu rol y tu identificador de usuario, sin tu nombre '
-              'ni tus pedidos) para poder corregirla. Se borran periódicamente.',
-          'No usamos tus datos para publicidad de terceros.',
-        ]),
-        SeccionLegal('3. Para qué los usamos', enSimple: 'Usamos tus datos para atender tus pedidos y nada más.', [
-          'Para crear y mantener tu cuenta, procesar y entregar tus pedidos, '
-              'permitir que el negocio te contacte sobre un pedido, atender '
-              'reclamos, prevenir abusos (por ejemplo, el bloqueo de cuentas '
-              'por parte de un negocio) y cumplir obligaciones legales.',
-        ]),
-        SeccionLegal('4. Con quién los compartimos', enSimple: 'Tu restaurante ve lo necesario para tu pedido. No vendemos tus datos ni los usamos para publicidad.', [
-          'Con otros clientes del negocio: tus reseñas publicadas. El '
-              'negocio puede ocultar reseñas ofensivas y bloquear cuentas que '
-              'las escriban.',
-          'Con el negocio al que le haces un pedido: ve tu nombre, tu '
-              'teléfono, el contenido del pedido y, si eliges delivery, la '
-              'dirección de entrega. Si es delivery, el repartidor del negocio '
-              'que toma tu pedido ve tu nombre, teléfono y dirección para '
-              'entregarlo, y tú ves el nombre y teléfono del repartidor '
-              'mientras tu pedido va en camino. No compartimos tus datos con '
-              'los demás negocios de la plataforma.',
-          'Con proveedores técnicos que guardan o procesan la información por '
-              'nosotros (servicios de terceros):',
-          '• Google Firebase (Google LLC): cuentas, base de datos, verificación '
-              'de que la app es auténtica (App Check) y alojamiento de la web.',
-          '• Cloudinary: guarda las imágenes (fotos de productos, de perfil y '
-              'comprobantes).',
-          '• OpenStreetMap y su buscador Nominatim: muestran el mapa y buscan '
-              'direcciones; reciben el texto de la dirección que buscas y tu '
-              'dirección IP.',
-          '• MyMemory (Translated): traduce notas cuando usas la app en otro '
-              'idioma (ver más abajo).',
-          '• Google Fonts: algunas tipografías de los restaurantes se descargan '
-              'de los servidores de Google, que reciben tu dirección IP.',
-          'Estos proveedores pueden tener sus servidores fuera de tu país (por '
-              'ejemplo, en Estados Unidos o Europa). Al aceptar esta política '
-              'aceptas que tus datos se guarden allí, con las medidas de '
-              'seguridad de esos proveedores.',
-          'Traducción: si usas la app en otro idioma, el texto de tus notas y '
-              'de la referencia de tu dirección se envía al servicio de '
-              'traducción automática MyMemory para que el personal lo lea en '
-              'español. No envíes datos sensibles en las notas: para las '
-              'alergias usa la lista de la app, que no pasa por ese servicio.',
-          'No vendemos tus datos.',
-        ]),
-        SeccionLegal('5. Cuánto tiempo los conservamos', enSimple: 'Mientras tengas tu cuenta. Si la eliminas, borramos tu perfil; los pedidos quedan sin tu nombre.', [
-          'Mientras tengas tu cuenta activa. Si eliminas tu cuenta desde '
-              '"Mi cuenta", borramos tu perfil, tus direcciones, tus favoritos, '
-              'tus reseñas y tu carrito.',
-          'Los registros de pedidos pasados se conservan sin tu identificador '
-              'ni tu dirección, porque el negocio los necesita para su '
-              'contabilidad y para atender reclamos. Pueden conservarse el '
-              'comprobante de pago que hayas subido y el nombre que aparezca '
-              'en él.',
-          'Las imágenes guardadas en Cloudinary (foto de perfil y '
-              'comprobantes) no se pueden borrar desde la app. Si quieres que '
-              'las eliminemos, escríbenos a ${AppConfig.correoPrivacidad}.',
-        ]),
-        SeccionLegal('6. Tus derechos', enSimple: 'Puedes ver, corregir o borrar tus datos cuando quieras.', [
-          'En ${p.nombre}, ${p.leyDatos} reconoce tu derecho a la privacidad y '
-              'a conocer, corregir y eliminar tus datos personales.',
-          'Tienes derecho a: conocer qué datos tuyos tenemos (acceso), '
-              'corregirlos (rectificación), pedir que los borremos '
-              '(cancelación), oponerte a un uso concreto (oposición) y retirar '
-              'tu consentimiento en cualquier momento. Retirarlo no afecta lo '
-              'que se hizo antes con tu autorización.',
-          'Puedes ver y corregir tu nombre y teléfono en "Mi cuenta", y '
-              'eliminar tu cuenta en "Mi cuenta > Eliminar mi cuenta". Para '
-              'cualquier otra solicitud escribe a ${AppConfig.correoPrivacidad}: '
-              'te responderemos en un plazo máximo de 10 días hábiles.',
-          if (p.codigo == 'BO')
-            'Si consideras que tus datos se usan de forma indebida, también '
-                'puedes presentar una Acción de Protección de Privacidad ante un '
-                'juez (Constitución, arts. 130 y 131).'
-          else if (p.autoridadDatos.isNotEmpty)
-            'Si consideras que tus datos se usan de forma indebida, también '
-                'puedes presentar una queja ante ${p.autoridadDatos}.',
-          ...p.notas.where((n) => !n.contains('menú') && !n.contains('impuestos')),
-        ]),
-        SeccionLegal('7. Seguridad', enSimple: 'Cada persona ve solo lo que le corresponde.', [
-          'Los datos se guardan en servicios de Google Firebase con reglas '
-              'de acceso por rol: tú ves tus datos y el personal de un '
-              'negocio solo ve los pedidos de ese negocio. Ningún sistema es '
-              'infalible, por eso te recomendamos usar una contraseña única.',
-        ]),
-        SeccionLegal('8. Menores de edad', enSimple: 'Necesitas 18 años, o el permiso de tu madre, padre o tutor. Menores de 13, no.', [
-          'Para crear una cuenta debes tener 18 años o más. Si eres menor de '
-              'edad, solo puedes usar la plataforma con la autorización y '
-              'supervisión de tu madre, padre o tutor, que es responsable de '
-              'los pedidos que hagas.',
-          'La plataforma no está dirigida a menores de 13 años y no recopila '
-              'a sabiendas sus datos. Si descubrimos una cuenta de un menor de 13 '
-              'años, la eliminamos.',
-        ]),
-        const SeccionLegal('9. Cookies y almacenamiento',
-            enSimple: 'Solo guardamos en tu dispositivo lo necesario para que la app funcione. Nada de publicidad.', [
-          'La app guarda en tu navegador o en tu teléfono solo lo necesario para '
-              'funcionar: tu sesión (para no pedirte la contraseña cada vez), tu '
-              'idioma, el tamaño de letra, tus datos de factura si los recuerdas y '
-              'si ya viste el aviso de almacenamiento.',
-          'No usamos cookies de publicidad ni de seguimiento, ni herramientas de '
-              'analítica de terceros. Por eso no te pedimos elegir cookies: solo te '
-              'avisamos.',
-          'Puedes borrar estos datos cuando quieras desde la configuración de tu '
-              'navegador o cerrando sesión; la app volverá a pedirte entrar.',
-        ]),
-        SeccionLegal('10. Tu consentimiento', enSimple: 'Al aceptar, nos autorizas a usar tus datos como dice esta política.', [
-          'Al marcar la casilla de aceptación al crear tu cuenta das tu '
-              'consentimiento previo, expreso e informado para que tratemos '
-              'tus datos como explica esta política. Tus alergias (dato de '
-              'salud) solo se guardan si tú las marcas, y solo para preparar '
-              'tus pedidos con seguridad.',
-        ]),
-        SeccionLegal('11. Cambios en esta política', enSimple: 'Si algo cambia, te avisamos y te pedimos aceptar de nuevo.', [
-          'Si cambiamos esta política, te pediremos aceptar la nueva versión '
-              'antes de seguir usando la app. Versión: '
-              '${AppConfig.versionTerminos}.',
-        ]),
-      ];
+    final plataforma = AppConfig.nombrePlataforma;
+    return _numerarClausulas([
+      SeccionLegal('PARTES Y RESPONSABLE DEL TRATAMIENTO',
+          enSimple: 'La plataforma es la herramienta; el restaurante atiende tu pedido. Si tienes dudas sobre tus datos, escríbenos.', [
+        'La presente Política de Privacidad regula el tratamiento de los datos personales en la '
+            'plataforma $plataforma, en adelante "LA PLATAFORMA", ofrecida por '
+            '${AppConfig.titularPlataforma}, con domicilio en ${AppConfig.ciudadPais}, en adelante '
+            '"EL TITULAR", que actúa como responsable del tratamiento.',
+        'Se denomina "EL USUARIO" a toda persona que crea una cuenta en LA PLATAFORMA, sea como '
+            'cliente o como personal de un negocio, y "EL RESTAURANTE" a cada negocio que recibe y '
+            'gestiona pedidos por medio de LA PLATAFORMA. Cada restaurante aparece identificado en '
+            'su ficha y es quien atiende los pedidos que se le hacen.',
+        'Las consultas y solicitudes sobre datos personales se dirigen a EL TITULAR al correo '
+            '${AppConfig.correoPrivacidad}.',
+        'La presente política se ajusta a lo que exige ${p.leyDatos}, en ${p.nombre}: obtener el '
+            'consentimiento de EL USUARIO, informarle la finalidad del tratamiento y respetar sus '
+            'derechos sobre sus datos.',
+      ]),
+      SeccionLegal('DATOS QUE SE RECOPILAN',
+          enSimple: 'Guardamos solo lo necesario para atender tus pedidos: tus datos de contacto, tus direcciones y tus pedidos.', [
+        'LA PLATAFORMA recopila únicamente los siguientes datos:',
+        'a) Datos de la cuenta: nombre, correo electrónico y teléfono. La contraseña la gestiona el '
+            'servicio de autenticación de Google Firebase; EL TITULAR no tiene acceso a ella.',
+        'b) Datos de entrega: las direcciones que EL USUARIO guarde en su cuenta. Si elige '
+            'delivery, su nombre y teléfono se guardan junto al pedido para que el repartidor pueda '
+            'contactarlo.',
+        'c) Ubicación: el punto que EL USUARIO marque en el mapa al guardar una dirección de '
+            'entrega. Si utiliza la opción "Mi ubicación", el dispositivo le solicita permiso y la '
+            'ubicación se usa solo para colocar ese punto; no se guarda de forma continua.',
+        'd) Ubicación del repartidor: mientras un pedido de delivery va en camino, el repartidor '
+            'comparte su posición con LA PLATAFORMA y el cliente la ve en un mapa. Esa posición se '
+            'borra cuando el pedido se entrega.',
+        'e) Reseñas: si EL USUARIO califica un pedido, se publican su nombre corto (por ejemplo, '
+            '"Ana P."), las estrellas y su comentario. Las reseñas visibles las ven los demás '
+            'clientes del negocio y, además, las mejor calificadas pueden mostrarse a cualquier '
+            'persona en la pantalla de inicio de sesión de LA PLATAFORMA, antes de entrar, sin '
+            'indicar el correo, el teléfono ni el pedido. EL USUARIO puede borrar su reseña cuando '
+            'lo desee.',
+        'f) Datos de los pedidos: productos, total, forma de pago, notas y estado, y el '
+            'comprobante de pago si EL USUARIO lo sube.',
+        'g) Imágenes: foto de perfil y comprobantes de pago que EL USUARIO suba.',
+        'h) Alergias: si EL USUARIO las marca en su cuenta o en un pedido, se guardan en su cuenta '
+            'y en el pedido para que la cocina las vea. Por tratarse de un dato de salud, se usan '
+            'únicamente para preparar el pedido con seguridad, y EL USUARIO puede quitarlas en '
+            'cualquier momento en "Mi cuenta".',
+        'i) Datos para factura: si EL USUARIO pide factura, su número tributario o documento y la '
+            'razón social se guardan en el pedido para el negocio y, para no volver a escribirlos, '
+            'en su dispositivo.',
+        'j) Preferencias: idioma, tamaño de letra, avisos y si ya vio el aviso de almacenamiento; '
+            'se guardan solo en el dispositivo de EL USUARIO (cláusula de cookies y almacenamiento).',
+        'k) Copia para usar sin internet: en la aplicación del celular se guarda en el teléfono '
+            'una copia de los datos ya cargados, para que LA PLATAFORMA funcione si se corta la '
+            'conexión. En la versión web no se guarda ninguna copia en el navegador.',
+        'l) Informes de fallas: si LA PLATAFORMA tiene una falla inesperada, se guarda un informe '
+            'técnico (mensaje de error, versión, tipo de dispositivo, rol e identificador de '
+            'usuario, sin nombre ni pedidos) para corregirla. Estos informes se borran '
+            'periódicamente.',
+        'Los datos no se utilizan para publicidad de terceros.',
+      ]),
+      const SeccionLegal('FINALIDAD DEL TRATAMIENTO',
+          enSimple: 'Usamos tus datos para atender tus pedidos y nada más.', [
+        'Los datos se tratan exclusivamente para crear y mantener la cuenta de EL USUARIO, '
+            'procesar y entregar sus pedidos, permitir que el negocio lo contacte sobre un pedido, '
+            'atender reclamos, prevenir abusos (por ejemplo, el bloqueo de cuentas por parte de un '
+            'negocio, siempre con un motivo registrado) y cumplir obligaciones legales.',
+      ]),
+      SeccionLegal('DESTINATARIOS DE LOS DATOS',
+          enSimple: 'Tu restaurante ve lo necesario para tu pedido. No vendemos tus datos ni los usamos para publicidad.', [
+        'Los datos de EL USUARIO se comunican únicamente a:',
+        'a) Otros clientes del negocio y visitantes de la pantalla de inicio de sesión: las '
+            'reseñas visibles, en los términos del inciso e) de la cláusula anterior. El negocio '
+            'puede ocultar reseñas ofensivas y bloquear, con un motivo, las cuentas que las escriban.',
+        'b) EL RESTAURANTE al que EL USUARIO hace un pedido: ve su nombre, su teléfono, el '
+            'contenido del pedido y, si elige delivery, la dirección de entrega. Si es delivery, el '
+            'repartidor que toma el pedido ve el nombre, teléfono y dirección para entregarlo, y '
+            'el cliente ve el nombre y teléfono del repartidor mientras el pedido va en camino. Los '
+            'datos no se comparten con los demás negocios de LA PLATAFORMA.',
+        'c) Proveedores técnicos que guardan o procesan la información por cuenta de EL TITULAR '
+            '(servicios de terceros):',
+        '• Google Firebase (Google LLC): cuentas, base de datos, verificación de que la '
+            'aplicación es auténtica (App Check) y alojamiento de la web.',
+        '• Cloudinary: almacenamiento de imágenes (fotos de productos, de perfil y comprobantes).',
+        '• OpenStreetMap y su buscador Nominatim: muestran el mapa y buscan direcciones; reciben '
+            'el texto de la dirección buscada y la dirección IP.',
+        '• MyMemory (Translated): traduce notas cuando LA PLATAFORMA se usa en otro idioma.',
+        '• Google Fonts: algunas tipografías de los restaurantes se descargan de los servidores '
+            'de Google, que reciben la dirección IP.',
+        'Estos proveedores pueden tener sus servidores fuera del país de EL USUARIO (por ejemplo, '
+            'en Estados Unidos o Europa). Al aceptar la presente política, EL USUARIO consiente que '
+            'sus datos se guarden allí, con las medidas de seguridad de dichos proveedores.',
+        'Traducción: si EL USUARIO usa LA PLATAFORMA en otro idioma, el texto de sus notas y de la '
+            'referencia de su dirección se envía al servicio de traducción automática MyMemory '
+            'para que el personal lo lea en español. Se recomienda no incluir datos sensibles en '
+            'las notas; las alergias se indican con la lista de LA PLATAFORMA, que no pasa por ese '
+            'servicio.',
+        'EL TITULAR no vende los datos de EL USUARIO.',
+      ]),
+      SeccionLegal('PLAZO DE CONSERVACIÓN',
+          enSimple: 'Mientras tengas tu cuenta. Si la eliminas, borramos tu perfil; los pedidos quedan sin tu nombre.', [
+        'Los datos se conservan mientras la cuenta de EL USUARIO esté activa. Si EL USUARIO elimina '
+            'su cuenta desde "Mi cuenta", se borran su perfil, sus direcciones, sus favoritos, sus '
+            'reseñas y su carrito.',
+        'Los registros de pedidos pasados se conservan sin el identificador ni la dirección de EL '
+            'USUARIO, porque el negocio los necesita para su contabilidad y para atender reclamos. '
+            'Pueden conservarse el comprobante de pago subido y el nombre que figure en él.',
+        'Las imágenes guardadas en Cloudinary (foto de perfil y comprobantes) no se pueden borrar '
+            'desde la aplicación; EL USUARIO puede solicitar su eliminación a '
+            '${AppConfig.correoPrivacidad}.',
+      ]),
+      SeccionLegal('DERECHOS DEL USUARIO',
+          enSimple: 'Puedes ver, corregir o borrar tus datos cuando quieras.', [
+        'En ${p.nombre}, ${p.leyDatos} reconoce el derecho a la privacidad y a conocer, corregir y '
+            'eliminar los datos personales.',
+        'EL USUARIO tiene derecho a: conocer qué datos suyos se tratan (acceso), corregirlos '
+            '(rectificación), solicitar su eliminación (cancelación), oponerse a un uso concreto '
+            '(oposición) y retirar su consentimiento en cualquier momento. El retiro no afecta el '
+            'tratamiento realizado antes con su autorización.',
+        'EL USUARIO puede ver y corregir su nombre y teléfono en "Mi cuenta", y eliminar su cuenta '
+            'en "Mi cuenta > Eliminar mi cuenta". Cualquier otra solicitud se dirige a '
+            '${AppConfig.correoPrivacidad} y se responde en un plazo máximo de diez (10) días hábiles.',
+        if (p.codigo == 'BO')
+          'Si EL USUARIO considera que sus datos se usan de forma indebida, puede además interponer '
+              'una Acción de Protección de Privacidad ante la autoridad judicial (Constitución '
+              'Política del Estado, arts. 130 y 131).'
+        else if (p.autoridadDatos.isNotEmpty)
+          'Si EL USUARIO considera que sus datos se usan de forma indebida, puede además presentar '
+              'una queja ante ${p.autoridadDatos}.',
+        ...p.notas.where((n) => !n.contains('menú') && !n.contains('impuestos')),
+      ]),
+      const SeccionLegal('SEGURIDAD', enSimple: 'Cada persona ve solo lo que le corresponde.', [
+        'Los datos se guardan en servicios de Google Firebase con reglas de acceso por rol: cada '
+            'usuario ve sus propios datos y el personal de un negocio solo ve los pedidos de ese '
+            'negocio. Ningún sistema es infalible; por ello se recomienda a EL USUARIO utilizar una '
+            'contraseña única.',
+      ]),
+      const SeccionLegal('MENORES DE EDAD',
+          enSimple: 'Necesitas 18 años, o el permiso de tu madre, padre o tutor. Menores de 13, no.', [
+        'Para crear una cuenta se requiere tener 18 años o más. Las personas menores de edad solo '
+            'pueden usar LA PLATAFORMA con la autorización y supervisión de su madre, padre o '
+            'tutor, quien responde por los pedidos que realicen.',
+        'LA PLATAFORMA no está dirigida a menores de 13 años y no recopila a sabiendas sus datos. '
+            'Si se detecta la cuenta de un menor de 13 años, será eliminada.',
+      ]),
+      const SeccionLegal('COOKIES Y ALMACENAMIENTO',
+          enSimple: 'Solo guardamos en tu dispositivo lo necesario para que la app funcione. Nada de publicidad.', [
+        'LA PLATAFORMA guarda en el navegador o en el teléfono de EL USUARIO solo lo necesario para '
+            'funcionar: la sesión (para no solicitar la contraseña cada vez), el idioma, el tamaño '
+            'de letra, los datos de factura si EL USUARIO decide recordarlos y si ya vio el aviso '
+            'de almacenamiento.',
+        'No se usan cookies de publicidad ni de seguimiento, ni herramientas de analítica de '
+            'terceros; por ello no se solicita elegir cookies y solo se informa su uso.',
+        'EL USUARIO puede borrar estos datos en cualquier momento desde la configuración de su '
+            'navegador o cerrando sesión; LA PLATAFORMA volverá a solicitarle que ingrese.',
+      ]),
+      const SeccionLegal('CONSENTIMIENTO',
+          enSimple: 'Al aceptar, nos autorizas a usar tus datos como dice esta política.', [
+        'Al marcar la casilla de aceptación al crear su cuenta, EL USUARIO otorga su consentimiento '
+            'previo, expreso e informado para el tratamiento de sus datos conforme a la presente '
+            'política. Las alergias (dato de salud) solo se guardan si EL USUARIO las indica, y '
+            'solo para preparar sus pedidos con seguridad.',
+      ]),
+      const SeccionLegal('MODIFICACIONES',
+          enSimple: 'Si algo cambia, te avisamos y te pedimos aceptar de nuevo.', [
+        'Si la presente política cambia, se solicitará a EL USUARIO aceptar la nueva versión antes '
+            'de continuar usando LA PLATAFORMA. Versión vigente: ${AppConfig.versionTerminos}.',
+      ]),
+    ]);
   }
 
+  /// Términos y condiciones de uso, en forma de documento formal (tercera
+  /// persona y cláusulas), listos para imprimir y firmar.
   static List<SeccionLegal> terminos() {
     final p = Paises.actual;
-    return [
-        SeccionLegal('1. El servicio', enSimple: 'La plataforma te conecta con el restaurante; el restaurante prepara y entrega tu pedido.', [
-          '${AppConfig.nombrePlataforma} permite hacer pedidos a negocios '
-              'de comida. La plataforma conecta al cliente con el negocio; '
-              'la compra se acuerda entre el cliente y el negocio, que es '
-              'quien prepara y entrega el pedido.',
-        ]),
-        SeccionLegal('2. Tu cuenta', enSimple: 'Usa datos reales y cuida tu contraseña.', [
-          'Debes dar datos verdaderos y mantenerlos actualizados. Eres '
-              'responsable de cuidar tu contraseña y de lo que se haga con '
-              'tu cuenta.',
-          'Debes tener 18 años o más, o usar la plataforma con autorización y '
-              'supervisión de tu madre, padre o tutor.',
-        ]),
-        SeccionLegal('3. Precios y pedidos', enSimple: 'El total que ves antes de confirmar es lo que pagas. Sin cobros escondidos.', [
-          'Los precios se muestran en ${p.nombreMoneda} (${p.simbolo}) '
-              '${p.impuestosIncluidos ? 'e incluyen los impuestos' : 'sin los impuestos de venta, que se suman al cobrar según tu zona'}. '
-              'Antes de confirmar ves el detalle completo: productos, descuento, '
-              'costo de envío según tu zona y propina. El total que ves es el '
-              'que corresponde pagar; no hay cobros ocultos, como exige '
-              '${p.leyConsumidor}.',
-          'El negocio puede rechazar o cancelar un pedido si no puede '
-              'atenderlo; si ocurre, verás el motivo en el detalle del pedido.',
-          'Puedes programar un pedido para más tarde, dentro del horario de '
-              'atención del local. Los productos con cantidad limitada pueden '
-              'agotarse antes de que confirmes.',
-          'Los cupones de descuento los crea cada negocio, con sus propias '
-              'condiciones (monto mínimo y fecha de vencimiento), que se '
-              'muestran al aplicarlos. Un cupón vigente se respeta en los '
-              'pedidos confirmados mientras estaba vigente.',
-          'La propina para el repartidor es voluntaria, va completa para el '
-              'repartidor y no forma parte del precio de los productos.',
-        ]),
-        SeccionLegal('4. Alergias', enSimple: 'Marca tus alergias; el restaurante hará lo posible, pero confirma con el local si tu alergia es grave.', [
-          'Si marcas alergias, el negocio las verá destacadas y hará lo '
-              'posible por preparar tu pedido sin esos ingredientes. La '
-              'información de alérgenos de cada producto la carga el negocio. '
-              'Si tu alergia es grave, confirma con el local antes de comer: '
-              'la plataforma no puede garantizar que no haya contacto cruzado '
-              'en la cocina.',
-        ]),
-        SeccionLegal('5. Pagos', enSimple: 'Le pagas directamente al restaurante.', [
-          'Puedes pagar en efectivo, por transferencia o con el QR de pago '
-              'del negocio, según lo que el negocio ofrezca. El pago se hace '
-              'directamente al negocio: la plataforma no cobra ni retiene '
-              'dinero.',
-        ]),
-        SeccionLegal('6. Facturas', enSimple: 'La factura la emite el restaurante, si la pides.', [
-          p.idFactura.isEmpty
-              ? 'La plataforma no emite facturas ni recibos fiscales. El negocio '
-                  'te entrega el comprobante de compra que corresponda y responde '
-                  'por sus obligaciones tributarias.'
-              : 'La plataforma no emite facturas fiscales. Si necesitas factura, '
-                  'marca "Quiero factura" al confirmar y escribe tu ${p.idFactura}: '
-                  'esos datos llegan al negocio, que es quien emite la factura y '
-                  'responde por sus obligaciones tributarias.',
-        ]),
-        SeccionLegal('7. Uso adecuado', enSimple: 'Trata con respeto al personal y no hagas pedidos falsos.', [
-          'No está permitido hacer pedidos falsos, ofender o amenazar al '
-              'personal de un negocio, publicar reseñas con insultos, datos de '
-              'otras personas o contenido racista o discriminatorio'
-              '${p.codigo == 'BO' ? ' (Ley 045)' : ''}, '
-              'ni usar la plataforma para fines ilegales. El Administrador de un negocio puede bloquear tu '
-              'cuenta en ese negocio si lo incumples; el bloqueo no afecta '
-              'a los demás negocios.',
-        ]),
-        SeccionLegal('8. Responsabilidad', enSimple: 'El restaurante responde por su comida; la plataforma, por que la app funcione.', [
-          'Cada negocio es responsable de la calidad, preparación y '
-              'entrega de sus productos. La plataforma procura que el '
-              'servicio esté disponible, pero no puede garantizar que no '
-              'haya interrupciones.',
-        ]),
-        SeccionLegal('9. Reclamos', enSimple: 'Primero reclama al restaurante; si no se resuelve, puedes acudir a ${p.autoridadConsumidor}.', [
-          'Puedes presentar tu reclamo directamente al negocio, de forma '
-              'verbal o escrita y sin formalidades. Los datos de contacto '
-              'de cada negocio están en su ficha, en el menú del negocio. '
-              'Para reclamos sobre la plataforma escribe a '
-              '${AppConfig.correoPrivacidad}: te responderemos en un plazo '
-              'máximo de 10 días hábiles.',
-          'Si tu reclamo no se resuelve, puedes acudir a ${p.autoridadConsumidor}, '
-              'conforme a ${p.leyConsumidor}. Presentar un reclamo ante la autoridad '
-              'de consumo suele ser gratuito y no necesita abogado.',
-          if (p.codigo == 'PE')
-            'En Perú, el restaurante debe tener un Libro de Reclamaciones a tu '
-                'disposición, también en versión virtual.',
-        ]),
-        SeccionLegal('10. Eliminar tu cuenta', enSimple: 'Puedes borrar tu cuenta cuando quieras.', [
-          'Puedes eliminar tu cuenta en cualquier momento desde "Mi cuenta". '
-              'Lo que se borra y lo que se conserva está explicado en la '
-              'Política de privacidad.',
-        ]),
-        SeccionLegal('11. Ley aplicable', enSimple: 'Aplican las leyes de ${p.nombre}, donde está tu restaurante.', [
-          'Tus pedidos se rigen por las leyes de ${p.nombre}, el país del '
-              'restaurante donde pides, sin quitarte los derechos que te den las '
-              'leyes de tu país como consumidor.',
-          'La plataforma tiene su domicilio en ${AppConfig.ciudadPais}.',
-        ]),
-        SeccionLegal('12. Cambios', enSimple: 'Ningún cambio vale sin que lo aceptes.', [
-          'Si cambiamos estos términos, te pediremos aceptar la nueva versión '
-              'antes de seguir usando la app; ningún cambio se aplica sin tu '
-              'aceptación. Versión: ${AppConfig.versionTerminos}.',
-        ]),
-      ];
+    return _numerarClausulas([
+      SeccionLegal('PARTES Y OBJETO',
+          enSimple: 'La plataforma te conecta con el restaurante; el restaurante prepara y entrega tu pedido.', [
+        'Los presentes Términos y Condiciones regulan el uso de la plataforma '
+            '${AppConfig.nombrePlataforma}, en adelante "LA PLATAFORMA", ofrecida por '
+            '${AppConfig.titularPlataforma}, en adelante "EL TITULAR", por parte de toda persona '
+            'que crea una cuenta en ella, en adelante "EL USUARIO".',
+        'LA PLATAFORMA permite hacer pedidos a negocios de comida, en adelante "EL RESTAURANTE". '
+            'LA PLATAFORMA conecta al cliente con el negocio; la compra se acuerda entre el cliente '
+            'y EL RESTAURANTE, que es quien prepara y entrega el pedido.',
+      ]),
+      const SeccionLegal('CUENTA DEL USUARIO', enSimple: 'Usa datos reales y cuida tu contraseña.', [
+        'EL USUARIO se obliga a proporcionar datos verdaderos y a mantenerlos actualizados. Es '
+            'responsable de custodiar su contraseña y de todo lo que se realice con su cuenta.',
+        'EL USUARIO declara tener 18 años o más, o usar LA PLATAFORMA con la autorización y '
+            'supervisión de su madre, padre o tutor.',
+      ]),
+      SeccionLegal('PRECIOS Y PEDIDOS',
+          enSimple: 'El total que ves antes de confirmar es lo que pagas. Sin cobros escondidos.', [
+        'Los precios se expresan en ${p.nombreMoneda} (${p.simbolo}) '
+            '${p.impuestosIncluidos ? 'e incluyen los impuestos' : 'sin los impuestos de venta, que se suman al cobrar según la zona de EL USUARIO'}. '
+            'Antes de confirmar, EL USUARIO ve el detalle completo: productos, descuento, costo de '
+            'envío según su zona y propina. El total mostrado es el que corresponde pagar; no '
+            'existen cobros ocultos, conforme a ${p.leyConsumidor}.',
+        'EL RESTAURANTE puede rechazar o cancelar un pedido si no puede atenderlo; en tal caso, el '
+            'motivo queda registrado y EL USUARIO lo ve en el detalle del pedido.',
+        'EL USUARIO puede programar un pedido para más tarde, dentro del horario de atención del '
+            'local. Los productos con cantidad limitada pueden agotarse antes de la confirmación. '
+            'Si la sucursal pausó la recepción de pedidos, LA PLATAFORMA se lo informa.',
+        'Los cupones de descuento los crea cada negocio, con sus propias condiciones (monto mínimo '
+            'y fecha de vencimiento), que se muestran al aplicarlos. Un cupón vigente se respeta en '
+            'los pedidos confirmados mientras estaba vigente.',
+        'La propina para el repartidor es voluntaria, corresponde íntegramente al repartidor y no '
+            'forma parte del precio de los productos.',
+      ]),
+      const SeccionLegal('ALERGIAS',
+          enSimple: 'Marca tus alergias; el restaurante hará lo posible, pero confirma con el local si tu alergia es grave.', [
+        'Si EL USUARIO indica alergias, EL RESTAURANTE las verá destacadas y hará lo posible por '
+            'preparar el pedido sin esos ingredientes. La información de alérgenos de cada producto '
+            'la carga el negocio. Si la alergia es grave, EL USUARIO debe confirmarlo con el local '
+            'antes de consumir: LA PLATAFORMA no puede garantizar la ausencia de contacto cruzado '
+            'en la cocina.',
+      ]),
+      const SeccionLegal('PAGOS', enSimple: 'Le pagas directamente al restaurante.', [
+        'EL USUARIO puede pagar en efectivo, por transferencia o con el QR de pago del negocio, '
+            'según lo que este ofrezca. El pago se realiza directamente a EL RESTAURANTE: LA '
+            'PLATAFORMA no cobra ni retiene dinero.',
+      ]),
+      SeccionLegal('FACTURACIÓN', enSimple: 'La factura la emite el restaurante, si la pides.', [
+        p.idFactura.isEmpty
+            ? 'LA PLATAFORMA no emite facturas ni recibos fiscales. EL RESTAURANTE entrega el '
+                'comprobante de compra que corresponda y responde por sus obligaciones tributarias.'
+            : 'LA PLATAFORMA no emite facturas fiscales. Si EL USUARIO necesita factura, debe '
+                'marcar "Quiero factura" al confirmar e indicar su ${p.idFactura}; esos datos llegan '
+                'a EL RESTAURANTE, que es quien emite la factura y responde por sus obligaciones '
+                'tributarias.',
+      ]),
+      SeccionLegal('USO ADECUADO', enSimple: 'Trata con respeto al personal y no hagas pedidos falsos.', [
+        'Queda prohibido realizar pedidos falsos, ofender o amenazar al personal de un negocio, '
+            'publicar reseñas con insultos, datos de otras personas o contenido racista o '
+            'discriminatorio${p.codigo == 'BO' ? ' (Ley 045)' : ''}, y usar LA PLATAFORMA para '
+            'fines ilegales.',
+        'El Administrador de un negocio puede bloquear la cuenta de EL USUARIO en ese negocio solo '
+            'por un incumplimiento de esta cláusula y registrando el motivo; el bloqueo no afecta a '
+            'los demás negocios.',
+      ]),
+      const SeccionLegal('RESPONSABILIDAD',
+          enSimple: 'El restaurante responde por su comida; la plataforma, por que la app funcione.', [
+        'Cada negocio es responsable de la calidad, preparación y entrega de sus productos. EL '
+            'TITULAR procura que LA PLATAFORMA esté disponible, pero no garantiza la ausencia de '
+            'interrupciones.',
+      ]),
+      SeccionLegal('RECLAMOS',
+          enSimple: 'Primero reclama al restaurante; si no se resuelve, puedes acudir ${_a(p.autoridadConsumidor)}.', [
+        'EL USUARIO puede presentar su reclamo directamente a EL RESTAURANTE, de forma verbal o '
+            'escrita y sin formalidades. Los datos de contacto de cada negocio figuran en su ficha, '
+            'en el menú del negocio. Los reclamos sobre LA PLATAFORMA se dirigen a '
+            '${AppConfig.correoPrivacidad} y se responden en un plazo máximo de diez (10) días hábiles.',
+        'Si el reclamo no se resuelve, EL USUARIO puede acudir ${_a(p.autoridadConsumidor)}, '
+            'conforme a ${p.leyConsumidor}. Presentar un reclamo ante la autoridad de consumo suele '
+            'ser gratuito y no requiere abogado.',
+        if (p.codigo == 'PE')
+          'En Perú, EL RESTAURANTE debe tener a disposición de EL USUARIO un Libro de '
+              'Reclamaciones, también en versión virtual.',
+      ]),
+      const SeccionLegal('ELIMINACIÓN DE LA CUENTA', enSimple: 'Puedes borrar tu cuenta cuando quieras.', [
+        'EL USUARIO puede eliminar su cuenta en cualquier momento desde "Mi cuenta". Lo que se '
+            'borra y lo que se conserva se detalla en la Política de Privacidad.',
+      ]),
+      SeccionLegal('LEY APLICABLE Y DOMICILIO',
+          enSimple: 'Aplican las leyes de ${p.nombre}, donde está tu restaurante.', [
+        'Los pedidos se rigen por las leyes de ${p.nombre}, país del restaurante donde se realiza '
+            'el pedido, sin perjuicio de los derechos que las leyes del país de EL USUARIO le '
+            'reconozcan como consumidor.',
+        'EL TITULAR fija su domicilio en ${AppConfig.ciudadPais}.',
+      ]),
+      const SeccionLegal('MODIFICACIONES Y ACEPTACIÓN',
+          enSimple: 'Ningún cambio vale sin que lo aceptes.', [
+        'Si los presentes términos cambian, se solicitará a EL USUARIO aceptar la nueva versión '
+            'antes de continuar usando LA PLATAFORMA; ningún cambio se aplica sin su aceptación. '
+            'Versión vigente: ${AppConfig.versionTerminos}.',
+        'EL USUARIO acepta estos términos al marcar la casilla de aceptación en LA PLATAFORMA. Si '
+            'lo requiere, puede imprimir el presente documento y firmarlo en el espacio previsto '
+            'al final.',
+      ]),
+    ]);
   }
   // ------------------------------------------------- condiciones del restaurante
 
@@ -354,92 +363,99 @@ class TextosLegales {
         'Reclamos: ${contactoReclamos(n)}.',
       ];
 
-  /// Condiciones que cada restaurante ofrece a sus clientes. Combinan los
-  /// datos del restaurante con lo que la app realmente permite hacer.
+  /// Condiciones que cada restaurante ofrece a sus clientes, en forma de
+  /// documento formal (tercera persona y cláusulas). Combinan los datos del
+  /// restaurante con lo que la app realmente permite hacer.
   static List<SeccionLegal> condicionesRestaurante(NegocioModel n) {
     final c = n.condiciones;
     final p = n.datosPais;
     final nit = n.nit.trim();
     final direccion = [n.direccion.trim(), n.ciudad.trim()].where((e) => e.isNotEmpty).join(', ');
     final secciones = <SeccionLegal>[
-      SeccionLegal('Quién te vende', enSimple: 'Le compras a ${n.nombre}, no a la plataforma.', [
-        'El restaurante que prepara y entrega tu pedido es ${_vendedor(n)}'
+      SeccionLegal('PARTES', enSimple: 'Le compras a ${n.nombre}, no a la plataforma.', [
+        'Las presentes condiciones regulan la compra de productos a ${_vendedor(n)}'
             '${nit.isEmpty ? '' : ' (${p.idFiscal} $nit)'}'
-            '${direccion.isEmpty ? '' : ', con dirección en $direccion'}, en ${p.nombre}.',
+            '${direccion.isEmpty ? '' : ', con dirección en $direccion'}, en ${p.nombre}, en adelante '
+            '"EL RESTAURANTE", por parte de la persona que realiza un pedido, en adelante "EL CLIENTE".',
         if (n.telefono.trim().isNotEmpty || n.correoContacto.trim().isNotEmpty)
-          'Contacto: ${[n.telefono.trim(), n.correoContacto.trim()].where((e) => e.isNotEmpty).join(' · ')}.',
-        '${AppConfig.nombrePlataforma} es la herramienta con la que ${n.nombre} recibe tus '
-            'pedidos. La compra es entre tú y el restaurante.',
+          'Contacto de EL RESTAURANTE: '
+              '${[n.telefono.trim(), n.correoContacto.trim()].where((e) => e.isNotEmpty).join(' · ')}.',
+        '${AppConfig.nombrePlataforma}, en adelante "LA PLATAFORMA", es la herramienta con la que '
+            'EL RESTAURANTE recibe los pedidos. La compra se celebra entre EL CLIENTE y EL RESTAURANTE.',
       ]),
-      const SeccionLegal('Cómo pedir', enSimple: 'Pides desde la app y sigues tu pedido en ella.', [
-        'Eliges los productos en el menú, la forma de entrega (en mesa, para recoger o a '
+      const SeccionLegal('FORMA DE REALIZAR LOS PEDIDOS',
+          enSimple: 'Pides desde la app y sigues tu pedido en ella.', [
+        'EL CLIENTE elige los productos en el menú, la forma de entrega (en mesa, para recoger o a '
             'domicilio, según lo que ofrezca cada sucursal) y la forma de pago.',
-        'Puedes programar un pedido para más tarde, dentro del horario de la sucursal. '
-            'Si el restaurante pausó la recepción de pedidos, la app te lo avisa.',
-        'Ves el estado de tu pedido en la app: pendiente, en preparación, listo, en camino '
-            'y entregado.',
+        'EL CLIENTE puede programar un pedido para más tarde, dentro del horario de la sucursal. Si '
+            'EL RESTAURANTE pausó la recepción de pedidos, LA PLATAFORMA se lo informa.',
+        'EL CLIENTE puede seguir el estado de su pedido en la aplicación: pendiente, en '
+            'preparación, listo, en camino y entregado.',
       ]),
-      SeccionLegal('Precios y pagos', enSimple: 'Pagas lo que ves al confirmar, directo al restaurante.', [
-        'Los precios están en ${p.nombreMoneda} (${p.simbolo}) '
+      SeccionLegal('PRECIOS Y PAGOS', enSimple: 'Pagas lo que ves al confirmar, directo al restaurante.', [
+        'Los precios se expresan en ${p.nombreMoneda} (${p.simbolo}) '
             '${p.impuestosIncluidos ? 'e incluyen los impuestos' : 'sin los impuestos de venta, que se suman al cobrar'}. '
-            'Si un producto está en promoción, se te cobra el precio de promoción mientras esté vigente.',
-        'Antes de confirmar ves el detalle completo: productos, descuentos, costo de envío y '
-            'propina. Ese total es lo que pagas; no hay cobros ocultos, como exige ${p.leyConsumidor}.',
-        'Puedes pagar ${_metodosPago(n)}. El pago es directo al restaurante.',
+            'Si un producto está en promoción, se cobra el precio de promoción mientras esté vigente.',
+        'Antes de confirmar, EL CLIENTE ve el detalle completo: productos, descuentos, costo de '
+            'envío y propina. Ese total es el que se paga; no existen cobros ocultos, conforme a '
+            '${p.leyConsumidor}.',
+        'EL CLIENTE puede pagar ${_metodosPago(n)}. El pago se realiza directamente a EL RESTAURANTE.',
       ]),
-      SeccionLegal('Entrega a domicilio',
+      SeccionLegal('ENTREGA A DOMICILIO',
           enSimple: 'El costo de envío depende de tu zona y lo ves antes de confirmar.', [
-        'El costo de envío depende de tu zona y cada sucursal puede pedir un monto mínimo. '
-            'Ambos se muestran antes de confirmar.',
+        'El costo de envío depende de la zona de EL CLIENTE y cada sucursal puede exigir un monto '
+            'mínimo. Ambos se muestran antes de confirmar.',
         if (c.tiempoEntrega.trim().isNotEmpty)
-          'Tiempo de entrega estimado: ${c.tiempoEntrega.trim()}. Puede variar en horas de '
-              'mucho movimiento o por el clima.',
-        'Mientras tu pedido va en camino ves al repartidor en el mapa y puedes llamarlo.',
+          'Tiempo de entrega estimado: ${c.tiempoEntrega.trim()}. Puede variar en horas de mucho '
+              'movimiento o por el clima.',
+        'Mientras el pedido va en camino, EL CLIENTE ve al repartidor en el mapa y puede llamarlo.',
       ]),
-      const SeccionLegal('Cancelaciones',
+      const SeccionLegal('CANCELACIONES',
           enSimple: 'Si necesitas cancelar, avisa al restaurante lo antes posible.', [
-        'Si necesitas cancelar, comunícate con el restaurante lo antes posible. Si todavía no '
-            'empezó a preparar tu pedido, lo cancela sin costo.',
-        'El restaurante puede cancelar un pedido si no puede atenderlo (por ejemplo, si se '
-            'agotó un producto). Verás el motivo en el detalle del pedido.',
+        'Si EL CLIENTE necesita cancelar, debe comunicarse con EL RESTAURANTE lo antes posible. Si '
+            'la preparación aún no comenzó, EL RESTAURANTE lo cancela sin costo.',
+        'EL RESTAURANTE puede cancelar un pedido si no puede atenderlo (por ejemplo, si se agotó '
+            'un producto), registrando el motivo, que EL CLIENTE ve en el detalle del pedido.',
       ]),
-      SeccionLegal('Devoluciones',
+      SeccionLegal('DEVOLUCIONES',
           enSimple: 'Si pagaste y el pedido no se entrega, te devuelven tu dinero.', [
-        'Si pagaste y el pedido se cancela, o llega incompleto o equivocado, el restaurante te '
+        'Si EL CLIENTE pagó y el pedido se cancela, o llega incompleto o equivocado, EL RESTAURANTE '
             'devuelve lo que corresponda: ${c.textoReembolso.toLowerCase()}, en un plazo de hasta '
             '${c.diasReembolso} días hábiles.',
       ]),
-      const SeccionLegal('Alergias',
-          enSimple: 'Marca tus alergias; si son graves, confirma con el local.', [
-        'Las alergias que marques aparecen destacadas para la cocina, que hará lo posible por '
-            'preparar tu pedido sin esos ingredientes. Si tu alergia es grave, confirma con el '
-            'restaurante antes de comer: no se puede garantizar que no haya contacto cruzado.',
+      const SeccionLegal('ALERGIAS', enSimple: 'Marca tus alergias; si son graves, confirma con el local.', [
+        'Las alergias que EL CLIENTE indique aparecen destacadas para la cocina, que hará lo posible '
+            'por preparar el pedido sin esos ingredientes. Si la alergia es grave, EL CLIENTE debe '
+            'confirmarlo con EL RESTAURANTE antes de consumir: no se puede garantizar la ausencia de '
+            'contacto cruzado.',
       ]),
       if (p.idFactura.isNotEmpty)
-        SeccionLegal('Facturas', enSimple: 'Si quieres factura, pídela al confirmar.', [
-          'Si necesitas factura, marca "Quiero factura" al confirmar y escribe tu ${p.idFactura}. '
-              'La factura la emite el restaurante.',
+        SeccionLegal('FACTURACIÓN', enSimple: 'Si quieres factura, pídela al confirmar.', [
+          'Si EL CLIENTE necesita factura, debe marcar "Quiero factura" al confirmar e indicar su '
+              '${p.idFactura}. La factura la emite EL RESTAURANTE.',
         ]),
-      SeccionLegal('Reclamos', enSimple: 'Reclama a ${contactoReclamos(n)}.', [
-        'Presenta tu reclamo a ${contactoReclamos(n)}, de forma verbal o escrita y sin '
-            'formalidades. El restaurante debe responderte en un plazo máximo de 10 días hábiles.',
-        'Si no se resuelve, puedes acudir a ${p.autoridadConsumidor} (${Pais.sinArticulo(p.leyConsumidor)}).',
+      SeccionLegal('RECLAMOS', enSimple: 'Reclama a ${contactoReclamos(n)}.', [
+        'EL CLIENTE puede presentar su reclamo a ${contactoReclamos(n)}, de forma verbal o escrita '
+            'y sin formalidades. EL RESTAURANTE debe responder en un plazo máximo de diez (10) días '
+            'hábiles.',
+        'Si el reclamo no se resuelve, EL CLIENTE puede acudir ${_a(p.autoridadConsumidor)} '
+            '(${Pais.sinArticulo(p.leyConsumidor)}).',
         if (p.codigo == 'PE')
-          'También puedes dejar tu reclamo en el Libro de Reclamaciones del restaurante.',
+          'EL CLIENTE también puede dejar su reclamo en el Libro de Reclamaciones de EL RESTAURANTE.',
       ]),
       if (c.notas.trim().isNotEmpty)
-        SeccionLegal('Reglas propias de ${n.nombre}',
+        SeccionLegal('REGLAS PROPIAS DE ${n.nombre.toUpperCase()}',
             enSimple: 'Reglas que agregó el restaurante.', [c.notas.trim()]),
-      SeccionLegal('Cambios y aceptación',
+      SeccionLegal('MODIFICACIONES Y ACEPTACIÓN',
           enSimple: 'Si el restaurante cambia estas condiciones, te las mostramos de nuevo.', [
-        'Al tocar "Acepto" quedan registradas la fecha y la versión que aceptaste'
+        'Al pulsar "Acepto" quedan registradas la fecha y la versión aceptada'
             '${c.version.isEmpty ? '' : ' (versión ${c.version})'}.',
-        'Si el restaurante cambia estas condiciones, te pediremos aceptarlas antes de tu '
-            'próximo pedido. Estas condiciones se suman a los Términos y condiciones y a la '
-            'Política de privacidad de la plataforma.',
+        'Si EL RESTAURANTE modifica estas condiciones, se solicitará a EL CLIENTE aceptarlas antes '
+            'de su próximo pedido. Estas condiciones se suman a los Términos y Condiciones y a la '
+            'Política de Privacidad de la plataforma.',
       ]),
     ];
-    return _numerar(secciones);
+    return _numerarClausulas(secciones);
   }
 
   // ------------------------------------------------------ acuerdo del personal
@@ -670,15 +686,13 @@ class TextosLegales {
     'DÉCIMA QUINTA', 'DÉCIMA SEXTA',
   ];
 
+  /// "a" + autoridad, con la contracción: "al Viceministerio…", "a la PROFECO".
+  static String _a(String autoridad) =>
+      autoridad.startsWith('el ') ? 'al ${autoridad.substring(3)}' : 'a $autoridad';
+
   /// Pone "PRIMERA.- (…)", "SEGUNDA.- (…)"… como en los acuerdos formales.
   static List<SeccionLegal> _numerarClausulas(List<SeccionLegal> s) => [
         for (var i = 0; i < s.length; i++)
           SeccionLegal('${_ordinales[i]}.- (${s[i].titulo})', s[i].parrafos, enSimple: s[i].enSimple),
-      ];
-
-  /// Pone "1. ", "2. "… delante de cada título, en orden.
-  static List<SeccionLegal> _numerar(List<SeccionLegal> s) => [
-        for (var i = 0; i < s.length; i++)
-          SeccionLegal('${i + 1}. ${s[i].titulo}', s[i].parrafos, enSimple: s[i].enSimple),
       ];
 }

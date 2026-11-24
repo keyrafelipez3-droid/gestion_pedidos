@@ -16,7 +16,7 @@ const motivosCancelacion = [
   'El cliente pidió cancelar',
   'Producto agotado',
   'El cliente no respondió',
-  'Dirección fuera de la zona de entrega',
+  'Fuera de la zona de entrega',
   'Pago no verificado',
 ];
 
@@ -30,19 +30,26 @@ bool puedeCancelarPedidos() {
 
 /// Pide el motivo y cancela el pedido. Muestra el resultado en un SnackBar.
 Future<void> cancelarPedidoConMotivo(BuildContext context, PedidoModel pedido) async {
-  final motivo = await showDialog<String>(
+  final respuesta = await showDialog<({String motivo, bool devolverStock})>(
     context: context,
     builder: (_) => _DialogoMotivo(pedido: pedido),
   );
-  if (motivo == null || !context.mounted) return;
-  // Acción sensible: se vuelve a pedir la contraseña (y el código).
-  if (!await confirmarIdentidad(context, accion: 'cancelar el pedido') || !context.mounted) return;
+  if (respuesta == null || !context.mounted) return;
+  final motivo = respuesta.motivo;
+  // Acción sensible: se confirma la identidad (huella, cara o contraseña).
+  // Un pedido Pendiente todavía no se preparó ni se cobró: se cancela sin
+  // pedir nada más, como en las apps grandes (lo pequeño pasa directo).
+  if (pedido.estado != PedidoEstado.pendiente &&
+      (!await confirmarIdentidad(context, accion: 'cancelar el pedido') || !context.mounted)) {
+    return;
+  }
   final messenger = ScaffoldMessenger.of(context);
   try {
     await PedidoService.instancia.cancelarPedido(
       idPedido: pedido.id,
       motivo: motivo,
       idUsuario: SesionActual.instancia.actual?.idUsuario ?? '',
+      devolverStock: respuesta.devolverStock,
     );
     ActividadService.instancia.registrar(
       ActividadTipo.pedido,
@@ -67,6 +74,11 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
   final _formKey = GlobalKey<FormState>();
   String? _elegido;
 
+  /// El stock se descuenta cuando la cocina empieza a preparar: desde ahí
+  /// se pregunta si lo pedido vuelve al inventario (por defecto, no).
+  bool _devolverStock = false;
+  bool get _yaDescontado => widget.pedido.estado != PedidoEstado.pendiente;
+
   @override
   void dispose() {
     _ctrl.dispose();
@@ -78,6 +90,9 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
     final scheme = Theme.of(context).colorScheme;
     final enReparto = widget.pedido.enReparto;
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text('Cancelar pedido #${widget.pedido.id.substring(0, 6)}'),
       content: SizedBox(
         width: 460,
@@ -126,6 +141,18 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
                 validator: (v) =>
                     (v == null || v.trim().length < 4) ? 'Escribe el motivo (mínimo 4 letras).' : null,
               ),
+              if (_yaDescontado)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _devolverStock,
+                  onChanged: (v) => setState(() => _devolverStock = v ?? false),
+                  title: const Text('Devolver los productos al stock'),
+                  subtitle: const Text(
+                    'Márcalo si no se llegaron a usar (por ejemplo, bebidas cerradas). '
+                    'Si la comida ya se preparó, déjalo sin marcar.',
+                  ),
+                ),
             ],
           ),
         ),
@@ -135,7 +162,9 @@ class _DialogoMotivoState extends State<_DialogoMotivo> {
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError),
           onPressed: () {
-            if (_formKey.currentState!.validate()) Navigator.of(context).pop(_ctrl.text.trim());
+            if (_formKey.currentState!.validate()) {
+              Navigator.of(context).pop((motivo: _ctrl.text.trim(), devolverStock: _devolverStock));
+            }
           },
           child: const Text('Cancelar pedido'),
         ),

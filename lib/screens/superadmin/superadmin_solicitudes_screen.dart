@@ -49,6 +49,9 @@ class _SuperAdminSolicitudesScreenState extends State<SuperAdminSolicitudesScree
     final texto = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text('Rechazar "${s.nombreNegocio}"'),
         content: TextField(
           controller: motivo,

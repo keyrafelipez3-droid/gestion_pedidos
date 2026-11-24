@@ -5,6 +5,7 @@ import '../../services/admin_service.dart';
 import '../../services/resena_service.dart';
 import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/motivo_obligatorio.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../widgets/estrellas.dart';
@@ -27,14 +28,30 @@ class _ResenasScreenState extends State<ResenasScreen> {
 
   Future<String?> _pedirMotivo(String titulo, String ayuda) {
     final ctrl = TextEditingController();
+    final formulario = GlobalKey<FormState>();
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
+        // Con el teclado abierto el contenido se desplaza en vez de
+        // encimarse con los botones.
+        scrollable: true,
         title: Text(titulo),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 2,
-          decoration: InputDecoration(labelText: 'Motivo', helperText: ayuda),
+        // El motivo es obligatorio: no se oculta una reseña ni se bloquea
+        // a un cliente sin dejar escrito por qué.
+        content: Form(
+          key: formulario,
+          child: TextFormField(
+            controller: ctrl,
+            autofocus: true,
+            maxLines: 2,
+            maxLength: motivoMaximo,
+            validator: validarMotivo,
+            decoration: InputDecoration(
+              labelText: 'Motivo *',
+              helperText: ayuda,
+              helperMaxLines: 3,
+            ),
+          ),
         ),
         actions: [
           TextButton(
@@ -42,7 +59,11 @@ class _ResenasScreenState extends State<ResenasScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(ctrl.text.trim()),
+            onPressed: () {
+              if (formulario.currentState?.validate() ?? false) {
+                Navigator.of(context).pop(ctrl.text.trim());
+              }
+            },
             child: const Text('Confirmar'),
           ),
         ],
@@ -84,7 +105,7 @@ class _ResenasScreenState extends State<ResenasScreen> {
           idNegocio: r.idNegocio,
           idCliente: r.idCliente,
           bloqueado: true,
-          motivo: motivo.isEmpty ? 'Reseña ofensiva' : motivo,
+          motivo: motivo,
           idAdmin: idAdmin,
         );
       }

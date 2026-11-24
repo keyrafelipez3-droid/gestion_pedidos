@@ -19,6 +19,9 @@ import '../../widgets/mapa_seguimiento.dart';
 import '../../widgets/panel_personal.dart';
 import '../../widgets/tarjeta_pedido_personal.dart';
 import '../../widgets/texto_traducido.dart';
+import '../../widgets/avisos_personal.dart';
+import '../../widgets/boton_entregas_realizadas.dart';
+import '../../utils/reporte_entregas.dart';
 
 /// Efectivo que el repartidor todavía tiene que entregar en caja (sin sus
 /// propinas): pedidos entregados, pagados en efectivo y no rendidos.
@@ -54,18 +57,21 @@ class RepartidorEntregasScreen extends StatelessWidget {
           iconoActivo: Icons.inventory_2,
           etiqueta: tr('Para tomar'),
           builder: (_) => _ParaTomar(idNegocio: idNegocio, usuario: usuario),
+          anchoMaximo: 820,
         ),
         DestinoPanel(
           icono: Icons.two_wheeler_outlined,
           iconoActivo: Icons.two_wheeler,
           etiqueta: tr('En camino'),
           builder: (_) => _EnCamino(idNegocio: idNegocio, usuario: usuario),
+          anchoMaximo: 820,
         ),
         DestinoPanel(
           icono: Icons.account_balance_wallet_outlined,
           iconoActivo: Icons.account_balance_wallet,
           etiqueta: tr('Mi efectivo'),
           builder: (_) => _MiEfectivo(idNegocio: idNegocio, usuario: usuario),
+          anchoMaximo: 820,
         ),
       ],
     );
@@ -123,7 +129,10 @@ class _ParaTomarState extends State<_ParaTomar> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Entregas'))),
+      appBar: AppBar(
+        title: Text(tr('Entregas')),
+        actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+      ),
       body: StreamBuilder<List<PedidoModel>>(
         stream: _disponibles,
         builder: (context, s) => StreamBuilder<List<PedidoModel>>(
@@ -142,13 +151,16 @@ class _ParaTomarState extends State<_ParaTomar> {
                     DatoTurno(dinero(llevas), tr('efectivo que llevas'), icono: Icons.payments_outlined),
                   ]),
                   const SizedBox(height: AppSpacing.md),
-                  if (pedidos.isEmpty)
+                  if (pedidos.isEmpty) ...[
+                    // El aviso de "sin pedidos" queda a la altura de la vista,
+                    // no pegado a las tarjetas de arriba.
+                    SizedBox(height: MediaQuery.sizeOf(context).height * 0.08),
                     AppEmptyState(
                       icon: Icons.delivery_dining_outlined,
                       title: tr('No hay pedidos para repartir'),
                       message: tr('Cuando la cocina deje un pedido de delivery listo, va a aparecer aquí.'),
-                    )
-                  else
+                    ),
+                  ] else
                     for (final p in pedidos) ...[
                       _TarjetaParaTomar(key: ValueKey(p.id), pedido: p, usuario: widget.usuario),
                       const SizedBox(height: AppSpacing.sm + 4),
@@ -289,7 +301,10 @@ class _EnCaminoState extends State<_EnCamino> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tr('En camino'))),
+      appBar: AppBar(
+        title: Text(tr('En camino')),
+        actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+      ),
       body: StreamBuilder<List<PedidoModel>>(
         stream: _mias,
         builder: (context, s) {
@@ -557,7 +572,24 @@ class _MiEfectivoState extends State<_MiEfectivo> {
     final scheme = theme.colorScheme;
     final semantic = context.semanticColors;
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Mi efectivo'))),
+      appBar: AppBar(
+        title: Text(tr('Mi efectivo')),
+        actions: [
+          BotonEntregasRealizadas(
+            cargar: () async {
+              final hoy = DateTime.now();
+              return reporteEntregasDeLaSesion(
+                pedidos: await PedidoService.instancia
+                    .streamEntregadosHoy(widget.idNegocio, widget.usuario.idUsuario)
+                    .first,
+                periodo: 'Hoy, ${ReporteEntregas.fecha(hoy)}',
+              );
+            },
+          ),
+          const CampanaAvisosPersonal(),
+          const SizedBox(width: AppSpacing.xs),
+        ],
+      ),
       body: StreamBuilder<List<PedidoModel>>(
         stream: _hoy,
         builder: (context, s) {

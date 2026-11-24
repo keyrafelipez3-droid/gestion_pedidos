@@ -57,6 +57,9 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
+          // Con el teclado abierto el contenido se desplaza en vez de
+          // encimarse con los botones.
+          scrollable: true,
           title: Text(sucursal == null ? 'Nueva sucursal' : 'Editar sucursal'),
           content: SizedBox(
             width: 420,
@@ -152,6 +155,9 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
     final ok = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
+            // Con el teclado abierto el contenido se desplaza en vez de
+            // encimarse con los botones.
+            scrollable: true,
             title: const Text('Pausar pedidos'),
             content: Column(
               mainAxisSize: MainAxisSize.min,

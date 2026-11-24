@@ -13,14 +13,14 @@ void main() {
     });
 
     test('acepta una contraseña razonable', () {
-      expect(validarContrasena('Caro2026!'), isNull);
+      expect(validarContrasena('Nami2026!'), isNull);
       expect(validarContrasena('pollo y papas 77'), isNull);
     });
 
     test('medidor de seguridad', () {
       expect(fuerzaContrasena(''), 0);
       expect(fuerzaContrasena('abc'), 1);
-      expect(fuerzaContrasena('Caro2026!seguro'), 4);
+      expect(fuerzaContrasena('Nami2026!seguro'), 4);
     });
   });
 

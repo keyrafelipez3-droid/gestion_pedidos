@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../l10n/idioma.dart';
@@ -27,6 +29,10 @@ import '../../widgets/tema_negocio.dart';
 import 'carrito_screen.dart';
 import 'resenas_negocio_screen.dart';
 import '../../utils/formato.dart';
+import '../../widgets/campo_desplegable.dart';
+
+/// Variantes y complementos que el cliente eligió para un producto.
+typedef ExtrasElegidos = ({List<OpcionSeleccionada> variantes, List<OpcionSeleccionada> complementos});
 
 /// HU-16/17/18/19/20/21: menú digital de un negocio — ver, buscar,
 /// filtrar por categoría, marcar favoritos y agregar al carrito.
@@ -57,8 +63,28 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
   String get _idNegocio => widget.negocio.idNegocio;
   List<String> get _misAlergias => SesionActual.instancia.actual?.alergias ?? const [];
 
+  // Variantes y complementos del negocio, escuchados una sola vez (así
+  // agregar un producto no vuelve a leerlos todos cada vez).
+  List<VarianteModel> _variantes = const [];
+  List<ComplementoModel> _complementos = const [];
+  StreamSubscription<List<VarianteModel>>? _subVariantes;
+  StreamSubscription<List<ComplementoModel>>? _subComplementos;
+
+  @override
+  void initState() {
+    super.initState();
+    _subVariantes = CatalogoService.instancia
+        .streamVariantes(_idNegocio)
+        .listen((l) => _variantes = l, onError: (_) {});
+    _subComplementos = CatalogoService.instancia
+        .streamComplementos(_idNegocio)
+        .listen((l) => _complementos = l, onError: (_) {});
+  }
+
   @override
   void dispose() {
+    _subVariantes?.cancel();
+    _subComplementos?.cancel();
     _buscadorCtrl.dispose();
     super.dispose();
   }
@@ -85,6 +111,8 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
       );
       if (ok != true) return;
     }
+    final extras = await _elegirExtras(producto);
+    if (extras == null) return;
     await CarritoService.instancia.agregarAlCarrito(
       _uid,
       CarritoItemModel(
@@ -94,7 +122,115 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
         imagenUrl: producto.imagenUrl,
         // HU-35: si está en promoción, se cobra el precio de promoción.
         precioUnitario: producto.precioVigente(),
+        variantes: extras.variantes,
+        complementos: extras.complementos,
         idNegocio: _idNegocio,
+      ),
+    );
+  }
+
+  /// Si el producto tiene variantes o el negocio tiene complementos, el
+  /// cliente los elige en una hoja. Devuelve null si la cierra sin agregar.
+  Future<ExtrasElegidos?> _elegirExtras(ProductoModel producto) async {
+    const ExtrasElegidos sinExtras = (variantes: [], complementos: []);
+    final variantes = _variantes.where((v) => v.estado && v.idProducto == producto.id).toList();
+    final complementos = _complementos.where((c) => c.estado && c.seOfreceEn(producto.id)).toList();
+    if (variantes.isEmpty && complementos.isEmpty) return sinExtras;
+    if (!mounted) return null;
+
+    var variante = ''; // '' = normal
+    final elegidos = <String>{};
+    return showModalBottomSheet<ExtrasElegidos>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setHoja) {
+          final v = variantes.where((x) => x.id == variante).toList();
+          final total = producto.precioVigente() +
+              (v.isEmpty ? 0 : v.first.precioAdicional) +
+              complementos
+                  .where((c) => elegidos.contains(c.id))
+                  .fold<double>(0, (suma, c) => suma + c.precio);
+          return SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                    child: Text(
+                      tr('Personaliza "{producto}"', {'producto': producto.nombre}),
+                      style: Theme.of(ctx).textTheme.titleMedium,
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        if (variantes.isNotEmpty) ...[
+                          ListTile(title: Text(tr('Elige una opción'))),
+                          RadioGroup<String>(
+                            groupValue: variante,
+                            onChanged: (id) => setHoja(() => variante = id ?? ''),
+                            child: Column(
+                              children: [
+                                RadioListTile<String>(value: '', title: Text(tr('Normal'))),
+                                for (final x in variantes)
+                                  RadioListTile<String>(
+                                    value: x.id,
+                                    title: Text(x.nombre),
+                                    subtitle: x.precioAdicional > 0
+                                        ? Text('+ ${dinero(x.precioAdicional)}')
+                                        : null,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (complementos.isNotEmpty) ...[
+                          ListTile(title: Text(tr('Extras (opcional)'))),
+                          for (final c in complementos)
+                            CheckboxListTile(
+                              value: elegidos.contains(c.id),
+                              onChanged: (marcado) => setHoja(() {
+                                if (marcado == true) {
+                                  elegidos.add(c.id);
+                                } else {
+                                  elegidos.remove(c.id);
+                                }
+                              }),
+                              title: Text(c.nombre),
+                              subtitle: Text(c.precio > 0 ? '+ ${dinero(c.precio)}' : c.descripcion),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(ctx, (
+                        variantes: [
+                          for (final x in v)
+                            OpcionSeleccionada(id: x.id, nombre: x.nombre, precio: x.precioAdicional),
+                        ],
+                        complementos: [
+                          for (final c in complementos)
+                            if (elegidos.contains(c.id))
+                              OpcionSeleccionada(id: c.id, nombre: c.nombre, precio: c.precio),
+                        ],
+                      )),
+                      child: Text(tr('Agregar · {precio}', {'precio': dinero(total)})),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -323,9 +459,8 @@ class _SelectorSucursalCompacto extends StatelessWidget {
         }
         return Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: seleccionado,
+          child: CampoDesplegable<String>(
+            initialValue: seleccionado,
             hint: Text(tr('Elige una sucursal')),
             items: sucursales
                 .map((s) => DropdownMenuItem(
@@ -565,7 +700,7 @@ class _TarjetaProducto extends StatelessWidget {
                           if (producto.promoActiva())
                             _Etiqueta(
                               texto: tr('PROMO -{n}%', {'n': producto.porcentajePromo()}),
-                              color: AppBrand.rojo,
+                              color: AppBrand.locoto,
                             ),
                         ],
                       ),
@@ -674,7 +809,7 @@ class _TarjetaProducto extends StatelessWidget {
                         child: Icon(
                           esFavorito ? Icons.favorite : Icons.favorite_border,
                           size: 18,
-                          color: esFavorito ? AppBrand.rojo : Colors.black87,
+                          color: esFavorito ? AppBrand.locoto : Colors.black87,
                         ),
                       ),
                     ),

@@ -23,9 +23,13 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
+  collectionGroup,
   getDocs,
+  limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -392,7 +396,16 @@ describe('Pedidos del cliente', () => {
 
   test('el cliente no modifica su pedido después de crearlo', async () => {
     await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { total: 1 }));
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'Cancelado', total: 1 }));
+    // Una vez que el local lo acepta, el cliente ya no lo cancela.
+    await assertSucceeds(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), { estado: 'En preparación' }));
     await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+  });
+
+  test('el cliente cancela su pedido mientras sigue Pendiente, y solo el suyo', async () => {
+    await assertFails(updateDoc(doc(como('cli2'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'En preparación' }));
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), { estado: 'Cancelado' }));
   });
 });
 
@@ -1096,5 +1109,398 @@ describe('Datos personales del pedido (privado/contacto)', () => {
     lote.delete(doc(db, 'pedidos/pedC/privado', 'contacto'));
     lote.update(doc(db, 'pedidos', 'pedC'), anonimo);
     await assertSucceeds(lote.commit());
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('Libro de reclamos', () => {
+  const reclamo = (cambios = {}) => ({
+    idNegocio: 'n1', idCliente: 'cli1', nombreCliente: 'Ana', idPedido: '',
+    motivo: 'Demora en la entrega', descripcion: 'Mi pedido llegó una hora tarde.',
+    estado: 'Abierto', fecha: serverTimestamp(), ...cambios,
+  });
+
+  test('el cliente presenta un reclamo, suelto o de su propio pedido', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedR', pedidoCliente('cli1')));
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r2'), reclamo({ idPedido: 'pedR' })));
+  });
+
+  test('no se puede reclamar por el pedido de otro ni a nombre de otro', async () => {
+    await assertSucceeds(crearPedido(como('cli2'), 'pedL', pedidoCliente('cli2')));
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo({ idPedido: 'pedL' })));
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r2'), reclamo({ idCliente: 'cli2' })));
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n2/reclamos', 'r3'), reclamo({ idNegocio: 'n2' })));
+  });
+
+  test('el reclamo nace abierto, con un motivo de la lista y sin respuesta', async () => {
+    const db = como('cli1');
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r1'), reclamo({ estado: 'Resuelto' })));
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r2'), reclamo({ motivo: 'Cualquier cosa' })));
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r3'), reclamo({ descripcion: 'mal' })));
+    await assertFails(setDoc(doc(db, 'negocios/n1/reclamos', 'r4'), reclamo({ respuesta: 'listo' })));
+  });
+
+  test('cada cliente ve solo sus reclamos; el Administrador ve los de su negocio', async () => {
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1')));
+    await assertFails(getDoc(doc(como('cli2'), 'negocios/n1/reclamos', 'r1')));
+    await assertSucceeds(getDocs(query(collection(como('cli1'), 'negocios/n1/reclamos'), where('idCliente', '==', 'cli1'))));
+    await assertFails(getDocs(collection(como('cli1'), 'negocios/n1/reclamos')));
+    await assertSucceeds(getDocs(collection(como('admin1'), 'negocios/n1/reclamos')));
+    await assertFails(getDoc(doc(como('cocina1'), 'negocios/n1/reclamos', 'r1')));
+  });
+
+  test('solo el Administrador responde, y para resolverlo escribe una respuesta', async () => {
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    const ref = (uid) => doc(como(uid), 'negocios/n1/reclamos', 'r1');
+    await assertFails(updateDoc(ref('cli1'), { estado: 'Resuelto', respuesta: 'ya está' }));
+    await assertSucceeds(updateDoc(ref('admin1'), { estado: 'En revision' }));
+    await assertFails(updateDoc(ref('admin1'), { estado: 'Resuelto' }));
+    await assertFails(updateDoc(ref('admin1'), { descripcion: 'otra cosa distinta' }));
+    await assertSucceeds(updateDoc(ref('admin1'), {
+      estado: 'Resuelto', respuesta: 'Te devolvemos el envío.', fechaRespuesta: serverTimestamp(), idRespondio: 'admin1',
+    }));
+    await assertFails(deleteDoc(ref('admin1')));
+  });
+
+  test('al eliminar su cuenta, el cliente quita su nombre de sus reclamos', async () => {
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'), reclamo()));
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'negocios/n1/reclamos', 'r1'),
+      { idCliente: 'cuenta-eliminada', nombreCliente: '' }));
+  });
+});
+
+describe('Un pedido enviado dos veces no se duplica', () => {
+  test('el segundo envío con el mismo id se rechaza y el pedido sigue siendo uno', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedD', pedidoCliente('cli1')));
+    await assertFails(crearPedido(como('cli1'), 'pedD', pedidoCliente('cli1')));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'pedidos', 'pedD')));
+  });
+});
+
+describe('Revisión completa (23 nov)', () => {
+  test('si el negocio cancela el pedido, el cliente recupera su cupón', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedCup',
+      pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 })));
+    const uso = (uid) => doc(como(uid), 'negocios/n1/cupones/CARO10/usos', 'cli1');
+    // Sin cancelar el pedido, nadie borra el uso.
+    await assertFails(deleteDoc(uso('cajero1')));
+    await assertFails(deleteDoc(uso('cli1')));
+    await assertSucceeds(getDoc(uso('cajero1')));
+    const db = como('cajero1');
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'pedCup'), { estado: 'Cancelado' });
+    lote.delete(doc(db, 'negocios/n1/cupones/CARO10/usos', 'cli1'));
+    await assertSucceeds(lote.commit());
+    await assertSucceeds(crearPedido(como('cli1'), 'pedCup2',
+      pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 })));
+  });
+
+  test('el enlace del comprobante y el nombre tienen tamaño normal', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedQr',
+      pedidoCliente('cli1', { metodoPago: 'QR', comprobantePagoUrl: 'https://res.cloudinary.com/x/y.jpg' })));
+    await assertFails(crearPedido(como('cli1'), 'pedQr2',
+      pedidoCliente('cli1', { metodoPago: 'QR', comprobantePagoUrl: 'https://x/' + 'a'.repeat(600) })));
+    await assertFails(crearPedido(como('cli1'), 'pedNom',
+      pedidoCliente('cli1', { nombreCliente: 'x'.repeat(100) })));
+  });
+
+  test('el nombre y el teléfono del perfil no pueden ser enormes', async () => {
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'usuarios', 'cli1'), { nombre: 'Ana Pérez' }));
+    await assertFails(updateDoc(doc(como('cli1'), 'usuarios', 'cli1'), { nombre: 'x'.repeat(100) }));
+    await assertFails(updateDoc(doc(como('cli1'), 'usuarios', 'cli1'), { telefono: '7'.repeat(30) }));
+  });
+
+  test('el registro de errores no acepta campos enormes', async () => {
+    const error = (cambios = {}) => ({
+      mensaje: 'x', pila: '', contexto: '', plataforma: 'android', version: '1.0.0', idUsuario: 'cli1',
+      rol: 'Cliente', idNegocio: '', fecha: serverTimestamp(), ...cambios,
+    });
+    await assertSucceeds(addDoc(collection(como('cli1'), 'erroresApp'), error()));
+    await assertFails(addDoc(collection(como('cli1'), 'erroresApp'), error({ plataforma: 'x'.repeat(100) })));
+    await assertFails(addDoc(collection(como('cli1'), 'erroresApp'), error({ idNegocio: 'x'.repeat(100) })));
+  });
+});
+
+describe('Orden de los estados del pedido', () => {
+  test('nadie se salta pasos ni vuelve atrás', async () => {
+    const cambiar = (uid, estado) => updateDoc(doc(como(uid), 'pedidos', 'ped1'), { estado });
+    await assertFails(cambiar('cocina1', 'Listo'));
+    await assertFails(cambiar('cajero1', 'Entregado'));
+    await assertSucceeds(cambiar('cocina1', 'En preparación'));
+    await assertFails(cambiar('cocina1', 'Pendiente'));
+    await assertSucceeds(cambiar('cocina1', 'Listo'));
+    await assertSucceeds(cambiar('admin1', 'Entregado'));
+    await assertFails(cambiar('admin1', 'Cancelado'));
+  });
+
+  test('el cliente que cancela su pedido Pendiente recupera su cupón', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'pedC',
+      pedidoCliente('cli1', { codigoCupon: 'CARO10', descuento: 10, total: 90 })));
+    const db = como('cli1');
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'pedC'), { estado: 'Cancelado' });
+    lote.delete(doc(db, 'negocios/n1/cupones/CARO10/usos', 'cli1'));
+    await assertSucceeds(lote.commit());
+  });
+});
+
+describe('Devolver stock al cancelar', () => {
+  test('quien cancela devuelve al stock lo de ESE pedido, solo al cancelarlo', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await updateDoc(doc(db, 'productos', 'prod1'), { stock: 5 });
+      await setDoc(doc(db, 'productos', 'otro'), { idNegocio: 'n1', nombre: 'Otro', precio: 1, disponible: true, stock: 5 });
+      await updateDoc(doc(db, 'pedidos', 'ped1'), { estado: 'En preparación', lineasIds: ['prod1'], lineasCant: [1] });
+    });
+    const db = como('cajero1');
+    // Sin cancelar el pedido, no se puede subir el stock.
+    await assertFails(updateDoc(doc(db, 'productos', 'prod1'), { stock: 9, devolucionDe: 'ped1' }));
+    // Un producto que no está en el pedido, tampoco.
+    const malo = writeBatch(db);
+    malo.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    malo.update(doc(db, 'productos', 'otro'), { stock: 9, devolucionDe: 'ped1' });
+    await assertFails(malo.commit());
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    lote.update(doc(db, 'productos', 'prod1'), { stock: 6, devolucionDe: 'ped1' });
+    await assertSucceeds(lote.commit());
+  });
+});
+
+describe('Reseñas', () => {
+  const resena = (idPedido, cambios = {}) => ({
+    idNegocio: 'n1', idPedido, idCliente: 'cli1', nombreCliente: 'Ana P.', calificacion: 5,
+    comentario: 'Muy rico', fecha: serverTimestamp(), estado: 'Visible', ...cambios,
+  });
+  const sembrarPedidos = () => env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'pedidos', 'pE'), { idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's1', estado: 'Entregado', total: 35 });
+    await setDoc(doc(db, 'pedidos', 'pP'), { idCliente: 'cli1', idNegocio: 'n1', idSucursal: 's1', estado: 'Pendiente', total: 35 });
+    await setDoc(doc(db, 'pedidos', 'pO'), { idCliente: 'cli2', idNegocio: 'n1', idSucursal: 's1', estado: 'Entregado', total: 35 });
+  });
+
+  test('solo el cliente de un pedido entregado lo reseña, con 1 a 5 estrellas', async () => {
+    await sembrarPedidos();
+    const db = como('cli1');
+    await assertSucceeds(setDoc(doc(db, 'negocios/n1/resenas', 'pE'), resena('pE')));
+    await assertFails(setDoc(doc(db, 'negocios/n1/resenas', 'pP'), resena('pP')));
+    await assertFails(setDoc(doc(db, 'negocios/n1/resenas', 'pO'), resena('pO')));
+    await assertFails(setDoc(doc(db, 'negocios/n1/resenas', 'pP'), resena('pP', { calificacion: 6 })));
+  });
+
+  test('el Administrador la oculta; la oculta solo la ven él y la autora', async () => {
+    await sembrarPedidos();
+    await assertSucceeds(setDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE'), resena('pE')));
+    await assertFails(updateDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE'), { estado: 'Oculta' }));
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'negocios/n1/resenas', 'pE'), { estado: 'Oculta', motivoModeracion: 'Lenguaje ofensivo' }));
+    await assertFails(getDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pE')));
+    await assertSucceeds(getDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE')));
+    await assertFails(deleteDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pE')));
+    await assertSucceeds(deleteDoc(doc(como('cli1'), 'negocios/n1/resenas', 'pE')));
+  });
+
+  test('antes de entrar se ven solo las reseñas visibles, de a 20 como máximo', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'negocios/n1/resenas', 'pV'), { ...resena('pV'), fecha: Timestamp.now() });
+      await setDoc(doc(db, 'negocios/n2/resenas', 'pW'), { ...resena('pW', { idNegocio: 'n2' }), fecha: Timestamp.now() });
+      await setDoc(doc(db, 'negocios/n1/resenas', 'pH'), { ...resena('pH', { estado: 'Oculta' }), fecha: Timestamp.now() });
+    });
+    const anon = env.unauthenticatedContext().firestore();
+    const visibles = (n) => query(collectionGroup(anon, 'resenas'), where('estado', '==', 'Visible'),
+      orderBy('calificacion', 'desc'), orderBy('fecha', 'desc'), limit(n));
+    const r = await assertSucceeds(getDocs(visibles(20)));
+    if (r.size !== 2) throw new Error(`se esperaban 2 reseñas visibles y llegaron ${r.size}`);
+    // Más de 20, sin límite, o incluyendo las ocultas: no.
+    await assertFails(getDocs(visibles(21)));
+    await assertFails(getDocs(query(collectionGroup(anon, 'resenas'), where('estado', '==', 'Visible'))));
+    await assertFails(getDocs(query(collectionGroup(anon, 'resenas'), limit(5))));
+    // Una reseña suelta (aunque sea visible) sigue necesitando sesión.
+    await assertFails(getDoc(doc(anon, 'negocios/n1/resenas', 'pV')));
+    await assertFails(getDoc(doc(anon, 'negocios/n1/resenas', 'pH')));
+    // Y nadie escribe por esta vía.
+    await assertFails(setDoc(doc(anon, 'negocios/n1/resenas', 'pX'), resena('pX')));
+  });
+
+  test('un cliente bloqueado no reseña', async () => {
+    await sembrarPedidos();
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'negocios/n1/clientes', 'cli2'), { nombre: 'Luis', telefono: '7', bloqueado: true }));
+    await assertFails(setDoc(doc(como('cli2'), 'negocios/n1/resenas', 'pO'), resena('pO', { idCliente: 'cli2' })));
+  });
+});
+
+describe('Ciclo completo de la caja', () => {
+  test('abrir, movimientos, contar y cerrar; después no se cambia nada', async () => {
+    const db = como('cajero1');
+    const mov = (tipo, monto) => ({
+      tipo, concepto: 'x', monto, metodoPago: 'Efectivo', idUsuario: 'cajero1', fecha: serverTimestamp(),
+    });
+    await assertSucceeds(setDoc(doc(db, 'cajas', 'k1'),
+      { idCajero: 'cajero1', idNegocio: 'n1', idSucursal: 's1', estado: 'Abierta', montoInicial: 100 }));
+    await assertSucceeds(setDoc(doc(db, 'cajas/k1/movimientos', 'm1'), mov('Ingreso', 20)));
+    await assertSucceeds(setDoc(doc(db, 'cajas/k1/movimientos', 'm2'), mov('Egreso', 10)));
+    await assertFails(updateDoc(doc(db, 'cajas', 'k1'), { estado: 'Cerrada' }));
+    await assertSucceeds(updateDoc(doc(db, 'cajas', 'k1'), { montoContado: 110, fechaConteo: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, 'cajas', 'k1'), { montoContado: 999 }));
+    await assertFails(setDoc(doc(db, 'cajas/k1/movimientos', 'm3'), mov('Ingreso', 5)));
+    await assertSucceeds(updateDoc(doc(db, 'cajas', 'k1'),
+      { estado: 'Cerrada', montoEsperado: 110, diferencia: 0, observacionCierre: '' }));
+    await assertFails(updateDoc(doc(db, 'cajas', 'k1'), { estado: 'Abierta' }));
+    await assertFails(updateDoc(doc(db, 'cajas/k1/movimientos', 'm1'), { monto: 1 }));
+  });
+});
+
+describe('Variantes y complementos (extras)', () => {
+  // Los extras van como líneas propias después de su producto; su precio
+  // está en la misma lista de precios del negocio.
+  const conExtras = (items, tipos) => {
+    const l = lineas(items);
+    return pedidoCliente('cli1', { ...l, lineasTipo: tipos, total: l.subtotal });
+  };
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios/n1/publico', 'precios'),
+        { 'normal.var1': 5, 'normal.comp1': 3 }));
+  });
+
+  test('un producto con variante y complemento se puede pedir', async () => {
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 2], ['var1', 5, 2], ['comp1', 3, 2]], ['p', 'v', 'c'])));
+  });
+
+  test('un extra con otro precio o que no está en la lista: no', async () => {
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['comp1', 0.5, 1]], ['p', 'c'])));
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['compX', 1, 1]], ['p', 'c'])));
+  });
+
+  test('lineasTipo debe tener una marca válida por línea', async () => {
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['comp1', 3, 1]], ['p'])));
+    await assertFails(crearPedido(como('cli1'), 'nuevo',
+      conExtras([['prod1', 35, 1], ['comp1', 3, 1]], ['p', 'x'])));
+  });
+
+  test('el Administrador guarda un complemento junto con su precio', async () => {
+    const db = como('admin1');
+    const lote = writeBatch(db);
+    lote.set(doc(db, 'complementos', 'comp2'), { nombre: 'Queso', precio: 4, estado: true, idNegocio: 'n1' });
+    lote.set(doc(db, 'negocios/n1/publico', 'precios'), { normal: { comp2: 4 } }, { merge: true });
+    await assertSucceeds(lote.commit());
+    await assertFails(setDoc(doc(como('cli1'), 'negocios/n1/publico', 'precios'), { normal: { comp2: 0 } }, { merge: true }));
+  });
+});
+
+describe('Negocio o sucursal desactivados', () => {
+  test('no se puede pedir a un negocio desactivado', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), { estado: false }));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
+  });
+
+  test('no se puede pedir a una sucursal inactiva', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { estado: false }));
+    await assertFails(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'sucursales', 's1'), { estado: true }));
+    await assertSucceeds(crearPedido(como('cli1'), 'nuevo', pedidoCliente('cli1')));
+  });
+});
+
+describe('Stock de los combos', () => {
+  test('al cancelar un combo vuelve al stock lo que incluye, indicando el combo', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'productos', 'soda'), { idNegocio: 'n1', nombre: 'Soda', precio: 8, disponible: true, stock: 5 });
+      await setDoc(doc(db, 'productos', 'otro'), { idNegocio: 'n1', nombre: 'Otro', precio: 1, disponible: true, stock: 5 });
+      await setDoc(doc(db, 'productos', 'combo1'), {
+        idNegocio: 'n1', nombre: 'Combo', precio: 40, disponible: true, esCombo: true, comboIds: ['prod1', 'soda'],
+      });
+      await updateDoc(doc(db, 'pedidos', 'ped1'), { estado: 'En preparación', lineasIds: ['combo1'], lineasCant: [1] });
+    });
+    const db = como('cajero1');
+    // Sin decir de qué combo salió, no.
+    const sinCombo = writeBatch(db);
+    sinCombo.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    sinCombo.update(doc(db, 'productos', 'soda'), { stock: 6, devolucionDe: 'ped1' });
+    await assertFails(sinCombo.commit());
+    // Un producto que no está en el combo, tampoco.
+    const malo = writeBatch(db);
+    malo.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    malo.update(doc(db, 'productos', 'otro'), { stock: 6, devolucionDe: 'ped1', devolucionCombo: 'combo1' });
+    await assertFails(malo.commit());
+    const lote = writeBatch(db);
+    lote.update(doc(db, 'pedidos', 'ped1'), { estado: 'Cancelado' });
+    lote.update(doc(db, 'productos', 'soda'), { stock: 6, devolucionDe: 'ped1', devolucionCombo: 'combo1' });
+    await assertSucceeds(lote.commit());
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('Motivo obligatorio para bloquear u ocultar', () => {
+  const sembrarCliente = () => env.withSecurityRulesDisabled((ctx) =>
+    setDoc(doc(ctx.firestore(), 'negocios/n1/clientes', 'cli2'), { nombre: 'Luis', telefono: '7', bloqueado: false }));
+
+  test('el Administrador no bloquea a un cliente sin escribir el motivo', async () => {
+    await sembrarCliente();
+    const ref = doc(como('admin1'), 'negocios/n1/clientes', 'cli2');
+    await assertFails(updateDoc(ref, { bloqueado: true }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: '' }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: '    ' }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: 'abc' }));
+    await assertFails(updateDoc(ref, { bloqueado: true, motivoBloqueo: 'x'.repeat(141) }));
+    await assertSucceeds(updateDoc(ref, {
+      bloqueado: true, motivoBloqueo: 'Pedidos falsos repetidos', fechaBloqueo: serverTimestamp(), idAdminBloqueo: 'admin1',
+    }));
+    // Desbloquear no pide motivo.
+    await assertSucceeds(updateDoc(ref, { bloqueado: false, motivoBloqueo: deleteField() }));
+  });
+
+  test('el Administrador no oculta una reseña sin escribir el motivo', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'negocios/n1/resenas', 'pX'), {
+        idNegocio: 'n1', idPedido: 'pX', idCliente: 'cli1', nombreCliente: 'Ana P.', calificacion: 1,
+        comentario: 'Malo', estado: 'Visible',
+      }));
+    const ref = doc(como('admin1'), 'negocios/n1/resenas', 'pX');
+    await assertFails(updateDoc(ref, { estado: 'Oculta' }));
+    await assertFails(updateDoc(ref, { estado: 'Oculta', motivoModeracion: '' }));
+    await assertFails(updateDoc(ref, { estado: 'Oculta', motivoModeracion: 'no' }));
+    await assertSucceeds(updateDoc(ref, { estado: 'Oculta', motivoModeracion: 'Insulta al personal' }));
+    // Volver a mostrarla no pide motivo.
+    await assertSucceeds(updateDoc(ref, { estado: 'Visible', motivoModeracion: deleteField() }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('Fecha de cancelación del pedido', () => {
+  test('al cancelar se guarda la hora del servidor (opcional, para versiones anteriores)', async () => {
+    // El cliente cancela su pedido Pendiente con la fecha de cancelación.
+    await assertSucceeds(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: serverTimestamp(),
+    }));
+  });
+
+  test('el personal cancela con la fecha; sin ella también funciona', async () => {
+    await assertSucceeds(updateDoc(doc(como('admin1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: serverTimestamp(),
+    }));
+  });
+
+  test('no se puede inventar la fecha ni ponerla sin cancelar', async () => {
+    await assertFails(updateDoc(doc(como('cli1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: Timestamp.fromDate(new Date(2020, 0, 1)),
+    }));
+    await assertFails(updateDoc(doc(como('admin1'), 'pedidos', 'ped1'), {
+      estado: 'Cancelado', fechaCancelacion: Timestamp.fromDate(new Date(2020, 0, 1)),
+    }));
+    await assertFails(updateDoc(doc(como('cocina1'), 'pedidos', 'ped1'), {
+      estado: 'En preparación', fechaCancelacion: serverTimestamp(),
+    }));
   });
 });

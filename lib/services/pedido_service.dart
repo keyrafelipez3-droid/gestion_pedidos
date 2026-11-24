@@ -46,7 +46,11 @@ class PedidoService {
   }
 
   /// Datos de contacto ya leídos (no cambian después de crear el pedido).
-  final _contactos = <String, Map<String, dynamic>>{};
+  static final _contactos = <String, Map<String, dynamic>>{};
+
+  /// Se llama al cerrar sesión: la próxima persona que entre en el mismo
+  /// dispositivo no debe ver direcciones ni teléfonos ya leídos.
+  static void olvidarDatosLeidos() => _contactos.clear();
 
   /// Dirección, teléfono y factura del pedido (`privado/contacto`). Solo los
   /// pueden leer el cliente, el Administrador, el Cajero y el repartidor
@@ -84,6 +88,7 @@ class PedidoService {
   /// primer renglón de historialEstados, y al final vacía el carrito de
   /// ese negocio. Devuelve el id del pedido creado.
   Future<String> confirmarPedido({
+    String? idPedido,
     required String idCliente,
     required String idNegocio,
     required String idSucursal,
@@ -102,8 +107,17 @@ class PedidoService {
     String? facturaRazonSocial,
     String? zonaEntrega,
   }) async {
+    // Si este mismo envío ya se hizo (doble toque o reintento), no se crea
+    // otro pedido: se devuelve el que ya existe.
+    final pedidoDoc = idPedido == null ? _pedidos.doc() : _pedidos.doc(idPedido);
+    if (idPedido != null && await _yaCreado(pedidoDoc, 'idCliente', idCliente)) {
+      return pedidoDoc.id;
+    }
     if (itemsCarrito.isEmpty) {
       throw Exception(tr('El carrito está vacío, no se puede confirmar el pedido.'));
+    }
+    if ((comprobantePagoUrl ?? '').length > 500) {
+      throw Exception(tr('El enlace del comprobante es muy largo. Sube la imagen en vez de pegar el enlace.'));
     }
 
     // Precios de HOY (la misma lista que revisan las reglas de Firestore).
@@ -143,7 +157,6 @@ class PedidoService {
 
     await _registrarClienteEnNegocio(idNegocio: idNegocio, idCliente: idCliente);
 
-    final pedidoDoc = _pedidos.doc();
     final numeroMesa = await _numeroDeMesa(idSucursal, idMesa);
 
     // Solo en delivery: nombre y teléfono para que el repartidor pueda
@@ -155,7 +168,7 @@ class PedidoService {
 
     final pedido = PedidoModel(
       id: pedidoDoc.id,
-      nombreCliente: esDelivery ? usuario?.nombre : null,
+      nombreCliente: esDelivery && usuario != null ? _recortar(usuario.nombre, 80) : null,
       telefonoCliente: esDelivery && telefonoCliente.isNotEmpty ? telefonoCliente : null,
       idCliente: idCliente,
       idNegocio: idNegocio,
@@ -189,7 +202,9 @@ class PedidoService {
     // en UN lote: las reglas comprueban los precios y la suma, y no puede
     // quedar un pedido sin productos. El historial va después porque su
     // regla lee el pedido.
-    await _crearConControl(pedidoDoc, pedido);
+    if (!await _crearUnaVez(pedidoDoc, pedido, 'idCliente', idCliente)) {
+      return pedidoDoc.id;
+    }
 
     final historial = HistorialEstadoModel(
       id: '',
@@ -232,6 +247,13 @@ class PedidoService {
       throw Exception(tr('Un pedido puede tener hasta {n} productos distintos.',
           {'n': PedidoModel.maxLineas}));
     }
+    // Cada variante o complemento ocupa una línea más en el pedido.
+    final totalLineas = items.fold<int>(
+        0, (n, item) => n + 1 + item.variantes.length + item.complementos.length);
+    if (totalLineas > PedidoModel.maxLineas) {
+      throw Exception(tr('Un pedido puede tener hasta {n} líneas contando los extras. Quita algunos extras o productos.',
+          {'n': PedidoModel.maxLineas}));
+    }
     final precios = await CatalogoService.instancia.preciosVigentes(idNegocio);
     final lineas = <DetallePedidoModel>[];
     final cambiaron = <String>[];
@@ -241,8 +263,17 @@ class PedidoService {
         throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
             {'producto': item.nombreProducto}));
       }
-      if (item.variantes.isNotEmpty || item.complementos.isNotEmpty) {
-        throw Exception(tr('Por ahora no se pueden pedir productos con extras.'));
+      // Los extras se cobran con el precio de la lista, igual que el producto.
+      for (final o in [...item.variantes, ...item.complementos]) {
+        final precioExtra = precios[o.id];
+        if (precioExtra == null) {
+          throw Exception(tr('El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.',
+              {'extra': o.nombre, 'producto': item.nombreProducto}));
+        }
+        if ((precioExtra - o.precio).abs() > 0.009) {
+          throw Exception(tr('Cambió el precio del extra "{extra}" de "{producto}". Quita el producto y vuelve a agregarlo.',
+              {'extra': o.nombre, 'producto': item.nombreProducto}));
+        }
       }
       if (item.cantidad < 1 || item.cantidad > 99) {
         throw Exception(tr('La cantidad de cada producto debe estar entre 1 y 99.'));
@@ -254,21 +285,158 @@ class PedidoService {
         }
         continue;
       }
+      OpcionSeleccionada recortada(OpcionSeleccionada o) =>
+          OpcionSeleccionada(id: o.id, nombre: _recortar(o.nombre, 100), precio: o.precio);
+      final extras = [...item.variantes, ...item.complementos]
+          .fold<double>(0, (suma, o) => suma + o.precio);
       lineas.add(DetallePedidoModel(
         id: '',
         idProducto: item.idProducto,
         nombreProducto: _recortar(item.nombreProducto, 200),
         precioUnitario: precio,
         cantidad: item.cantidad,
+        variantes: item.variantes.map(recortada).toList(),
+        complementos: item.complementos.map(recortada).toList(),
         notas: _recortar(item.notas, 200),
-        subtotal: precio * item.cantidad,
+        subtotal: (precio + extras) * item.cantidad,
       ));
     }
     if (cambiaron.isNotEmpty) {
       throw Exception(tr('Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.',
           {'productos': cambiaron.join(', ')}));
     }
+    await _revisarStock(items);
+    await _revisarExtras(idNegocio, items);
     return lineas;
+  }
+
+  /// Los extras elegidos siguen activos, son de este negocio y cada
+  /// variante es del producto con el que se pidió (una por producto).
+  Future<void> _revisarExtras(String idNegocio, List<CarritoItemModel> items) async {
+    for (final item in items) {
+      if (item.variantes.length > 1) {
+        throw Exception(tr('El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.',
+            {'extra': item.variantes.last.nombre, 'producto': item.nombreProducto}));
+      }
+      final docs = await Future.wait([
+        for (final v in item.variantes) _db.collection('variantes').doc(v.id).get(),
+        for (final c in item.complementos) _db.collection('complementos').doc(c.id).get(),
+      ]);
+      final opciones = [...item.variantes, ...item.complementos];
+      for (var i = 0; i < docs.length; i++) {
+        final data = docs[i].data();
+        final esVariante = i < item.variantes.length;
+        // Un complemento con lista de productos solo va con esos productos.
+        final productos = data?['productos'];
+        final valido = data != null &&
+            data['estado'] != false &&
+            data['idNegocio'] == idNegocio &&
+            (!esVariante || data['idProducto'] == item.idProducto) &&
+            (esVariante || productos is! List || productos.isEmpty || productos.contains(item.idProducto));
+        if (!valido) {
+          throw Exception(tr('El extra "{extra}" de "{producto}" ya no está disponible. Quita el producto y vuelve a agregarlo.',
+              {'extra': opciones[i].nombre, 'producto': item.nombreProducto}));
+        }
+      }
+    }
+  }
+
+  /// Antes de crear el pedido se revisa que haya stock para lo que se pide
+  /// (solo productos con control de stock) y que el producto siga activo y
+  /// disponible. El stock se descuenta recién cuando la cocina empieza a
+  /// prepararlo, así que es una revisión de ayuda, no una reserva.
+  Future<void> _revisarStock(List<CarritoItemModel> items) async {
+    final porProducto = <String, int>{};
+    final nombres = <String, String>{};
+    for (final item in items) {
+      porProducto[item.idProducto] = (porProducto[item.idProducto] ?? 0) + item.cantidad;
+      nombres[item.idProducto] = item.nombreProducto;
+    }
+    // Un combo también necesita stock de lo que incluye.
+    final pedidas = (await _sumarCombos(porProducto)).cantidades;
+    final docs = await Future.wait([
+      for (final id in pedidas.keys) _db.collection('productos').doc(id).get(),
+    ]);
+    for (final doc in docs) {
+      final data = doc.data();
+      final nombre = nombres[doc.id] ?? data?['nombre'] as String? ?? '';
+      if (data == null || data['estado'] == false || data['disponible'] == false) {
+        throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
+            {'producto': nombre}));
+      }
+      final stock = (data['stock'] as num?)?.toInt();
+      final cantidad = pedidas[doc.id] ?? 0;
+      if (stock != null && cantidad > stock) {
+        if (stock <= 0) {
+          throw Exception(tr('"{producto}" ya no está disponible. Quítalo para continuar.',
+              {'producto': nombre}));
+        }
+        throw Exception(tr('Solo quedan {n} de "{producto}". Cambia la cantidad para continuar.',
+            {'n': stock, 'producto': nombre}));
+      }
+    }
+  }
+
+  /// Cuánto se usa de cada producto: lo pedido y, si es un combo, también
+  /// lo que incluye (un combo "Pollo + Soda" usa un pollo y una soda).
+  /// [deCombo] dice de qué combo salió cada producto incluido.
+  Future<({Map<String, int> cantidades, Map<String, String> deCombo})> _sumarCombos(
+    Map<String, int> pedidas,
+  ) async {
+    final cantidades = Map<String, int>.from(pedidas);
+    final deCombo = <String, String>{};
+    final docs = await Future.wait([
+      for (final id in pedidas.keys) _db.collection('productos').doc(id).get(),
+    ]);
+    for (final doc in docs) {
+      final data = doc.data();
+      if (data == null || data['esCombo'] != true || data['comboIds'] is! List) continue;
+      for (final id in data['comboIds'] as List) {
+        if (id is! String || id == doc.id) continue;
+        cantidades[id] = (cantidades[id] ?? 0) + (pedidas[doc.id] ?? 0);
+        deCombo.putIfAbsent(id, () => doc.id);
+      }
+    }
+    return (cantidades: cantidades, deCombo: deCombo);
+  }
+
+  /// Id nuevo para un pedido, para que la pantalla lo guarde y lo reuse si
+  /// el envío se repite.
+  String nuevoIdPedido() => _pedidos.doc().id;
+
+  /// true si el pedido ya existe y es de quien lo está enviando.
+  Future<bool> _yaCreado(
+    DocumentReference<Map<String, dynamic>> pedidoDoc,
+    String campo,
+    String uid,
+  ) async {
+    try {
+      final snap = await pedidoDoc.get();
+      return snap.exists && snap.data()?[campo] == uid;
+    } catch (_) {
+      // Si no existe, las reglas no dejan leerlo: se toma como nuevo.
+      return false;
+    }
+  }
+
+  /// Crea el pedido. Si el lote se rechaza porque OTRO envío con el mismo id
+  /// ya lo creó (dos toques casi al mismo tiempo), devuelve false en vez de
+  /// mostrar un error: el pedido ya está hecho una sola vez.
+  Future<bool> _crearUnaVez(
+    DocumentReference<Map<String, dynamic>> pedidoDoc,
+    PedidoModel pedido,
+    String campo,
+    String uid,
+  ) async {
+    try {
+      await _crearConControl(pedidoDoc, pedido);
+      return true;
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied' && await _yaCreado(pedidoDoc, campo, uid)) {
+        return false;
+      }
+      rethrow;
+    }
   }
 
   /// Escribe el pedido y `pedidos/{id}/control/total` en un solo lote. El
@@ -310,8 +478,7 @@ class PedidoService {
   }
 
   /// Suma de las líneas en el mismo orden que la calculan las reglas.
-  double _sumaLineas(List<DetallePedidoModel> lineas) =>
-      lineas.fold<double>(0, (acc, l) => acc + l.precioUnitario * l.cantidad);
+  double _sumaLineas(List<DetallePedidoModel> lineas) => DetallePedidoModel.sumar(lineas);
 
   String _recortar(String texto, int max) =>
       texto.length <= max ? texto : texto.substring(0, max);
@@ -331,8 +498,9 @@ class PedidoService {
           tr('Tu cuenta no puede hacer pedidos en este negocio. Comunícate con el local.'));
     }
     final usuario = SesionActual.instancia.actual;
-    final nombre = usuario?.nombre ?? '';
-    final telefono = usuario?.telefono ?? '';
+    // Mismos tamaños que aceptan las reglas para la ficha del cliente.
+    final nombre = _recortar(usuario?.nombre ?? '', 80);
+    final telefono = _recortar(usuario?.telefono ?? '', 20);
     if (!snap.exists) {
       await ref.set({
         'nombre': nombre,
@@ -374,6 +542,7 @@ class PedidoService {
   /// cuenta abierta de la mesa hasta que se cierre. El cobro se define al
   /// cerrar la mesa, por eso el método queda "Por definir".
   Future<String> registrarPedidoMesa({
+    String? idPedido,
     required String idCajero,
     required String idNegocio,
     required String idSucursal,
@@ -386,9 +555,12 @@ class PedidoService {
       throw Exception('Agrega al menos un producto al pedido.');
     }
 
+    final pedidoDoc = idPedido == null ? _pedidos.doc() : _pedidos.doc(idPedido);
+    if (idPedido != null && await _yaCreado(pedidoDoc, 'creadoPor', idCajero)) {
+      return pedidoDoc.id;
+    }
     final lineas = await _lineasConPrecioActual(idNegocio, items);
     final total = _sumaLineas(lineas);
-    final pedidoDoc = _pedidos.doc();
 
     final pedido = PedidoModel(
       id: pedidoDoc.id,
@@ -412,7 +584,9 @@ class PedidoService {
 
     // Igual que confirmarPedido: el pedido con sus líneas y su control en
     // un lote, y después el historial.
-    await _crearConControl(pedidoDoc, pedido);
+    if (!await _crearUnaVez(pedidoDoc, pedido, 'creadoPor', idCajero)) {
+      return pedidoDoc.id;
+    }
 
     final historial = HistorialEstadoModel(
       id: '',
@@ -629,6 +803,71 @@ class PedidoService {
         .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
   }
 
+  /// Pedidos cancelados en los últimos [dias] días, del más reciente al más
+  /// antiguo, contando la fecha en que se CANCELARON (antes se contaba la
+  /// fecha de creación y un pedido viejo cancelado hoy no aparecía).
+  ///
+  /// Une dos consultas: la de `fechaCancelacion` (pedidos cancelados desde
+  /// esta versión; usa los índices idNegocio [+ idSucursal] + estado +
+  /// fechaCancelacion) y la anterior por `fechaCreacion`, para que los
+  /// cancelados antes de esta versión, que no tienen esa fecha, sigan
+  /// apareciendo. Si un pedido sale en las dos, se muestra una sola vez.
+  Stream<List<PedidoModel>> streamCanceladosRecientes(String idNegocio, {int dias = 7}) {
+    final hoy = DateTime.now();
+    final desde = Timestamp.fromDate(
+        DateTime(hoy.year, hoy.month, hoy.day).subtract(Duration(days: dias - 1)));
+    final consultas = [
+      _delNegocio(idNegocio)
+          .where('estado', isEqualTo: PedidoEstado.cancelado)
+          .where('fechaCancelacion', isGreaterThanOrEqualTo: desde)
+          .orderBy('fechaCancelacion', descending: true)
+          .limit(200),
+      _delNegocio(idNegocio)
+          .where('estado', isEqualTo: PedidoEstado.cancelado)
+          .where('fechaCreacion', isGreaterThanOrEqualTo: desde)
+          .orderBy('fechaCreacion', descending: true)
+          .limit(200),
+    ];
+    final partes = List<List<PedidoModel>>.generate(consultas.length, (_) => const []);
+    final recibidos = List<bool>.filled(consultas.length, false);
+    final subs = <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
+    late final StreamController<List<PedidoModel>> ctrl;
+    ctrl = StreamController<List<PedidoModel>>.broadcast(
+      onListen: () {
+        for (var i = 0; i < consultas.length; i++) {
+          partes[i] = const [];
+          recibidos[i] = false;
+        }
+        for (var i = 0; i < consultas.length; i++) {
+          subs.add(consultas[i].snapshots().listen((qs) {
+            partes[i] = qs.docs.map(PedidoModel.fromSnapshot).toList();
+            recibidos[i] = true;
+            if (recibidos.every((r) => r)) ctrl.add(unirCancelados(partes[0], partes[1]));
+          }, onError: ctrl.addError));
+        }
+      },
+      onCancel: () async {
+        final activas = List.of(subs);
+        subs.clear();
+        for (final s in activas) {
+          await s.cancel();
+        }
+      },
+    );
+    return ctrl.stream;
+  }
+
+  /// Deliverys entregados por un repartidor que todavía no pasaron por caja
+  /// (rendición). Antes se tomaban de los últimos 200 entregados de 7 días,
+  /// y en un local con mucho movimiento algunos quedaban fuera. Solo
+  /// igualdades: no necesita índice nuevo.
+  Stream<List<PedidoModel>> streamPorRendir(String idNegocio) => _delNegocio(idNegocio)
+      .where('modalidad', isEqualTo: PedidoModalidad.delivery)
+      .where('estado', isEqualTo: PedidoEstado.entregado)
+      .where('cobrado', isEqualTo: false)
+      .snapshots()
+      .map((qs) => qs.docs.map(PedidoModel.fromSnapshot).toList());
+
   /// Líneas de un pedido, en vivo. Los pedidos nuevos las tienen dentro
   /// (campo `lineas`); los anteriores, en la subcolección `detalle`.
   Stream<List<DetallePedidoModel>> streamDetalle(String idPedido) =>
@@ -684,6 +923,9 @@ class PedidoService {
           .where('idNegocio', isEqualTo: idNegocio)
           .where('modalidad', isEqualTo: PedidoModalidad.delivery)
           .where('idRepartidor', isEqualTo: idRepartidor)
+          // Solo las que siguen en curso (antes leía también todas las ya
+          // entregadas, cada vez más con el tiempo).
+          .where('estado', whereIn: [PedidoEstado.listo, PedidoEstado.enCamino, PedidoEstado.llego])
           .snapshots()
           .asyncMap((qs) async {
         // También los pedidos Listos que el Cajero le asignó (HU-39). A
@@ -863,6 +1105,7 @@ class PedidoService {
       _validarCambio(actual, nuevoEstado);
       tx.update(ref, {
         'estado': nuevoEstado,
+        if (nuevoEstado == PedidoEstado.cancelado) 'fechaCancelacion': FieldValue.serverTimestamp(),
         // Si el pedido iba en camino, se borra la posición del repartidor.
         if (limpiarUbicacion) 'ubicacionRepartidor': null,
         if (limpiarUbicacion) 'ubicacionActualizada': null,
@@ -885,11 +1128,13 @@ class PedidoService {
   /// stock). Si alguno llega a 0, queda "No disponible" en el menú.
   Future<void> _descontarStock(String idPedido) async {
     final lineas = await lineasDe(idPedido);
-    final cantidades = <String, int>{};
+    final porProducto = <String, int>{};
     for (final l in lineas) {
       if (l.idProducto.isEmpty) continue;
-      cantidades[l.idProducto] = (cantidades[l.idProducto] ?? 0) + l.cantidad;
+      porProducto[l.idProducto] = (porProducto[l.idProducto] ?? 0) + l.cantidad;
     }
+    // Un combo descuenta también lo que incluye.
+    final cantidades = (await _sumarCombos(porProducto)).cantidades;
     for (final e in cantidades.entries) {
       final ref = _db.collection('productos').doc(e.key);
       // Cada producto por separado: si uno falla, los demás igual se
@@ -980,10 +1225,15 @@ class PedidoService {
   /// pedido iba en camino, se borra la posición del repartidor. Un pedido
   /// ya cobrado no se cancela aquí: primero hay que devolver el dinero
   /// (egreso en caja) para que la caja cuadre.
+  ///
+  /// Con [devolverStock], lo que ya se había descontado del stock (al
+  /// empezar a prepararlo) vuelve al inventario; por ejemplo, una bebida
+  /// cerrada. Si la comida ya se preparó, se deja en false (se pierde).
   Future<void> cancelarPedido({
     required String idPedido,
     required String motivo,
     required String idUsuario,
+    bool devolverStock = false,
   }) async {
     final limpio = motivo.trim();
     if (limpio.length < 4) {
@@ -1004,9 +1254,58 @@ class PedidoService {
         );
       }
       _validarCambio(actual, PedidoEstado.cancelado);
+      // Si el pedido usó un cupón, el cliente lo recupera (cada cupón se usa
+      // una vez por cliente y este pedido no se va a cobrar). Las lecturas
+      // de una transacción van antes de las escrituras.
+      final cupon = data['codigoCupon'];
+      final cliente = data['idCliente'];
+      final negocio = data['idNegocio'];
+      DocumentReference<Map<String, dynamic>>? usoCupon;
+      if (cupon is String && cupon.isNotEmpty && cliente is String && cliente.isNotEmpty && negocio is String) {
+        final ref = _db
+            .collection('negocios')
+            .doc(negocio)
+            .collection('cupones')
+            .doc(cupon)
+            .collection('usos')
+            .doc(cliente);
+        try {
+          final uso = await tx.get(ref);
+          if (uso.exists && uso.data()?['idPedido'] == idPedido) usoCupon = ref;
+        } catch (_) {
+          // Sin permiso para verlo: el pedido se cancela igual.
+        }
+      }
+      // Stock a devolver: solo si ya se había descontado (desde "En
+      // preparación") y solo de productos con control de stock.
+      final devoluciones = <DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>{};
+      if (devolverStock && actual != PedidoEstado.pendiente) {
+        final porProducto = <String, int>{};
+        for (final l in DetallePedidoModel.desdePedido(data)) {
+          if (l.idProducto.isEmpty) continue;
+          porProducto[l.idProducto] = (porProducto[l.idProducto] ?? 0) + l.cantidad;
+        }
+        // Lo que incluye un combo también vuelve al stock; las reglas lo
+        // aceptan si se dice de qué combo del pedido salió (devolucionCombo).
+        final suma = await _sumarCombos(porProducto);
+        for (final e in suma.cantidades.entries) {
+          final refProducto = _db.collection('productos').doc(e.key);
+          final producto = await tx.get(refProducto);
+          final stock = (producto.data()?['stock'] as num?)?.toInt();
+          if (!producto.exists || stock == null) continue;
+          final combo = porProducto.containsKey(e.key) ? null : suma.deCombo[e.key];
+          devoluciones[refProducto] = {
+            'stock': stock + e.value,
+            if (stock <= 0) 'disponible': true,
+            'devolucionDe': idPedido,
+            if (combo != null) 'devolucionCombo': combo,
+          };
+        }
+      }
       final enReparto = actual == PedidoEstado.enCamino || actual == PedidoEstado.llego;
       tx.update(ref, {
         'estado': PedidoEstado.cancelado,
+        'fechaCancelacion': FieldValue.serverTimestamp(),
         if (enReparto) 'ubicacionRepartidor': null,
         if (enReparto) 'ubicacionActualizada': null,
       });
@@ -1019,6 +1318,58 @@ class PedidoService {
           comentario: 'Motivo: $limpio',
         ).toMap(),
       );
+      if (usoCupon != null) tx.delete(usoCupon);
+      devoluciones.forEach((refProducto, cambios) => tx.update(refProducto, cambios));
+    });
+  }
+
+  /// El cliente cancela su propio pedido mientras sigue Pendiente (antes de
+  /// que el local lo acepte). Si usó un cupón, lo recupera. Si el local ya
+  /// lo aceptó, lanza un error con un mensaje claro.
+  Future<void> cancelarPorCliente({required String idPedido, required String idCliente}) async {
+    final ref = _pedidos.doc(idPedido);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final data = snap.data();
+      if (data == null || data['idCliente'] != idCliente) {
+        throw PedidoEstadoException(tr('No se encontró el pedido.'));
+      }
+      if (data['estado'] != PedidoEstado.pendiente) {
+        throw PedidoEstadoException(
+            tr('El local ya aceptó tu pedido; ya no se puede cancelar desde aquí. Comunícate con el local.'));
+      }
+      DocumentReference<Map<String, dynamic>>? usoCupon;
+      final cupon = data['codigoCupon'];
+      final negocio = data['idNegocio'];
+      if (cupon is String && cupon.isNotEmpty && negocio is String) {
+        final r = _db
+            .collection('negocios')
+            .doc(negocio)
+            .collection('cupones')
+            .doc(cupon)
+            .collection('usos')
+            .doc(idCliente);
+        try {
+          final uso = await tx.get(r);
+          if (uso.exists && uso.data()?['idPedido'] == idPedido) usoCupon = r;
+        } catch (_) {
+          // Si no se puede ver el uso, el pedido se cancela igual.
+        }
+      }
+      tx.update(ref, {
+        'estado': PedidoEstado.cancelado,
+        'fechaCancelacion': FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        ref.collection('historialEstados').doc(),
+        HistorialEstadoModel(
+          id: '',
+          estado: PedidoEstado.cancelado,
+          idUsuarioQueCambio: idCliente,
+          comentario: 'Cancelado por el cliente.',
+        ).toMap(),
+      );
+      if (usoCupon != null) tx.delete(usoCupon);
     });
   }
 

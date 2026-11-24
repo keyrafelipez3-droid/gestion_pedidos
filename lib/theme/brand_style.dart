@@ -14,7 +14,7 @@ class BrandOpciones {
   BrandOpciones._();
 
   static const estilos = <EstiloOpcion>[
-    EstiloOpcion('caro', 'Nami', 'Tarjetas finas con borde y títulos grandes'),
+    EstiloOpcion('nami', 'Nami', 'Tarjetas blancas como platos sobre la mesa'),
     EstiloOpcion('moderno', 'Moderno', 'Tarjetas con sombra suave'),
     EstiloOpcion('minimal', 'Minimal', 'Líneas finas, sin sombras'),
     EstiloOpcion('premium', 'Premium', 'Sobrio, con espaciado en títulos'),
@@ -24,6 +24,7 @@ class BrandOpciones {
   ];
 
   static const tipografias = <EstiloOpcion>[
+    EstiloOpcion('nami', 'Nami', 'Bricolage Grotesque + Figtree'),
     EstiloOpcion('sans', 'Sans moderna', 'Hanken Grotesk'),
     EstiloOpcion('slab', 'Slab', 'Zilla Slab'),
     EstiloOpcion('serif', 'Serif elegante', 'Playfair Display'),
@@ -41,6 +42,8 @@ class BrandOpciones {
   /// Familias (titulares, texto) de Google Fonts para cada tipografía.
   static (String, String) familias(String id) {
     switch (id) {
+      case 'nami':
+        return ('Bricolage Grotesque', 'Figtree');
       case 'slab':
         return ('Zilla Slab', 'Lato');
       case 'serif':
@@ -68,7 +71,7 @@ class BrandStyle extends ThemeExtension<BrandStyle> {
   final double radioPequeno;
   final double radioCampo;
 
-  /// sombra | borde | plano | color
+  /// sombra | borde | color | plato
   final String tarjeta;
   final double grosorBorde;
   final bool mayusculasTitulos;
@@ -131,11 +134,13 @@ class BrandStyle extends ThemeExtension<BrandStyle> {
     double espacio = 0;
     Color sombra = const Color(0x1F000000);
     switch (estilo) {
-      case 'caro':
-        // Estilo de la marca Caro: tarjetas con borde fino (se ven bien
-        // sobre fondos oscuros) y una sombra muy suave.
-        tarjeta = 'borde';
-        sombra = const Color(0x33000000);
+      case 'nami':
+      case 'caro': // nombre anterior de la marca (datos guardados antes)
+        // Estilo de la marca Nami: tarjetas blancas sin borde, apoyadas
+        // sobre el fondo con una sombra corta teñida de berenjena, como un
+        // plato sobre la mesa.
+        tarjeta = 'plato';
+        sombra = const Color(0x142A1730);
         break;
       case 'minimal':
         tarjeta = 'borde';
@@ -199,6 +204,18 @@ class BrandStyle extends ThemeExtension<BrandStyle> {
         return BoxDecoration(
           color: color ?? s.surfaceContainerHigh,
           borderRadius: card,
+        );
+      case 'plato':
+        return BoxDecoration(
+          color: color ?? (oscuro ? s.surfaceContainerLow : s.surfaceContainerLowest),
+          borderRadius: card,
+          border: oscuro ? Border.all(color: s.outlineVariant, width: grosorBorde) : null,
+          boxShadow: oscuro
+              ? null
+              : [
+                  BoxShadow(color: colorSombra, blurRadius: 2, offset: const Offset(0, 1)),
+                  BoxShadow(color: colorSombra, blurRadius: 16, offset: const Offset(0, 6)),
+                ],
         );
       case 'sombra':
       default:

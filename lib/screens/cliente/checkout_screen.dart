@@ -30,6 +30,7 @@ import '../../widgets/selector_imagen.dart';
 import '../mapa/selector_ubicacion_screen.dart';
 import 'condiciones_restaurante_screen.dart';
 import 'pedido_detalle_screen.dart';
+import '../../widgets/campo_desplegable.dart';
 
 /// HU-24/25/26/27: elegir modalidad (mesa/recoger/delivery), dirección
 /// si corresponde, método de pago, comprobante si corresponde, y
@@ -58,6 +59,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _comprobanteCtrl = TextEditingController();
   final _notasCtrl = TextEditingController();
   bool _confirmando = false;
+
+  /// Productos del carrito. Si al confirmar cambió un precio, el servicio
+  /// lo corrige en el carrito y aquí se vuelve a leer (antes la pantalla
+  /// seguía con el precio viejo y no dejaba confirmar nunca).
+  late List<CarritoItemModel> _items = widget.items;
+
+  /// Id del pedido, fijo mientras esta pantalla está abierta. Si el envío se
+  /// repite (doble toque, o se reintenta tras un error de conexión cuando
+  /// el pedido sí llegó), se usa el mismo id y no se crea un segundo pedido.
+  final String _idPedido = PedidoService.instancia.nuevoIdPedido();
   SucursalModel? _sucursal;
   String? _zona; // zona de delivery elegida
 
@@ -167,7 +178,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } catch (_) {}
   }
 
-  double get _subtotal => CarritoService.instancia.calcularTotal(widget.items);
+  double get _subtotal => CarritoService.instancia.calcularTotal(_items);
   double get _descuento => _cupon?.descuentoPara(_subtotal) ?? 0;
   double get _propinaAplicada => _modalidad == PedidoModalidad.delivery ? _propina : 0;
   bool get _cobraEnvio => _modalidad == PedidoModalidad.delivery && (_sucursal?.cobraEnvio ?? false);
@@ -236,7 +247,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _alergenosProducto = {for (final p in productos) p.id: p.alergenos};
         final porId = {for (final p in productos) p.id: p};
         _agotados = [
-          for (final item in widget.items)
+          for (final item in _items)
             if (porId[item.idProducto] case final p? when p.agotado || !p.disponible || !p.estado)
               item.nombreProducto,
         ];
@@ -248,7 +259,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   /// Productos del carrito que contienen algo a lo que el cliente es alérgico.
   List<({String producto, List<String> conflicto})> get _conflictos => [
-        for (final item in widget.items)
+        for (final item in _items)
           if (Alergenos.enComun(_alergenosProducto[item.idProducto] ?? const [], _alergias)
               case final c when c.isNotEmpty)
             (producto: item.nombreProducto, conflicto: c),
@@ -439,7 +450,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             if (_sucursal?.cobraEnvio ?? false) ...[
               const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<String>(
+              CampoDesplegable<String>(
                 initialValue: _sucursal!.zonasDelivery.containsKey(_zona) ? _zona : null,
                 isExpanded: true,
                 decoration: InputDecoration(
@@ -754,9 +765,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _confirmar() async {
-    if (!await _aceptaConflictos() || !mounted) return;
+    // Se marca ANTES de cualquier espera: así dos toques seguidos (o un
+    // doble clic) no llegan a mandar el pedido dos veces.
+    if (_confirmando) return;
     setState(() => _confirmando = true);
     try {
+      if (!await _aceptaConflictos() || !mounted) return;
       // Comprobación final con datos frescos: el horario pudo cambiar o la
       // sucursal cerrar mientras el cliente armaba el pedido.
       final fresca = await SucursalService.instancia.obtener(widget.idSucursal);
@@ -774,6 +788,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception(tr('Para pedir, primero acepta las condiciones del restaurante.'));
       }
       final idPedido = await PedidoService.instancia.confirmarPedido(
+        idPedido: _idPedido,
         idCliente: _uid,
         idNegocio: widget.negocio.idNegocio,
         idSucursal: widget.idSucursal,
@@ -789,7 +804,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         comprobantePagoUrl: _metodoPago == MetodoPago.efectivo || _comprobanteCtrl.text.trim().isEmpty
             ? null
             : _comprobanteCtrl.text.trim(),
-        itemsCarrito: widget.items,
+        itemsCarrito: _items,
         notas: _notasCtrl.text.trim(),
         alergias: _alergias,
         codigoCupon: _cupon?.codigo,
@@ -811,8 +826,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(textoError(e))),
       );
+      await _releerCarrito();
     } finally {
       if (mounted) setState(() => _confirmando = false);
+    }
+  }
+
+  /// Vuelve a leer el carrito (precios corregidos, productos quitados).
+  Future<void> _releerCarrito() async {
+    try {
+      final frescos =
+          await CarritoService.instancia.streamCarrito(_uid, widget.negocio.idNegocio).first;
+      if (!mounted || frescos.isEmpty) return;
+      setState(() => _items = frescos);
+    } catch (_) {
+      // Sin conexión: se queda con lo que tenía.
     }
   }
 }
@@ -1034,8 +1062,8 @@ class _SelectorMesa extends StatelessWidget {
         if (mesas.isEmpty) {
           return Text(tr('Este local todavía no tiene mesas registradas.'));
         }
-        return DropdownButtonFormField<String>(
-          value: seleccionada,
+        return CampoDesplegable<String>(
+          initialValue: seleccionada,
           decoration: InputDecoration(labelText: tr('Elige tu mesa')),
           items: mesas
               .map((m) => DropdownMenuItem(
@@ -1189,17 +1217,28 @@ class _SelectorDireccion extends StatelessWidget {
             if (direcciones.isEmpty)
               Text(tr('Todavía no tienes direcciones guardadas.'))
             else
-              ...direcciones.map((d) => RadioListTile<String>(
-                    value: d.id,
-                    groupValue: seleccionada?.id,
-                    title: Text(d.etiqueta),
-                    subtitle: Text(
-                      d.tieneUbicacion
-                          ? d.direccion
-                          : tr('{direccion}\n(Sin ubicación en el mapa: agrega una dirección nueva)', {'direccion': d.direccion}),
-                    ),
-                    onChanged: (_) => onChanged(d),
-                  )),
+              RadioGroup<String>(
+                groupValue: seleccionada?.id,
+                onChanged: (id) {
+                  for (final d in direcciones) {
+                    if (d.id == id) onChanged(d);
+                  }
+                },
+                child: Column(
+                  children: [
+                    for (final d in direcciones)
+                      RadioListTile<String>(
+                        value: d.id,
+                        title: Text(d.etiqueta),
+                        subtitle: Text(
+                          d.tieneUbicacion
+                              ? d.direccion
+                              : tr('{direccion}\n(Sin ubicación en el mapa: agrega una dirección nueva)', {'direccion': d.direccion}),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             const SizedBox(height: AppSpacing.xs),
             OutlinedButton.icon(
               icon: const Icon(Icons.add_location_alt_outlined),

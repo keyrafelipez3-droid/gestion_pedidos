@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/idioma.dart';
 import '../../models/alergenos.dart';
@@ -11,6 +12,7 @@ import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/acciones_pedido.dart';
 import '../../utils/contacto.dart';
+import '../../utils/errores.dart';
 import '../../utils/formato.dart';
 import '../../widgets/alergias.dart';
 import '../../widgets/app_contenido_centrado.dart';
@@ -21,6 +23,7 @@ import '../../widgets/linea_estado_pedido.dart';
 import '../../widgets/mapa_seguimiento.dart';
 import '../../widgets/texto_traducido.dart';
 import 'inicio_cliente.dart';
+import 'reclamos_cliente_screen.dart';
 import 'resena_pedido_card.dart';
 import 'ticket_pedido_screen.dart';
 
@@ -225,6 +228,62 @@ class _ProductosDelPedidoState extends State<_ProductosDelPedido> {
   }
 }
 
+/// El comprobante lo sube el cliente; solo se abre si es un enlace web.
+Uri? _urlComprobante(PedidoModel pedido) {
+  final texto = pedido.comprobantePagoUrl?.trim() ?? '';
+  if (texto.isEmpty) return null;
+  final uri = Uri.tryParse(texto);
+  if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http') || uri.host.isEmpty) {
+    return null;
+  }
+  return uri;
+}
+
+Future<void> _abrirComprobante(BuildContext context, Uri uri) async {
+  final mensajero = ScaffoldMessenger.of(context);
+  var abierto = false;
+  try {
+    abierto = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    abierto = false;
+  }
+  if (!abierto) {
+    mensajero.showSnackBar(SnackBar(content: Text(tr('No se pudo abrir el comprobante.'))));
+  }
+}
+
+/// El cliente cancela su pedido mientras el local todavía no lo aceptó.
+Future<void> _cancelarComoCliente(BuildContext context, PedidoModel pedido) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('¿Cancelar tu pedido?')),
+      content: Text(tr('Solo se puede cancelar mientras el local no lo acepta. Si usaste un cupón, lo podrás volver a usar.')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Volver'))),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(ctx).colorScheme.error,
+            foregroundColor: Theme.of(ctx).colorScheme.onError,
+          ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(tr('Sí, cancelar')),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  final uid = SesionActual.instancia.actual?.idUsuario;
+  if (uid == null) return;
+  try {
+    await PedidoService.instancia.cancelarPorCliente(idPedido: pedido.id, idCliente: uid);
+    messenger.showSnackBar(SnackBar(content: Text(tr('Pedido cancelado.'))));
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(textoError(e))));
+  }
+}
+
 class _Detalle extends StatelessWidget {
   final PedidoModel pedido;
   final bool esPersonal;
@@ -330,15 +389,41 @@ class _Detalle extends StatelessWidget {
           AvisoCancelacion(idPedido: pedido.id),
         ],
         const SizedBox(height: AppSpacing.sm),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => TicketPedidoScreen(pedido: pedido)),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: AppSpacing.sm,
+          children: [
+            if (_urlComprobante(pedido) != null)
+              TextButton.icon(
+                onPressed: () => _abrirComprobante(context, _urlComprobante(pedido)!),
+                icon: const Icon(Icons.image_outlined, size: 18),
+                label: Text(tr('Ver comprobante de pago')),
+              ),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => TicketPedidoScreen(pedido: pedido)),
+              ),
+              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+              label: Text(tr('Ver ticket')),
             ),
-            icon: const Icon(Icons.receipt_long_outlined, size: 18),
-            label: Text(tr('Ver ticket')),
-          ),
+            if (!esPersonal && pedido.origen == PedidoOrigen.cliente)
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => NuevoReclamoScreen(idNegocio: pedido.idNegocio, idPedido: pedido.id),
+                )),
+                icon: const Icon(Icons.support_agent_outlined, size: 18),
+                label: Text(tr('Tengo un problema con este pedido')),
+              ),
+            if (!esPersonal &&
+                pedido.origen == PedidoOrigen.cliente &&
+                pedido.estado == PedidoEstado.pendiente)
+              TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                onPressed: () => _cancelarComoCliente(context, pedido),
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: Text(tr('Cancelar mi pedido')),
+              ),
+          ],
         ),
         if (!esPersonal &&
             pedido.estado == PedidoEstado.entregado &&

@@ -12,19 +12,22 @@ import '../../theme/design_tokens.dart';
 import '../../widgets/animaciones_marca.dart';
 import '../../widgets/codigo_restaurante.dart';
 import '../../widgets/etiqueta_version.dart';
-import '../../widgets/logo_caro.dart';
+import '../../widgets/logo_nami.dart';
 import '../cuenta/dos_pasos_screen.dart';
 import '../legal/legal_screen.dart';
 import 'registro_screen.dart';
+import '../../widgets/resenas_destacadas.dart';
 
 /// HU-02 — Pantalla de inicio de sesión.
 /// ("Iniciar sesión con mis credenciales")
 ///
-/// Entrada con animación (estilo "Slate"): fondo negro, el logo aparece,
-/// "Nami" se escribe letra por letra y luego el bloque negro sube y deja
-/// ver el formulario, que entra por partes. La bienvenida completa se ve
-/// solo la primera vez que se abre la app; se puede saltar tocándola.
-/// En ventanas anchas el bloque negro se queda como panel a la izquierda.
+/// Entrada con animación: fondo berenjena, el logo aparece, "nami" se
+/// escribe de izquierda a derecha y luego el bloque sube (celular) o se
+/// achica hacia la izquierda (computadora) y deja ver el formulario, que
+/// entra por partes. En computadora el panel queda con el diseño de
+/// Susan: logotipo arriba, una frase y la foto de comida en un "plato"
+/// circular abajo a la derecha. La bienvenida completa se ve solo la
+/// primera vez que se abre la app; se puede saltar tocándola.
 /// La lógica de autenticación no cambió en nada.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -165,8 +168,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
 
     if (esAmplio) {
-      // Computadora: el bloque negro cubre toda la pantalla y luego se
-      // achica hasta la mitad izquierda, dejando ver el formulario.
+      // Computadora: el panel berenjena cubre toda la pantalla y luego se
+      // achica hacia la izquierda (55 %), dejando ver el formulario.
       return Scaffold(
         floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
         floatingActionButton: const Padding(
@@ -180,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 top: 0,
                 bottom: 0,
                 right: 0,
-                width: c.maxWidth / 2,
+                width: c.maxWidth * 0.45,
                 child: Center(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -197,13 +200,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   top: 0,
                   bottom: 0,
                   left: 0,
-                  width: c.maxWidth - (c.maxWidth / 2) * _subida.value,
+                  width: c.maxWidth - (c.maxWidth * 0.45) * _subida.value,
                   child: GestureDetector(
                     onTap: _saltarBienvenida,
                     child: ValueListenableBuilder<NegocioModel?>(
                       valueListenable: AppThemeController.instancia.negocio,
                       builder: (context, negocio, _) => _PanelMarca(
-                        color: scheme.primary,
+                        nombreNegocio: negocio?.nombre ?? '',
                         imagenUrl: negocio?.bannerUrl ?? '',
                         entrada: _entrada,
                       ),
@@ -217,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
     }
 
-    // Celular: bloque negro con la marca y borde curvo arriba; el
+    // Celular: bloque berenjena con la marca y borde curvo abajo; el
     // formulario debajo. Durante la bienvenida el bloque ocupa toda la
     // pantalla y después sube.
     final altoPantalla = MediaQuery.sizeOf(context).height;
@@ -256,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     child: Container(
                       height: altoMarca,
                       width: double.infinity,
-                      color: AppBrand.negro,
+                      color: AppBrand.berenjena,
                       padding: const EdgeInsets.only(bottom: 48),
                       child: SafeArea(
                         bottom: false,
@@ -275,9 +278,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 }
 
-/// Logo, nombre y frase de la marca con su animación de entrada: el logo
-/// aparece agrandándose, "Nami" se escribe letra por letra en dorado y la
-/// frase aparece al final.
+/// Logo, nombre y frase de la marca con su animación de entrada (celular):
+/// el logo aparece agrandándose, "nami" se escribe de izquierda a derecha
+/// y la frase aparece al final.
 class _EncabezadoMarca extends StatelessWidget {
   final Animation<double> entrada;
   final double tamanoLogo;
@@ -306,18 +309,15 @@ class _EncabezadoMarca extends StatelessWidget {
                 children: [
                   Opacity(
                     opacity: logo.clamp(0.0, 1.0),
-                    child: Transform.scale(scale: 0.5 + 0.5 * logo, child: LogoCaro(size: tamanoLogo)),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextoEscrito(
-                    texto: AppBrand.nombre,
-                    progreso: escrito,
-                    estilo: const TextStyle(
-                      color: AppBrand.dorado,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 8,
+                    child: Transform.scale(
+                      scale: 0.5 + 0.5 * logo,
+                      child: LogoNami(size: tamanoLogo, conFondo: false),
                     ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  RevelarHorizontal(
+                    progreso: escrito,
+                    child: const WordmarkNami(alto: 44, color: AppBrand.leche),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Opacity(
@@ -327,7 +327,7 @@ class _EncabezadoMarca extends StatelessWidget {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 320),
                         child: Text(
-                          tr('Pide, gestiona y sirve todo desde un solo lugar.'),
+                          tr('Del fogón a la mesa, sin papelitos.'),
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.8),
@@ -346,59 +346,159 @@ class _EncabezadoMarca extends StatelessWidget {
   }
 }
 
-/// Panel de marca del login. Si el negocio subió su propia foto de banner
-/// (HU-10, Personalización — el mismo campo que usa el dashboard) se usa
-/// esa; si no, se usa `assets/images/login_pattern.jpg`, una ilustración
-/// propia del proyecto (no una foto de stock de terceros) para que el
-/// panel no se vea plano desde el primer arranque. En los dos casos se
-/// le pone encima un degradado del color de marca para que el texto en
-/// blanco se siga leyendo bien.
+/// Panel de marca del login en computadora (diseño de Susan). Fondo
+/// berenjena con el logotipo arriba, una frase corta y, abajo a la
+/// derecha, la foto de comida recortada en un gran círculo, como un plato
+/// visto desde arriba que se sale del borde. Si el negocio subió su propia
+/// foto de banner (Personalización) va esa en el plato; si no, la foto del
+/// proyecto. Cada parte entra con la animación de bienvenida.
 class _PanelMarca extends StatelessWidget {
-  final Color color;
+  final String nombreNegocio;
   final String imagenUrl;
   final Animation<double> entrada;
-  const _PanelMarca({required this.color, required this.entrada, this.imagenUrl = ''});
+  const _PanelMarca({required this.entrada, this.nombreNegocio = '', this.imagenUrl = ''});
 
   @override
   Widget build(BuildContext context) {
     final tieneImagenPropia = imagenUrl.trim().isNotEmpty;
+    final texto = Theme.of(context).textTheme;
 
-    return Container(
-      color: color,
-      alignment: Alignment.center,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Si el negocio subió su propia foto de banner (Personalización),
-          // esa es la que se usa. Si no, se usa de todas formas un fondo
-          // ilustrado propio del proyecto (nunca una foto de stock de
-          // terceros) en vez de dejar el panel plano — así se ve como el
-          // diseño de referencia desde el primer arranque, sin depender de
-          // que alguien cargue una imagen primero.
-          if (tieneImagenPropia)
-            Image.network(
-              imagenUrl.trim(), webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stack) => const _FondoHero(),
-              loadingBuilder: (context, child, progress) =>
-                  progress == null ? child : const SizedBox.shrink(),
-            )
-          else
-            const _FondoHero(),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.45),
-                  Colors.black.withValues(alpha: 0.80),
+    // La foto no depende de la animación: se arma una sola vez.
+    final foto = tieneImagenPropia
+        ? Image.network(
+            imagenUrl.trim(),
+            webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stack) => const _FondoHero(),
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : const SizedBox.shrink(),
+          )
+        : const _FondoHero();
+
+    return ColoredBox(
+      color: AppBrand.berenjena,
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final diametro = c.maxHeight * 0.78;
+          return AnimatedBuilder(
+            animation: entrada,
+            builder: (context, _) {
+              final v = entrada.value;
+              double tramo(double a, double b, [Curve curva = Curves.easeOutCubic]) =>
+                  curva.transform(((v - a) / (b - a)).clamp(0.0, 1.0));
+              final logo = tramo(0.0, 0.18, Curves.easeOutBack);
+              final escrito = tramo(0.12, 0.36, Curves.linear);
+              final frase = tramo(0.34, 0.46);
+              final detalle = tramo(0.40, 0.52);
+              // El plato entra cuando el panel ya se achicó.
+              final plato = tramo(0.62, 0.86, Curves.easeOutBack);
+
+              return Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  // El "plato": la foto en un círculo con un aro de ají.
+                  Positioned(
+                    right: -diametro * 0.22,
+                    bottom: -diametro * 0.24,
+                    width: diametro,
+                    height: diametro,
+                    child: Opacity(
+                      opacity: plato.clamp(0.0, 1.0),
+                      child: Transform.scale(
+                        scale: 0.7 + 0.3 * plato,
+                        alignment: Alignment.bottomRight,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppBrand.aji, width: 10),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: ClipOval(child: foto),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(56, 48, 56, 48),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Opacity(
+                              opacity: logo.clamp(0.0, 1.0),
+                              child: Transform.scale(
+                                scale: 0.5 + 0.5 * logo,
+                                child: const LogoNami(size: 52, conFondo: false),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            RevelarHorizontal(
+                              progreso: escrito,
+                              child: const WordmarkNami(alto: 36, color: AppBrand.leche),
+                            ),
+                            if (nombreNegocio.trim().isNotEmpty) ...[
+                              const SizedBox(width: AppSpacing.md),
+                              Flexible(
+                                child: Opacity(
+                                  opacity: detalle,
+                                  child: Text(
+                                    nombreNegocio,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: texto.titleMedium?.copyWith(
+                                      color: AppBrand.leche.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        SizedBox(height: c.maxHeight * 0.12),
+                        Opacity(
+                          opacity: frase,
+                          child: Transform.translate(
+                            offset: Offset(0, (1 - frase) * 12),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 440),
+                              child: Text(
+                                tr('Del fogón a la mesa, sin papelitos.'),
+                                style: texto.displaySmall?.copyWith(
+                                  color: AppBrand.leche,
+                                  height: 1.08,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Opacity(
+                          opacity: detalle,
+                          child: Transform.translate(
+                            offset: Offset(0, (1 - detalle) * 12),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 380),
+                              child: Text(
+                                tr('Pedidos, cocina, caja y reparto de tu restaurante en un solo lugar.'),
+                                style: texto.bodyLarge?.copyWith(
+                                  color: AppBrand.leche.withValues(alpha: 0.72),
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-          ),
-          _EncabezadoMarca(entrada: entrada, tamanoLogo: 150),
-        ],
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -572,6 +672,8 @@ class _Formulario extends StatelessWidget {
             ],
           )),
           entra(const EtiquetaVersion()),
+          // Las mejores reseñas de los clientes, antes de entrar.
+          entra(const ResenasDestacadas()),
         ],
       ),
     );
@@ -626,6 +728,9 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text(tr('Restablecer contraseña')),
       content: Form(
         key: _formKey,

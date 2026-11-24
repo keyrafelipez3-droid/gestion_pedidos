@@ -19,6 +19,8 @@ import '../../widgets/panel_personal.dart';
 import '../../widgets/tarjeta_pedido_personal.dart';
 import '../../widgets/texto_traducido.dart';
 import '../cliente/pedido_detalle_screen.dart';
+import '../../widgets/avisos_personal.dart';
+import '../../widgets/boton_entregas_realizadas.dart';
 
 /// "12 min", "3 h 05" o "2 d": el tiempo que lleva esperando un pedido.
 String textoEspera(int minutos) => duracionCorta(minutos);
@@ -120,6 +122,7 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
     final stream = _stream;
     final idNegocio = _idNegocio;
     final sucursal = _sucursal;
+    final angosto = MediaQuery.sizeOf(context).width < 520;
     return StreamBuilder<SucursalModel?>(
       stream: sucursal,
       builder: (context, sSucursal) {
@@ -128,6 +131,8 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
           appBar: AppBar(
             title: Text(tr('Cocina')),
             actions: [
+              // En el celular el botón queda corto ("Pausar" / "Reanudar")
+              // para que no se monte sobre el título.
               if (s != null)
                 Padding(
                   padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -135,14 +140,25 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
                       ? FilledButton.icon(
                           onPressed: () => _cambiarPausa(s),
                           icon: const Icon(Icons.play_arrow),
-                          label: Text(tr('Reanudar pedidos')),
+                          label: Text(angosto ? tr('Reanudar') : tr('Reanudar pedidos')),
                         )
                       : OutlinedButton.icon(
                           onPressed: () => _cambiarPausa(s),
                           icon: const Icon(Icons.pause),
-                          label: Text(tr('Pausar pedidos nuevos')),
+                          label: Text(angosto ? tr('Pausar') : tr('Pausar pedidos nuevos')),
                         ),
                 ),
+              if (idNegocio != null)
+                BotonEntregasRealizadas(
+                  cargar: () async => reporteEntregasDeLaSesion(
+                    pedidos: await PedidoService.instancia
+                        .streamRecientesPorEstado(idNegocio, PedidoEstado.entregado)
+                        .first,
+                    periodo: 'Últimos 7 días',
+                  ),
+                ),
+              const CampanaAvisosPersonal(),
+              const SizedBox(width: AppSpacing.xs),
             ],
           ),
           body: stream == null || idNegocio == null
@@ -621,6 +637,9 @@ class _DialogoPausaState extends State<_DialogoPausa> {
   Widget build(BuildContext context) {
     final rapidos = [tr('Cocina llena'), tr('Faltan insumos'), tr('Cerramos en unos minutos')];
     return AlertDialog(
+      // Con el teclado abierto el contenido se desplaza en vez de
+      // encimarse con los botones.
+      scrollable: true,
       title: Text(tr('Pausar pedidos nuevos')),
       content: SizedBox(
         width: 420,

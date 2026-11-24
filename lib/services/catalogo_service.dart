@@ -86,8 +86,15 @@ class CatalogoService {
       _db.collection('negocios').doc(idNegocio).collection('publico').doc('precios');
 
   /// Lista de precios con [producto] actualizado (o quitado, si
-  /// [producto] es null). Las promociones vencidas se limpian.
-  Future<Map<String, dynamic>> _listaCon(String idNegocio, String id, ProductoModel? producto) async {
+  /// [producto] es null). Las promociones vencidas se limpian. Para una
+  /// variante o un complemento se pasa solo su [precioExtra] (no tienen
+  /// promoción).
+  Future<Map<String, dynamic>> _listaCon(
+    String idNegocio,
+    String id,
+    ProductoModel? producto, {
+    double? precioExtra,
+  }) async {
     final data = (await _precios(idNegocio).get()).data() ?? {};
     final normal = Map<String, dynamic>.from(data['normal'] as Map? ?? {});
     final promo = Map<String, dynamic>.from(data['promo'] as Map? ?? {});
@@ -95,6 +102,7 @@ class CatalogoService {
     normal.remove(id);
     promo.remove(id);
     hasta.remove(id);
+    if (precioExtra != null) normal[id] = precioExtra;
     if (producto != null) {
       normal[id] = producto.precio;
       if (producto.promoActiva()) {
@@ -145,6 +153,22 @@ class CatalogoService {
     await lote.commit();
   }
 
+  /// La lista de precios guarda la fecha de la promoción que vence primero
+  /// (`promoHasta`): pasada esa fecha, las reglas ya no aceptan NINGUNA
+  /// promoción, aunque otras sigan vigentes. Si eso pasó, el Administrador
+  /// la vuelve a escribir sin las promociones vencidas (se llama al abrir
+  /// su panel). Si no venció nada, no escribe.
+  Future<void> limpiarPromosVencidas(String idNegocio) async {
+    try {
+      final data = (await _precios(idNegocio).get()).data();
+      final fin = (data?['promoHasta'] as Timestamp?)?.toDate();
+      if (fin == null || DateTime.now().isBefore(fin)) return;
+      await _precios(idNegocio).set(await _listaCon(idNegocio, '', null));
+    } catch (_) {
+      // Sin conexión o sin permiso: se intentará la próxima vez.
+    }
+  }
+
   Future<void> cambiarDisponibilidadProducto(String id, bool disponible) =>
       _collection('productos').doc(id).update({'disponible': disponible});
 
@@ -166,27 +190,75 @@ class CatalogoService {
     return precios;
   }
 
+  /// Las variantes y complementos también van en la lista de precios (las
+  /// reglas revisan su precio en el pedido), en el mismo lote.
   Future<void> guardarComplemento(ComplementoModel item) async {
     final doc = item.id.isEmpty
         ? _collection('complementos').doc()
         : _collection('complementos').doc(item.id);
-    await doc.set(item.toMap(), SetOptions(merge: true));
+    final lote = _db.batch()..set(doc, item.toMap(), SetOptions(merge: true));
+    final idNegocio = item.idNegocio;
+    if (idNegocio != null && idNegocio.isNotEmpty) {
+      lote.set(_precios(idNegocio), await _listaCon(idNegocio, doc.id, null, precioExtra: item.precio));
+    }
+    await lote.commit();
+  }
+
+  /// Borra una variante o un complemento y lo saca de la lista de precios.
+  Future<void> _eliminarExtra(String coleccion, String id) async {
+    final doc = _collection(coleccion).doc(id);
+    final idNegocio = (await doc.get()).data()?['idNegocio'] as String?;
+    final lote = _db.batch()..delete(doc);
+    if (idNegocio != null && idNegocio.isNotEmpty) {
+      lote.set(_precios(idNegocio), await _listaCon(idNegocio, id, null));
+    }
+    await lote.commit();
+  }
+
+  /// Las variantes y complementos creados antes de que se pudieran pedir no
+  /// están en la lista de precios. Si falta alguno (o su precio cambió), la
+  /// vuelve a escribir. Se llama al abrir el panel del Administrador.
+  Future<void> sincronizarExtras(String idNegocio) async {
+    try {
+      final data = (await _precios(idNegocio).get()).data() ?? {};
+      final normal = data['normal'] as Map? ?? {};
+      final complementos = await streamComplementos(idNegocio).first;
+      final variantes = await streamVariantes(idNegocio).first;
+      final faltan = <String, double>{
+        for (final c in complementos)
+          if (normal[c.id] != c.precio) c.id: c.precio,
+        for (final v in variantes)
+          if (normal[v.id] != v.precioAdicional) v.id: v.precioAdicional,
+      };
+      if (faltan.isEmpty) return;
+      final lista = await _listaCon(idNegocio, '', null);
+      (lista['normal'] as Map<String, dynamic>).addAll(faltan);
+      await _precios(idNegocio).set(lista);
+    } catch (_) {
+      // Sin conexión o sin permiso: se intentará la próxima vez.
+    }
   }
 
   Future<void> cambiarEstadoComplemento(String id, bool estado) =>
       _collection('complementos').doc(id).update({'estado': estado});
 
-  Future<void> eliminarComplemento(String id) => _collection('complementos').doc(id).delete();
+  Future<void> eliminarComplemento(String id) => _eliminarExtra('complementos', id);
 
   Future<void> guardarVariante(VarianteModel item) async {
     final doc = item.id.isEmpty
         ? _collection('variantes').doc()
         : _collection('variantes').doc(item.id);
-    await doc.set(item.toMap(), SetOptions(merge: true));
+    final lote = _db.batch()..set(doc, item.toMap(), SetOptions(merge: true));
+    final idNegocio = item.idNegocio;
+    if (idNegocio != null && idNegocio.isNotEmpty) {
+      lote.set(_precios(idNegocio),
+          await _listaCon(idNegocio, doc.id, null, precioExtra: item.precioAdicional));
+    }
+    await lote.commit();
   }
 
   Future<void> cambiarEstadoVariante(String id, bool estado) =>
       _collection('variantes').doc(id).update({'estado': estado});
 
-  Future<void> eliminarVariante(String id) => _collection('variantes').doc(id).delete();
+  Future<void> eliminarVariante(String id) => _eliminarExtra('variantes', id);
 }

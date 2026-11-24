@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import '../firebase_options.dart';
 import '../models/cliente_negocio_model.dart';
 import '../models/usuario_model.dart';
+import '../utils/motivo_obligatorio.dart';
 
 /// Operaciones exclusivas del Administrador sobre la colección `usuarios`.
 class AdminService {
@@ -38,6 +39,7 @@ class AdminService {
     String? idNegocio,
   }) async {
     FirebaseApp? appTemporal;
+    User? cuentaCreada;
     try {
       appTemporal = await Firebase.initializeApp(
         name: 'appTemporalCrearEmpleado_${DateTime.now().microsecondsSinceEpoch}',
@@ -51,6 +53,7 @@ class AdminService {
         password: password,
       );
 
+      cuentaCreada = credencial.user;
       final uid = credencial.user!.uid;
 
       final nuevoEmpleado = UsuarioModel(
@@ -70,11 +73,18 @@ class AdminService {
       // qué app de Auth esté logueada en ese momento).
       await _db.collection('usuarios').doc(uid).set(nuevoEmpleado.toMap());
 
+      cuentaCreada = null; // quedó completa: ya no se borra
       await authTemporal.signOut();
       return null;
     } on FirebaseAuthException catch (e) {
       return _mensajeError(e.code);
     } catch (e) {
+      // La cuenta de acceso se creó pero no su ficha (por ejemplo, sin
+      // permiso o sin conexión): se borra para que no quede una cuenta
+      // huérfana sumando al límite de usuarios.
+      try {
+        await cuentaCreada?.delete();
+      } catch (_) {}
       return 'Ocurrió un error inesperado creando el empleado.';
     } finally {
       // Limpieza: se borra la app secundaria para no dejarla acumulada.
@@ -171,7 +181,9 @@ class AdminService {
     required bool bloqueado,
     String? motivo,
     required String idAdmin,
-  }) {
+  }) async {
+    // Bloquear exige un motivo (las reglas también lo exigen).
+    final motivoLimpio = bloqueado ? exigirMotivo(motivo) : null;
     return _db
         .collection('negocios')
         .doc(idNegocio)
@@ -179,7 +191,7 @@ class AdminService {
         .doc(idCliente)
         .update({
       'bloqueado': bloqueado,
-      'motivoBloqueo': bloqueado ? (motivo ?? '') : FieldValue.delete(),
+      'motivoBloqueo': bloqueado ? motivoLimpio : FieldValue.delete(),
       'fechaBloqueo': bloqueado ? FieldValue.serverTimestamp() : FieldValue.delete(),
       'idAdminBloqueo': bloqueado ? idAdmin : FieldValue.delete(),
     });

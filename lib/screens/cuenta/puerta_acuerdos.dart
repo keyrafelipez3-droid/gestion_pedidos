@@ -154,7 +154,7 @@ class _AceptarTerminosState extends State<_AceptarTerminos> {
       icono: Icons.gavel_outlined,
       titulo: yaHabia ? tr('Actualizamos nuestros términos') : tr('Términos y privacidad'),
       texto: yaHabia
-          ? tr('Agregamos el aviso de cookies y almacenamiento, la lista de servicios de terceros, la edad mínima y las leyes de cada país. Revisa los cambios y acéptalos para seguir pidiendo.')
+          ? tr('Pasamos los términos y la política de privacidad a un formato formal, listo para imprimir y firmar, y ahora las mejores reseñas pueden mostrarse en la pantalla de inicio de sesión. Revisa los cambios y acéptalos para seguir pidiendo.')
           : tr('Para usar la app necesitas aceptar los términos y la política de privacidad.'),
       children: [
         OutlinedButton.icon(

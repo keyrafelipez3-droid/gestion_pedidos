@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
+import 'logo_nami.dart';
 
 /// Piezas de diseño compartidas por los paneles del personal (Cajero,
 /// Cocina, Repartidor): resumen del turno, filtros en forma de píldora,
@@ -357,9 +358,9 @@ class TituloColumna extends StatelessWidget {
           ],
           Flexible(
             child: Text(
-              titulo.toUpperCase(),
+              titulo,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.8, fontSize: 13),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           if (contador != null) ...[
@@ -390,11 +391,17 @@ class DestinoPanel {
   final String etiqueta;
   final WidgetBuilder builder;
 
+  /// Si se da, la sección (con su barra superior) se centra con este ancho
+  /// máximo en pantallas anchas. Los tableros de varias columnas (pedidos,
+  /// mesas, cocina) lo dejan en null para usar todo el ancho.
+  final double? anchoMaximo;
+
   const DestinoPanel({
     required this.icono,
     required this.iconoActivo,
     required this.etiqueta,
     required this.builder,
+    this.anchoMaximo,
   });
 }
 
@@ -431,6 +438,16 @@ class _PanelConNavegacionState extends State<PanelConNavegacion> {
     });
   }
 
+  Widget _seccion(BuildContext context, DestinoPanel d) {
+    final hijo = d.builder(context);
+    final maximo = d.anchoMaximo;
+    if (maximo == null) return hijo;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maximo), child: hijo),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ancho = MediaQuery.sizeOf(context).width;
@@ -438,7 +455,7 @@ class _PanelConNavegacionState extends State<PanelConNavegacion> {
       index: _indice,
       children: [
         for (var i = 0; i < widget.destinos.length; i++)
-          _visitados.contains(i) ? widget.destinos[i].builder(context) : const SizedBox.shrink(),
+          _visitados.contains(i) ? _seccion(context, widget.destinos[i]) : const SizedBox.shrink(),
       ],
     );
     if (ancho >= AppBreakpoints.expanded) {
@@ -451,6 +468,14 @@ class _PanelConNavegacionState extends State<PanelConNavegacion> {
               onDestinationSelected: _ir,
               labelType: NavigationRailLabelType.all,
               backgroundColor: scheme.surfaceContainerLow,
+              minWidth: 88,
+              // Las secciones bajan un poco desde el borde superior en vez
+              // de quedar pegadas arriba.
+              groupAlignment: -0.75,
+              leading: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: LogoNami(size: 40),
+              ),
               destinations: [
                 for (final d in widget.destinos)
                   NavigationRailDestination(

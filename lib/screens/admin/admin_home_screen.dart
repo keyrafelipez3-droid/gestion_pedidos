@@ -24,6 +24,7 @@ import 'actividad_screen.dart';
 import 'clientes_screen.dart';
 import 'condiciones_negocio_screen.dart';
 import 'cupones_screen.dart';
+import 'reclamos_screen.dart';
 import 'resenas_screen.dart';
 import 'empleados_screen.dart';
 import 'negocio_screen.dart';
@@ -31,6 +32,7 @@ import 'sucursales_screen.dart';
 import 'ventas_screen.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/app_contenido_centrado.dart';
+import '../../widgets/avisos_personal.dart';
 
 /// Identifica qué sección del panel está activa (un valor por ítem del
 /// sidebar, para que el resaltado refleje lo que la persona tocó).
@@ -46,7 +48,7 @@ import '../../widgets/app_contenido_centrado.dart';
 /// "Horarios" ya no es un ítem aparte: se editaba desde el mismo lugar que
 /// "Sucursales" (el reloj dentro de cada tarjeta), así que el acceso
 /// duplicado se quitó para no confundir.
-enum _SeccionAdmin {
+enum SeccionAdmin {
   inicio,
   sucursales,
   datosNegocio,
@@ -60,6 +62,7 @@ enum _SeccionAdmin {
   actividad,
   clientes,
   resenas,
+  reclamos,
   versiones,
   errores,
   miCuenta,
@@ -88,21 +91,33 @@ class AdminHomeScreen extends StatefulWidget {
   /// Sección con la que arranca el panel — se usa al navegar entre
   /// secciones en pantallas anchas (ver `ir()` más abajo). Por defecto
   /// arranca en el dashboard de inicio.
-  final _SeccionAdmin seccionInicial;
+  final SeccionAdmin seccionInicial;
 
-  const AdminHomeScreen({super.key, this.seccionInicial = _SeccionAdmin.inicio});
+  const AdminHomeScreen({super.key, this.seccionInicial = SeccionAdmin.inicio});
 
   @override
   State<AdminHomeScreen> createState() => _AdminHomeScreenState();
 }
 
+/// Ancho máximo del contenido de cada sección del panel en pantallas
+/// anchas (Admin y SuperAdmin).
+const double anchoMaximoPanel = 1120;
+
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
-  late _SeccionAdmin _seccion;
+  late SeccionAdmin _seccion;
 
   @override
   void initState() {
     super.initState();
     _seccion = widget.seccionInicial;
+    final sesion = SesionActual.instancia;
+    final idNegocio = sesion.idNegocio;
+    if (sesion.esAdministrador && idNegocio != null && idNegocio.isNotEmpty) {
+      // Uno después del otro: los dos escriben la lista de precios.
+      CatalogoService.instancia
+          .limpiarPromosVencidas(idNegocio)
+          .then((_) => CatalogoService.instancia.sincronizarExtras(idNegocio));
+    }
   }
 
   List<AppSidebarSection> _secciones(
@@ -110,7 +125,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     required bool esAmplio,
     required UsuarioModel usuario,
   }) {
-    void ir(_SeccionAdmin destino, Widget Function() pantallaCompleta) {
+    void ir(SeccionAdmin destino, Widget Function() pantallaCompleta) {
       if (esAmplio) {
         // Se navega a una instancia nueva de este panel ya posicionada en
         // `destino` (con transición instantánea, sin animación) en vez de
@@ -148,10 +163,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       AppSidebarItem(
         icon: Icons.home_outlined,
         label: 'Inicio',
-        selected: _seccion == _SeccionAdmin.inicio,
+        selected: _seccion == SeccionAdmin.inicio,
         onTap: () {
           if (esAmplio) {
-            if (_seccion != _SeccionAdmin.inicio) {
+            if (_seccion != SeccionAdmin.inicio) {
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
                   pageBuilder: (_, __, ___) => const AdminHomeScreen(),
@@ -178,38 +193,38 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           AppSidebarItem(
             icon: Icons.storefront_outlined,
             label: 'Negocios',
-            selected: _seccion == _SeccionAdmin.negocios,
+            selected: _seccion == SeccionAdmin.negocios,
             onTap: () =>
-                ir(_SeccionAdmin.negocios, () => const SuperAdminNegociosScreen()),
+                ir(SeccionAdmin.negocios, () => const SuperAdminNegociosScreen()),
           ),
           AppSidebarItem(
             icon: Icons.how_to_reg_outlined,
             label: 'Solicitudes',
-            selected: _seccion == _SeccionAdmin.solicitudes,
-            onTap: () => ir(_SeccionAdmin.solicitudes, () => const SuperAdminSolicitudesScreen()),
+            selected: _seccion == SeccionAdmin.solicitudes,
+            onTap: () => ir(SeccionAdmin.solicitudes, () => const SuperAdminSolicitudesScreen()),
           ),
         ]),
         AppSidebarSection(title: 'Plataforma', items: [
           AppSidebarItem(
             icon: Icons.system_update_alt,
             label: 'Versiones de la app',
-            selected: _seccion == _SeccionAdmin.versiones,
+            selected: _seccion == SeccionAdmin.versiones,
             onTap: () =>
-                ir(_SeccionAdmin.versiones, () => const SuperAdminVersionesScreen()),
+                ir(SeccionAdmin.versiones, () => const SuperAdminVersionesScreen()),
           ),
           AppSidebarItem(
             icon: Icons.bug_report_outlined,
             label: 'Errores de la app',
-            selected: _seccion == _SeccionAdmin.errores,
-            onTap: () => ir(_SeccionAdmin.errores, () => const SuperAdminErroresScreen()),
+            selected: _seccion == SeccionAdmin.errores,
+            onTap: () => ir(SeccionAdmin.errores, () => const SuperAdminErroresScreen()),
           ),
         ]),
         AppSidebarSection(title: 'Usuarios', items: [
           AppSidebarItem(
             icon: Icons.manage_accounts_outlined,
             label: 'Mi cuenta',
-            selected: _seccion == _SeccionAdmin.miCuenta,
-            onTap: () => ir(_SeccionAdmin.miCuenta, () => const MiCuentaScreen()),
+            selected: _seccion == SeccionAdmin.miCuenta,
+            onTap: () => ir(SeccionAdmin.miCuenta, () => const MiCuentaScreen()),
           ),
         ]),
       ];
@@ -221,15 +236,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         AppSidebarItem(
           icon: Icons.location_city_outlined,
           label: 'Sucursales',
-          selected: _seccion == _SeccionAdmin.sucursales,
-          onTap: () => ir(_SeccionAdmin.sucursales, () => const SucursalesScreen()),
+          selected: _seccion == SeccionAdmin.sucursales,
+          onTap: () => ir(SeccionAdmin.sucursales, () => const SucursalesScreen()),
         ),
         AppSidebarItem(
           icon: Icons.storefront_outlined,
           label: 'Datos del negocio',
-          selected: _seccion == _SeccionAdmin.datosNegocio,
+          selected: _seccion == SeccionAdmin.datosNegocio,
           onTap: () => ir(
-            _SeccionAdmin.datosNegocio,
+            SeccionAdmin.datosNegocio,
             () => NegocioScreen(idNegocio: usuario.idNegocio!),
           ),
         ),
@@ -241,62 +256,68 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           // pestaña Productos), lo que repetía lo mismo cinco veces.
           icon: Icons.restaurant_menu_outlined,
           label: 'Catálogo',
-          selected: _seccion == _SeccionAdmin.catalogo,
+          selected: _seccion == SeccionAdmin.catalogo,
           onTap: () =>
-              ir(_SeccionAdmin.catalogo, () => const CatalogoScreen(indiceInicial: 0)),
+              ir(SeccionAdmin.catalogo, () => const CatalogoScreen(indiceInicial: 0)),
         ),
         AppSidebarItem(
           icon: Icons.receipt_long_outlined,
           label: 'Ventas',
-          selected: _seccion == _SeccionAdmin.ventas,
-          onTap: () => ir(_SeccionAdmin.ventas, () => const VentasScreen()),
+          selected: _seccion == SeccionAdmin.ventas,
+          onTap: () => ir(SeccionAdmin.ventas, () => const VentasScreen()),
         ),
         AppSidebarItem(
           icon: Icons.local_offer_outlined,
           label: 'Cupones',
-          selected: _seccion == _SeccionAdmin.cupones,
-          onTap: () => ir(_SeccionAdmin.cupones, () => const CuponesScreen()),
+          selected: _seccion == SeccionAdmin.cupones,
+          onTap: () => ir(SeccionAdmin.cupones, () => const CuponesScreen()),
         ),
       ]),
       AppSidebarSection(title: 'Configuración', items: [
         AppSidebarItem(
           icon: Icons.badge_outlined,
           label: 'Empleados',
-          selected: _seccion == _SeccionAdmin.empleados,
-          onTap: () => ir(_SeccionAdmin.empleados, () => const EmpleadosScreen()),
+          selected: _seccion == SeccionAdmin.empleados,
+          onTap: () => ir(SeccionAdmin.empleados, () => const EmpleadosScreen()),
         ),
         AppSidebarItem(
           icon: Icons.gavel_outlined,
           label: 'Condiciones y reglas',
-          selected: _seccion == _SeccionAdmin.condiciones,
+          selected: _seccion == SeccionAdmin.condiciones,
           onTap: () =>
-              ir(_SeccionAdmin.condiciones, () => const CondicionesNegocioScreen()),
+              ir(SeccionAdmin.condiciones, () => const CondicionesNegocioScreen()),
         ),
         AppSidebarItem(
           icon: Icons.history,
           label: 'Actividad',
-          selected: _seccion == _SeccionAdmin.actividad,
-          onTap: () => ir(_SeccionAdmin.actividad, () => const ActividadScreen()),
+          selected: _seccion == SeccionAdmin.actividad,
+          onTap: () => ir(SeccionAdmin.actividad, () => const ActividadScreen()),
         ),
       ]),
       AppSidebarSection(title: 'Usuarios', items: [
         AppSidebarItem(
           icon: Icons.people_outline,
           label: 'Clientes',
-          selected: _seccion == _SeccionAdmin.clientes,
-          onTap: () => ir(_SeccionAdmin.clientes, () => const ClientesScreen()),
+          selected: _seccion == SeccionAdmin.clientes,
+          onTap: () => ir(SeccionAdmin.clientes, () => const ClientesScreen()),
         ),
         AppSidebarItem(
           icon: Icons.star_outline_rounded,
           label: 'Reseñas',
-          selected: _seccion == _SeccionAdmin.resenas,
-          onTap: () => ir(_SeccionAdmin.resenas, () => const ResenasScreen()),
+          selected: _seccion == SeccionAdmin.resenas,
+          onTap: () => ir(SeccionAdmin.resenas, () => const ResenasScreen()),
+        ),
+        AppSidebarItem(
+          icon: Icons.support_agent_outlined,
+          label: 'Reclamos',
+          selected: _seccion == SeccionAdmin.reclamos,
+          onTap: () => ir(SeccionAdmin.reclamos, () => const ReclamosScreen()),
         ),
         AppSidebarItem(
           icon: Icons.manage_accounts_outlined,
           label: 'Mi cuenta',
-          selected: _seccion == _SeccionAdmin.miCuenta,
-          onTap: () => ir(_SeccionAdmin.miCuenta, () => const MiCuentaScreen()),
+          selected: _seccion == SeccionAdmin.miCuenta,
+          onTap: () => ir(SeccionAdmin.miCuenta, () => const MiCuentaScreen()),
         ),
       ]),
     ];
@@ -306,39 +327,41 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   /// — mismas pantallas que móvil abre con Navigator.push, solo que aquí
   /// se pasan con `incrustada: true` para que no dibujen su propia flecha
   /// de regreso (el sidebar ya cumple ese rol).
-  Widget _construirContenido(_SeccionAdmin seccion, UsuarioModel usuario) {
+  Widget _construirContenido(SeccionAdmin seccion, UsuarioModel usuario) {
     switch (seccion) {
-      case _SeccionAdmin.inicio:
+      case SeccionAdmin.inicio:
         return _ContenidoDashboard(usuario: usuario);
-      case _SeccionAdmin.sucursales:
+      case SeccionAdmin.sucursales:
         return const SucursalesScreen(incrustada: true);
-      case _SeccionAdmin.datosNegocio:
+      case SeccionAdmin.datosNegocio:
         return NegocioScreen(idNegocio: usuario.idNegocio!, incrustada: true);
-      case _SeccionAdmin.catalogo:
+      case SeccionAdmin.catalogo:
         return const CatalogoScreen(indiceInicial: 0, incrustada: true);
-      case _SeccionAdmin.ventas:
+      case SeccionAdmin.ventas:
         return const VentasScreen(incrustada: true);
-      case _SeccionAdmin.cupones:
+      case SeccionAdmin.cupones:
         return const CuponesScreen(incrustada: true);
-      case _SeccionAdmin.condiciones:
+      case SeccionAdmin.condiciones:
         return const CondicionesNegocioScreen(incrustada: true);
-      case _SeccionAdmin.negocios:
+      case SeccionAdmin.negocios:
         return const SuperAdminNegociosScreen(incrustada: true);
-      case _SeccionAdmin.solicitudes:
+      case SeccionAdmin.solicitudes:
         return const SuperAdminSolicitudesScreen(incrustada: true);
-      case _SeccionAdmin.empleados:
+      case SeccionAdmin.empleados:
         return const EmpleadosScreen(incrustada: true);
-      case _SeccionAdmin.actividad:
+      case SeccionAdmin.actividad:
         return const ActividadScreen(incrustada: true);
-      case _SeccionAdmin.clientes:
+      case SeccionAdmin.clientes:
         return const ClientesScreen(incrustada: true);
-      case _SeccionAdmin.resenas:
+      case SeccionAdmin.resenas:
         return const ResenasScreen(incrustada: true);
-      case _SeccionAdmin.versiones:
+      case SeccionAdmin.reclamos:
+        return const ReclamosScreen(incrustada: true);
+      case SeccionAdmin.versiones:
         return const SuperAdminVersionesScreen(incrustada: true);
-      case _SeccionAdmin.errores:
+      case SeccionAdmin.errores:
         return const SuperAdminErroresScreen(incrustada: true);
-      case _SeccionAdmin.miCuenta:
+      case SeccionAdmin.miCuenta:
         return const MiCuentaScreen(incrustada: true);
     }
   }
@@ -414,6 +437,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           subtitulo: usuario.rol,
           secciones: _secciones(context, esAmplio: esAmplio, usuario: usuario),
           onCerrarSesion: cerrarSesion,
+          accion: const CampanaAvisosPersonal(),
         );
 
         if (esAmplio) {
@@ -438,7 +462,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         child: hijo,
                       ),
                     ),
-                    child: _construirContenido(_seccion, usuario),
+                    // Contenido centrado con un ancho máximo: en monitores
+                    // grandes las listas y tarjetas no se estiran de borde a
+                    // borde, y el título de la sección queda alineado con
+                    // ellas.
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: anchoMaximoPanel),
+                        child: _construirContenido(_seccion, usuario),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -447,7 +481,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         }
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Panel de administración')),
+          appBar: AppBar(
+            title: const Text('Panel de administración'),
+            actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+          ),
           drawer: Drawer(width: 280, child: sidebar),
           body: _ContenidoDashboard(usuario: usuario),
         );

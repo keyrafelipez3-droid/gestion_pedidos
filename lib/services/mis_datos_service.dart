@@ -4,8 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// "Descargar mis datos": junta en un archivo JSON lo que la app guarda de
 /// una persona (perfil, direcciones, favoritos, restaurantes a los que
-/// entró y sus pedidos con su dirección y factura), para que pueda verlo o
-/// llevárselo a otro lado (derecho de acceso a sus datos).
+/// entró, sus pedidos con su dirección y factura, sus reseñas y reclamos),
+/// para que pueda verlo o llevárselo a otro lado (derecho de acceso a sus
+/// datos).
 class MisDatosService {
   MisDatosService._();
   static final instancia = MisDatosService._();
@@ -47,6 +48,31 @@ class MisDatosService {
       });
     }
     datos['pedidos'] = lista;
+
+    // Reseñas y reclamos que escribió en cada restaurante (en los que pidió
+    // y en los que tiene guardados).
+    final negocios = <String>{
+      for (final p in pedidos.docs)
+        if (p.data()['idNegocio'] is String) p.data()['idNegocio'] as String,
+      for (final n in (datos['misNegocios'] as List)) (n as Map)['id'] as String,
+    };
+    for (final sub in ['resenas', 'reclamos']) {
+      final escritos = <Map<String, dynamic>>[];
+      for (final idNegocio in negocios) {
+        try {
+          final qs = await _db
+              .collection('negocios')
+              .doc(idNegocio)
+              .collection(sub)
+              .where('idCliente', isEqualTo: uid)
+              .get();
+          escritos.addAll([for (final d in qs.docs) {'id': d.id, ..._mapa(d.data())}]);
+        } catch (_) {
+          // Si no se pueden leer los de un restaurante, se sigue con los demás.
+        }
+      }
+      datos[sub] = escritos;
+    }
 
     return const JsonEncoder.withIndent('  ').convert(datos);
   }
