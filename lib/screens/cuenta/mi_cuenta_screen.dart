@@ -17,6 +17,7 @@ import '../../utils/documento_imprimible.dart';
 import '../../utils/contrasena.dart';
 import '../../utils/descarga.dart';
 import '../../utils/formato.dart';
+import '../../theme/brand_style.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/alergias.dart';
 import '../../widgets/app_cargando.dart';
@@ -485,21 +486,7 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
 
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: !widget.incrustada,
-        title: Text(tr('Mi cuenta')),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+    final encabezado = Row(
                     children: [
                       CircleAvatar(
                         radius: 32,
@@ -545,10 +532,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
+                  );
 
-                  _SeccionCuenta(
+    final perfil = _SeccionCuenta(
                     icono: Icons.person_outline,
                     titulo: tr('Perfil'),
                     child: Form(
@@ -611,9 +597,9 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
+                  );
 
+    final otras = <Widget>[
                   _SeccionCuenta(
                     icono: Icons.lock_outline,
                     titulo: tr('Seguridad'),
@@ -828,10 +814,59 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
                       ],
                     ),
                   ),
-                ],
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: !widget.incrustada,
+        title: Text(tr('Mi cuenta')),
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, restricciones) {
+            final ancho = restricciones.maxWidth;
+            // Computadora: dos columnas (perfil a la izquierda, el resto a
+            // la derecha). Celular y tablet: una sola columna.
+            final dosColumnas = ancho >= 980;
+            final margen = ancho < AppBreakpoints.compact ? AppSpacing.md : AppSpacing.lg;
+            final columnaPerfil = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _TarjetaPerfil(child: encabezado),
+                const SizedBox(height: AppSpacing.lg),
+                perfil,
+              ],
+            );
+            final columnaOtras = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: otras,
+            );
+            return SingleChildScrollView(
+              padding: EdgeInsets.all(margen),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: dosColumnas ? 1120 : 640),
+                  child: dosColumnas
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 5, child: columnaPerfil),
+                            const SizedBox(width: AppSpacing.lg),
+                            Expanded(flex: 6, child: columnaOtras),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            columnaPerfil,
+                            const SizedBox(height: AppSpacing.lg),
+                            columnaOtras,
+                          ],
+                        ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -852,6 +887,34 @@ class _InicialUsuario extends StatelessWidget {
         nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
         style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
       ),
+    );
+  }
+}
+
+/// Tarjeta de arriba con la foto, el nombre y el rol: una franja con el
+/// color de la marca, al estilo del resto de la app.
+class _TarjetaPerfil extends StatelessWidget {
+  final Widget child;
+  const _TarjetaPerfil({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        borderRadius: context.brand.card,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primaryContainer.withValues(alpha: 0.75),
+            scheme.surfaceContainerLow,
+          ],
+        ),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: child,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/negocio_model.dart';
+import 'negocio_service.dart';
 
 /// Lo que se sabe de un restaurante a partir de su código, ANTES de entrar
 /// (nombre, logo y colores), para que su enlace se vea como su propia app.
@@ -76,6 +77,16 @@ class CodigoNegocioService {
   DocumentReference<Map<String, dynamic>> _acceso(String idNegocio) =>
       _db.collection('negocios').doc(idNegocio).collection('privado').doc('acceso');
 
+  /// Código actual de un negocio (null si no tiene o si quien pregunta no
+  /// lo puede ver: solo el SuperAdmin y el Administrador de ese negocio).
+  Future<String?> codigoActual(String idNegocio) async {
+    try {
+      return (await _acceso(idNegocio).get()).data()?['codigo'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Código actual de un negocio, en vivo (null si todavía no tiene).
   Stream<String?> streamCodigo(String idNegocio) =>
       _acceso(idNegocio).snapshots().map((d) => d.data()?['codigo'] as String?);
@@ -104,6 +115,9 @@ class CodigoNegocioService {
       ..set(ref, {'codigo': codigo});
     if (anterior != null && anterior.isNotEmpty) lote.delete(_codigos.doc(anterior));
     await lote.commit();
+    // La tarjeta del restaurante en el inicio de sesión muestra el código
+    // nuevo (aparte del lote: si falla, el código igual queda asignado).
+    await NegocioService.instancia.publicarEnDirectorio(negocio, codigo: codigo);
     return codigo;
   }
 

@@ -152,98 +152,112 @@ class _SelectorImagenState extends State<SelectorImagen> {
   @override
   Widget build(BuildContext context) {
     final urlActual = widget.controller.text.trim();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.etiqueta, style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: AppSpacing.xs),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final scheme = Theme.of(context).colorScheme;
+    final vista = Container(
+      width: 64,
+      height: 64,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.mdAll,
+        border: Border.all(color: scheme.outlineVariant),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      ),
+      child: urlActual.isEmpty
+          ? Icon(Icons.image_outlined, color: scheme.outline)
+          : Image.network(
+              urlActual, webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(Icons.broken_image_outlined, color: scheme.outline),
+            ),
+    );
+    final botones = _subiendo
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Row(
+              children: [
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(child: Text(tr('Subiendo imagen...'))),
+              ],
+            ),
+          )
+        : Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _elegirDeGaleria,
+                icon: const Icon(Icons.upload_outlined, size: 18),
+                label: Text(tr('Subir imagen')),
+              ),
+              if (_camaraDisponible)
+                OutlinedButton.icon(
+                  onPressed: _tomarFoto,
+                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                  label: Text(tr('Tomar foto')),
+                ),
+            ],
+          );
+    final error = _error == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(_error!, style: TextStyle(color: scheme.error, fontSize: 12)),
+          );
+    final campoLink = TextField(
+      controller: widget.controller,
+      decoration: InputDecoration(
+        isDense: true,
+        labelText: tr('O pega un link'),
+        prefixIcon: const Icon(Icons.link_rounded, size: 20),
+        // El link tiene que ser el archivo de imagen en sí
+        // (ej. termina en .jpg/.png), no la página que lo
+        // muestra — un link de Pinterest, Google Imágenes o
+        // Instagram apunta a una página, no a la imagen, y
+        // no se puede mostrar aquí.
+        helperText: tr('Debe ser el link directo a la imagen, no el de una página que la contiene'),
+        helperMaxLines: 3,
+      ),
+      onChanged: (_) => setState(() {}),
+    );
+
+    return LayoutBuilder(
+      builder: (context, restricciones) {
+        // En pantallas angostas (celular) el campo del link va debajo, a
+        // todo el ancho, para que no quede apretado al lado de la imagen.
+        final angosto = restricciones.maxWidth < 440;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                borderRadius: AppRadius.mdAll,
-                border: Border.all(color: Colors.black12),
-                color: Colors.black.withValues(alpha: 0.03),
-              ),
-              child: urlActual.isEmpty
-                  ? const Icon(Icons.image_outlined, color: Colors.black26)
-                  : Image.network(
-                      urlActual, webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.broken_image_outlined, color: Colors.black26),
-                    ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_subiendo)
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                      child: Row(
-                        children: [
-                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                          SizedBox(width: AppSpacing.sm),
-                          Text(tr('Subiendo imagen...')),
-                        ],
-                      ),
-                    )
-                  else
-                    Wrap(
-                      spacing: AppSpacing.sm,
-                      runSpacing: AppSpacing.xs,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _elegirDeGaleria,
-                          icon: const Icon(Icons.upload_outlined, size: 18),
-                          label: Text(tr('Subir imagen')),
-                        ),
-                        if (_camaraDisponible)
-                          OutlinedButton.icon(
-                            onPressed: _tomarFoto,
-                            icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                            label: Text(tr('Tomar foto')),
-                          ),
+            Text(widget.etiqueta, style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              crossAxisAlignment: angosto ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+              children: [
+                vista,
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      botones,
+                      if (error != null) error,
+                      if (!angosto) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        campoLink,
                       ],
-                    ),
-                  if (_error != null) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.xs),
-                  TextField(
-                    controller: widget.controller,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      labelText: tr('O pega un link'),
-                      // El link tiene que ser el archivo de imagen en sí
-                      // (ej. termina en .jpg/.png), no la página que lo
-                      // muestra — un link de Pinterest, Google Imágenes o
-                      // Instagram apunta a una página, no a la imagen, y
-                      // no se puede mostrar aquí.
-                      helperText: tr('Debe ser el link directo a la imagen, no el de una página que la contiene'),
-                      helperMaxLines: 2,
-                    ),
-                    onChanged: (_) => setState(() {}),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+            if (angosto) ...[
+              const SizedBox(height: AppSpacing.sm),
+              campoLink,
+            ],
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
