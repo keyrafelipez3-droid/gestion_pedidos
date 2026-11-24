@@ -958,4 +958,7 @@ const traduccionesEn = <String, String>{
   'Código copiado: {codigo}': 'Code copied: {codigo}',
   'Ver código': 'See code',
   'Elegido': 'Selected',
+  'Anterior': 'Previous',
+  'Siguiente': 'Next',
+  'Ver restaurantes': 'See restaurants',
 };
