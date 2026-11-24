@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../legal/textos_legales.dart';
 import '../../models/actividad_model.dart';
+import '../../models/sucursal_model.dart';
 import '../../models/usuario_model.dart';
 import '../../utils/formato.dart';
 import '../../services/actividad_service.dart';
 import '../../services/admin_service.dart';
 import '../../services/app_theme_controller.dart';
 import '../../services/sesion_actual.dart';
+import '../../services/sucursal_service.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/confirmar_identidad.dart';
 import '../../widgets/app_status_badge.dart';
@@ -63,6 +65,69 @@ class EmpleadosScreen extends StatelessWidget {
         );
       }
     }
+  }
+
+  /// Elegir la sucursal donde trabaja un empleado (Cajero, Cocina o
+  /// Repartidor). Sin sucursal, el Cajero no puede abrir caja ni ver mesas.
+  Future<void> _cambiarSucursal(BuildContext context, UsuarioModel e) async {
+    final idNegocio = SesionActual.instancia.idNegocio;
+    if (idNegocio == null) return;
+    final mensajero = ScaffoldMessenger.of(context);
+    final List<SucursalModel> sucursales;
+    try {
+      sucursales = await SucursalService.instancia.streamSucursales(idNegocio).first;
+    } catch (_) {
+      mensajero.showSnackBar(const SnackBar(content: Text('No se pudieron cargar las sucursales.')));
+      return;
+    }
+    if (!context.mounted) return;
+    if (sucursales.isEmpty) {
+      mensajero.showSnackBar(const SnackBar(
+        content: Text('Primero crea una sucursal en "Sucursales" para poder asignarla.'),
+      ));
+      return;
+    }
+    // '' = sin sucursal (el diálogo devuelve null si se cierra sin elegir).
+    final elegida = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Sucursal de ${e.nombre}'),
+        children: [
+          for (final s in sucursales)
+            ListTile(
+              leading: Icon(
+                s.id == e.idSucursal ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              ),
+              title: Text(s.nombre),
+              subtitle: s.direccion.isEmpty ? null : Text(s.direccion),
+              onTap: () => Navigator.of(ctx).pop(s.id),
+            ),
+          ListTile(
+            leading: Icon(
+              e.idSucursal == null ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+            ),
+            title: const Text('Sin sucursal'),
+            onTap: () => Navigator.of(ctx).pop(''),
+          ),
+        ],
+      ),
+    );
+    if (elegida == null) return;
+    final nueva = elegida.isEmpty ? null : elegida;
+    if (nueva == e.idSucursal || !context.mounted) return;
+    if (!await confirmarIdentidad(context, accion: 'cambiar la sucursal de ${e.nombre}')) return;
+    try {
+      await AdminService.instancia.cambiarSucursal(e.idUsuario, nueva);
+    } catch (_) {
+      mensajero.showSnackBar(const SnackBar(content: Text('No se pudo cambiar la sucursal. Intenta de nuevo.')));
+      return;
+    }
+    final nombre = nueva == null ? 'ninguna' : sucursales.firstWhere((s) => s.id == nueva).nombre;
+    ActividadService.instancia.registrar(
+      ActividadTipo.empleado,
+      'Asignó a ${e.nombre} a la sucursal: $nombre',
+    );
+    mensajero.showSnackBar(SnackBar(content: Text('Sucursal de ${e.nombre}: $nombre')));
   }
 
   /// Activar o desactivar a un empleado (pide confirmar identidad).
@@ -164,6 +229,8 @@ class EmpleadosScreen extends StatelessWidget {
                       children: [
                         Text(e.email),
                         AppStatusBadge(label: e.rol, tone: AppStatusTone.neutral),
+                        if (Rol.staffOperativo.contains(e.rol) && e.idSucursal == null)
+                          const AppStatusBadge(label: 'Sin sucursal', tone: AppStatusTone.warning),
                         if (e.rol != Rol.superAdmin)
                           Tooltip(
                             message: e.acuerdo == null
@@ -203,6 +270,12 @@ class EmpleadosScreen extends StatelessWidget {
                     spacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      if (!esUnoMismo && Rol.staffOperativo.contains(e.rol))
+                        IconButton(
+                          tooltip: 'Asignar sucursal',
+                          icon: const Icon(Icons.store_mall_directory_outlined),
+                          onPressed: () => _cambiarSucursal(context, e),
+                        ),
                       AppStatusBadge(
                         label: e.estado ? 'Activo' : 'Inactivo',
                         tone: e.estado ? AppStatusTone.success : AppStatusTone.neutral,
