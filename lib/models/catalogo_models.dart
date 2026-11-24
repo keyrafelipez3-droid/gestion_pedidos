@@ -195,6 +195,9 @@ class ComplementoModel {
   final bool estado;
   final String? idNegocio;
 
+  /// Foto del extra (enlace). Vacío = se muestra un ícono.
+  final String imagenUrl;
+
   /// Productos en los que se ofrece (sus ids). Vacío = en todos.
   final List<String> productos;
 
@@ -205,6 +208,7 @@ class ComplementoModel {
     this.precio = 0,
     this.estado = true,
     this.idNegocio,
+    this.imagenUrl = '',
     this.productos = const [],
   });
 
@@ -217,6 +221,7 @@ class ComplementoModel {
         'precio': precio,
         'estado': estado,
         'idNegocio': idNegocio,
+        'imagenUrl': imagenUrl,
         'productos': productos,
       };
 
@@ -230,6 +235,7 @@ class ComplementoModel {
       precio: rawPrecio is num ? rawPrecio.toDouble() : 0,
       estado: data['estado'] as bool? ?? true,
       idNegocio: data['idNegocio'] as String?,
+      imagenUrl: data['imagenUrl'] as String? ?? '',
       productos: [
         if (data['productos'] is List)
           for (final id in data['productos'] as List)
@@ -247,6 +253,9 @@ class VarianteModel {
   final bool estado;
   final String? idNegocio;
 
+  /// Foto de la variante (enlace). Vacío = se usa la del producto.
+  final String imagenUrl;
+
   const VarianteModel({
     required this.id,
     required this.idProducto,
@@ -254,6 +263,7 @@ class VarianteModel {
     this.precioAdicional = 0,
     this.estado = true,
     this.idNegocio,
+    this.imagenUrl = '',
   });
 
   Map<String, dynamic> toMap() => {
@@ -262,6 +272,7 @@ class VarianteModel {
         'precioAdicional': precioAdicional,
         'estado': estado,
         'idNegocio': idNegocio,
+        'imagenUrl': imagenUrl,
       };
 
   factory VarianteModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -274,6 +285,7 @@ class VarianteModel {
       precioAdicional: rawPrecio is num ? rawPrecio.toDouble() : 0,
       estado: data['estado'] as bool? ?? true,
       idNegocio: data['idNegocio'] as String?,
+      imagenUrl: data['imagenUrl'] as String? ?? '',
     );
   }
 }

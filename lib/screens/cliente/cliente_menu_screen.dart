@@ -181,6 +181,9 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                                 for (final x in variantes)
                                   RadioListTile<String>(
                                     value: x.id,
+                                    secondary: _FotoOpcion(
+                                      url: x.imagenUrl.trim().isNotEmpty ? x.imagenUrl : producto.imagenUrl,
+                                    ),
                                     title: Text(x.nombre),
                                     subtitle: x.precioAdicional > 0
                                         ? Text('+ ${dinero(x.precioAdicional)}')
@@ -202,6 +205,7 @@ class _ClienteMenuScreenState extends State<ClienteMenuScreen> {
                                   elegidos.remove(c.id);
                                 }
                               }),
+                              secondary: _FotoOpcion(url: c.imagenUrl),
                               title: Text(c.nombre),
                               subtitle: Text(c.precio > 0 ? '+ ${dinero(c.precio)}' : c.descripcion),
                             ),
@@ -1002,6 +1006,19 @@ class _BarraCarrito extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// Fotito redonda de una variante o un extra al personalizar un plato
+/// (nada si no tiene foto).
+class _FotoOpcion extends StatelessWidget {
+  final String url;
+  const _FotoOpcion({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.trim().isEmpty) return const SizedBox.shrink();
+    return AvatarImagen(url: url, icono: Icons.fastfood_outlined, radio: 20);
   }
 }
 

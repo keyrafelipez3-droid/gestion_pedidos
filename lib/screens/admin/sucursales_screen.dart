@@ -201,7 +201,7 @@ class _SucursalesScreenState extends State<SucursalesScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.incrustada,
-        title: const Text('Sucursales · HU-08'),
+        title: const Text('Sucursales'),
       ),
       body: StreamBuilder<List<SucursalModel>>(
         stream: _streamSucursales,
