@@ -30,6 +30,7 @@ import '../../widgets/selector_imagen.dart';
 import '../mapa/selector_ubicacion_screen.dart';
 import 'condiciones_restaurante_screen.dart';
 import 'pedido_detalle_screen.dart';
+import '../../widgets/campo_desplegable.dart';
 
 /// HU-24/25/26/27: elegir modalidad (mesa/recoger/delivery), dirección
 /// si corresponde, método de pago, comprobante si corresponde, y
@@ -449,7 +450,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             if (_sucursal?.cobraEnvio ?? false) ...[
               const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<String>(
+              CampoDesplegable<String>(
                 initialValue: _sucursal!.zonasDelivery.containsKey(_zona) ? _zona : null,
                 isExpanded: true,
                 decoration: InputDecoration(
@@ -1061,7 +1062,7 @@ class _SelectorMesa extends StatelessWidget {
         if (mesas.isEmpty) {
           return Text(tr('Este local todavía no tiene mesas registradas.'));
         }
-        return DropdownButtonFormField<String>(
+        return CampoDesplegable<String>(
           initialValue: seleccionada,
           decoration: InputDecoration(labelText: tr('Elige tu mesa')),
           items: mesas
