@@ -956,4 +956,6 @@ const traduccionesFr = <String, String>{
   'elegido': 'choisi',
   'Copiar código': 'Copier le code',
   'Código copiado: {codigo}': 'Code copié : {codigo}',
+  'Ver código': 'Voir le code',
+  'Elegido': 'Choisi',
 };
