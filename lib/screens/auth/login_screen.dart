@@ -37,7 +37,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   /// La bienvenida completa se muestra solo la primera vez; al cerrar
   /// sesión y volver, solo entra el formulario.
   static bool _bienvenidaVista = false;
@@ -46,8 +47,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   /// subir y empieza a entrar el formulario.
   static const double _finBienvenida = 0.72;
 
-  late final AnimationController _entrada =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 2800));
+  late final AnimationController _entrada = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+  );
   late final Animation<double> _subida = CurvedAnimation(
     parent: _entrada,
     curve: const Interval(0.50, _finBienvenida, curve: Curves.easeInOutCubic),
@@ -127,7 +130,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     }
     // Si no hay error, AuthGate detecta la sesión y navega solo a Home.
@@ -142,11 +148,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            tr('Si el correo tiene una cuenta, te enviamos un enlace para restablecer la contraseña. Revisa también la carpeta de spam.'),
+            tr(
+              'Si el correo tiene una cuenta, te enviamos un enlace para restablecer la contraseña. Revisa también la carpeta de spam.',
+            ),
           ),
         ),
       );
     }
+  }
+
+  /// Celular: abre la lista de restaurantes; al volver, se muestra el
+  /// elegido ("Vas a pedir en …").
+  Future<void> _verRestaurantes() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const RestaurantesScreen()));
+    if (mounted) setState(() {});
   }
 
   @override
@@ -164,7 +181,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _iniciarSesion,
       onOlvide: _olvidePassword,
-      onRestauranteElegido: () => setState(() {}),
+      onVerRestaurantes: (esAmplio && MediaQuery.sizeOf(context).height >= 600)
+          ? null
+          : _verRestaurantes,
       entrada: _entrada,
       inicioEntrada: _finBienvenida - 0.02,
     );
@@ -176,7 +195,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
         floatingActionButton: const Padding(
           padding: EdgeInsets.only(top: AppSpacing.sm),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [BotonTamanoTexto(), BotonIdioma()]),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [BotonTamanoTexto(), BotonIdioma()],
+          ),
         ),
         body: LayoutBuilder(
           builder: (context, c) => Stack(
@@ -211,6 +233,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         nombreNegocio: negocio?.nombre ?? '',
                         imagenUrl: negocio?.bannerUrl ?? '',
                         entrada: _entrada,
+                        onRestauranteElegido: () => setState(() {}),
                       ),
                     ),
                   ),
@@ -233,13 +256,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       floatingActionButton: const SafeArea(
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [BotonTamanoTexto(color: Colors.white), BotonIdioma(color: Colors.white)],
+          children: [
+            BotonTamanoTexto(color: Colors.white),
+            BotonIdioma(color: Colors.white),
+          ],
         ),
       ),
       body: AnimatedBuilder(
         animation: _entrada,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
@@ -251,7 +282,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           final t = _subida.value;
           final altoMarca = altoPantalla + (altoFinal - altoPantalla) * t;
           return SingleChildScrollView(
-            physics: _entrada.value < _finBienvenida ? const NeverScrollableScrollPhysics() : null,
+            physics: _entrada.value < _finBienvenida
+                ? const NeverScrollableScrollPhysics()
+                : null,
             child: Column(
               children: [
                 GestureDetector(
@@ -265,7 +298,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       padding: const EdgeInsets.only(bottom: 48),
                       child: SafeArea(
                         bottom: false,
-                        child: _EncabezadoMarca(entrada: _entrada, tamanoLogo: 120 - 36 * t),
+                        child: _EncabezadoMarca(
+                          entrada: _entrada,
+                          tamanoLogo: 120 - 36 * t,
+                        ),
                       ),
                     ),
                   ),
@@ -331,7 +367,8 @@ class _EncabezadoMarca extends StatelessWidget {
                         child: Text(
                           tr('Del fogón a la mesa, sin papelitos.'),
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.8),
                               ),
                         ),
@@ -358,7 +395,16 @@ class _PanelMarca extends StatelessWidget {
   final String nombreNegocio;
   final String imagenUrl;
   final Animation<double> entrada;
-  const _PanelMarca({required this.entrada, this.nombreNegocio = '', this.imagenUrl = ''});
+
+  /// El cliente eligió un restaurante en el carrusel.
+  final VoidCallback? onRestauranteElegido;
+
+  const _PanelMarca({
+    required this.entrada,
+    this.nombreNegocio = '',
+    this.imagenUrl = '',
+    this.onRestauranteElegido,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -381,13 +427,21 @@ class _PanelMarca extends StatelessWidget {
       color: AppBrand.berenjena,
       child: LayoutBuilder(
         builder: (context, c) {
-          final diametro = c.maxHeight * 0.78;
+          // El plato es un poco más chico para dejar lugar al carrusel de
+          // restaurantes abajo a la izquierda.
+          final diametro = c.maxHeight * 0.66;
+          // En ventanas muy bajas el carrusel no entra; ahí el formulario
+          // muestra el botón "Ver restaurantes" (ver LoginScreen.build).
+          final hayCarrusel = c.maxHeight >= 600;
           return AnimatedBuilder(
             animation: entrada,
             builder: (context, _) {
               final v = entrada.value;
-              double tramo(double a, double b, [Curve curva = Curves.easeOutCubic]) =>
-                  curva.transform(((v - a) / (b - a)).clamp(0.0, 1.0));
+              double tramo(
+                double a,
+                double b, [
+                Curve curva = Curves.easeOutCubic,
+              ]) => curva.transform(((v - a) / (b - a)).clamp(0.0, 1.0));
               final logo = tramo(0.0, 0.18, Curves.easeOutBack);
               final escrito = tramo(0.12, 0.36, Curves.linear);
               final frase = tramo(0.34, 0.46);
@@ -434,13 +488,19 @@ class _PanelMarca extends StatelessWidget {
                               opacity: logo.clamp(0.0, 1.0),
                               child: Transform.scale(
                                 scale: 0.5 + 0.5 * logo,
-                                child: const LogoNami(size: 52, conFondo: false),
+                                child: const LogoNami(
+                                  size: 52,
+                                  conFondo: false,
+                                ),
                               ),
                             ),
                             const SizedBox(width: AppSpacing.sm),
                             RevelarHorizontal(
                               progreso: escrito,
-                              child: const WordmarkNami(alto: 36, color: AppBrand.leche),
+                              child: const WordmarkNami(
+                                alto: 36,
+                                color: AppBrand.leche,
+                              ),
                             ),
                             if (nombreNegocio.trim().isNotEmpty) ...[
                               const SizedBox(width: AppSpacing.md),
@@ -451,7 +511,9 @@ class _PanelMarca extends StatelessWidget {
                                     nombreNegocio,
                                     overflow: TextOverflow.ellipsis,
                                     style: texto.titleMedium?.copyWith(
-                                      color: AppBrand.leche.withValues(alpha: 0.7),
+                                      color: AppBrand.leche.withValues(
+                                        alpha: 0.7,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -459,7 +521,9 @@ class _PanelMarca extends StatelessWidget {
                             ],
                           ],
                         ),
-                        SizedBox(height: c.maxHeight * 0.12),
+                        SizedBox(
+                          height: c.maxHeight * (hayCarrusel ? 0.07 : 0.12),
+                        ),
                         Opacity(
                           opacity: frase,
                           child: Transform.translate(
@@ -484,7 +548,9 @@ class _PanelMarca extends StatelessWidget {
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 380),
                               child: Text(
-                                tr('Pedidos, cocina, caja y reparto de tu restaurante en un solo lugar.'),
+                                tr(
+                                  'Pedidos, cocina, caja y reparto de tu restaurante en un solo lugar.',
+                                ),
                                 style: texto.bodyLarge?.copyWith(
                                   color: AppBrand.leche.withValues(alpha: 0.72),
                                   height: 1.5,
@@ -493,6 +559,28 @@ class _PanelMarca extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (hayCarrusel) ...[
+                          const Spacer(),
+                          // Restaurantes donde se puede pedir: tarjetas que se
+                          // dan vuelta y muestran su código, en un carrusel.
+                          Opacity(
+                            opacity: plato.clamp(0.0, 1.0),
+                            child: IgnorePointer(
+                              ignoring: plato < 0.5,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: math.max(
+                                    380.0,
+                                    c.maxWidth - 112 - diametro * 0.55,
+                                  ),
+                                ),
+                                child: CarruselRestaurantes(
+                                  onElegido: onRestauranteElegido,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -517,10 +605,8 @@ class _FondoHero extends StatelessWidget {
     return Image.asset(
       'assets/images/login_hero.jpg',
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stack) => Image.asset(
-        'assets/images/login_pattern.jpg',
-        fit: BoxFit.cover,
-      ),
+      errorBuilder: (context, error, stack) =>
+          Image.asset('assets/images/login_pattern.jpg', fit: BoxFit.cover),
     );
   }
 }
@@ -535,8 +621,9 @@ class _Formulario extends StatelessWidget {
   final VoidCallback onSubmit;
   final VoidCallback onOlvide;
 
-  /// El cliente tocó la tarjeta de un restaurante (su código quedó elegido).
-  final VoidCallback onRestauranteElegido;
+  /// Abre la pantalla de restaurantes (solo en el celular; null en la
+  /// computadora, donde están en el panel de la izquierda).
+  final VoidCallback? onVerRestaurantes;
 
   /// Animación de entrada de la pantalla: cada parte del formulario
   /// aparece una tras otra a partir de [inicioEntrada].
@@ -552,7 +639,7 @@ class _Formulario extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     required this.onOlvide,
-    required this.onRestauranteElegido,
+    this.onVerRestaurantes,
     required this.entrada,
     required this.inicioEntrada,
   });
@@ -578,109 +665,137 @@ class _Formulario extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          entra(Text(
-            tr('Bienvenido de nuevo'),
-            style: Theme.of(context).textTheme.headlineSmall,
-          )),
+          entra(
+            Text(
+              tr('Bienvenido de nuevo'),
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
-          entra(Text(
-            tr('Inicia sesión para continuar'),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-          )),
+          entra(
+            Text(
+              tr('Inicia sesión para continuar'),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
           const SizedBox(height: AppSpacing.xl),
 
           // Entró por el enlace de un restaurante: se muestra cuál es.
           if (CodigoNegocioService.codigoDelEnlace != null)
-            entra(BannerInvitacion(codigo: CodigoNegocioService.codigoDelEnlace!)),
-          entra(TextFormField(
-            controller: emailCtrl,
-            keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(
-              labelText: tr('Correo electrónico *'),
-              prefixIcon: Icon(Icons.email_outlined),
+            entra(
+              BannerInvitacion(codigo: CodigoNegocioService.codigoDelEnlace!),
             ),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? tr('Ingresa tu correo') : null,
-          )),
+          entra(
+            TextFormField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: tr('Correo electrónico *'),
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? tr('Ingresa tu correo')
+                  : null,
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
 
-          entra(TextFormField(
-            controller: passwordCtrl,
-            obscureText: !verPassword,
-            obscuringCharacter: '*',
-            decoration: InputDecoration(
-              labelText: tr('Contraseña *'),
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  verPassword ? Icons.visibility_off : Icons.visibility,
+          entra(
+            TextFormField(
+              controller: passwordCtrl,
+              obscureText: !verPassword,
+              obscuringCharacter: '*',
+              decoration: InputDecoration(
+                labelText: tr('Contraseña *'),
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    verPassword ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: onTogglePassword,
                 ),
-                onPressed: onTogglePassword,
+              ),
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? tr('Ingresa tu contraseña') : null,
+              onFieldSubmitted: (_) => onSubmit(),
+            ),
+          ),
+          entra(
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: cargando ? null : onOlvide,
+                child: Text(tr('¿Olvidaste tu contraseña?')),
               ),
             ),
-            validator: (v) =>
-                (v == null || v.isEmpty) ? tr('Ingresa tu contraseña') : null,
-            onFieldSubmitted: (_) => onSubmit(),
-          )),
-          entra(Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: cargando ? null : onOlvide,
-              child: Text(tr('¿Olvidaste tu contraseña?')),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          entra(
+            FilledButton(
+              onPressed: cargando ? null : onSubmit,
+              child: cargando
+                  ? PuntosCargando(color: scheme.primary)
+                  : Text(tr('Iniciar sesión')),
             ),
-          )),
+          ),
           const SizedBox(height: AppSpacing.sm),
 
-          entra(FilledButton(
-            onPressed: cargando ? null : onSubmit,
-            child: cargando
-                ? PuntosCargando(color: scheme.primary)
-                : Text(tr('Iniciar sesión')),
-          )),
-          const SizedBox(height: AppSpacing.sm),
-
-          entra(TextButton(
-            onPressed: cargando
-                ? null
-                : () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const RegistroScreen(),
-                      ),
+          entra(
+            TextButton(
+              onPressed: cargando
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RegistroScreen()),
                     ),
-            child: Text(tr('¿No tienes cuenta? Regístrate')),
-          )),
+              child: Text(tr('¿No tienes cuenta? Regístrate')),
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
 
-          entra(Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const LegalScreen(tipo: TipoTextoLegal.terminos),
-                  ),
-                ),
-                child: Text(tr('Términos y condiciones')),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const LegalScreen(
-                      tipo: TipoTextoLegal.politicaPrivacidad,
+          entra(
+            Wrap(
+              alignment: WrapAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const LegalScreen(tipo: TipoTextoLegal.terminos),
                     ),
                   ),
+                  child: Text(tr('Términos y condiciones')),
                 ),
-                child: Text(tr('Política de privacidad')),
-              ),
-            ],
-          )),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LegalScreen(
+                        tipo: TipoTextoLegal.politicaPrivacidad,
+                      ),
+                    ),
+                  ),
+                  child: Text(tr('Política de privacidad')),
+                ),
+              ],
+            ),
+          ),
           entra(const EtiquetaVersion()),
-          // Restaurantes donde se puede pedir (logo, nombre, ciudad y su
-          // código): al tocar uno, su código queda elegido para entrar.
-          entra(RestaurantesPublicos(onElegido: onRestauranteElegido)),
+          // Restaurantes donde se puede pedir: en la computadora van en el
+          // panel oscuro de la izquierda (carrusel); en el celular, en su
+          // propia pantalla, para no alargar el formulario.
+          if (onVerRestaurantes != null)
+            entra(
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: OutlinedButton.icon(
+                  onPressed: onVerRestaurantes,
+                  icon: const Icon(Icons.storefront_outlined),
+                  label: Text(tr('Ver restaurantes')),
+                ),
+              ),
+            ),
           // Las mejores reseñas de los clientes, antes de entrar.
           entra(const ResenasDestacadas()),
         ],
@@ -722,7 +837,9 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
       _enviando = true;
       _error = null;
     });
-    final error = await AuthService.instancia.enviarRecuperacionPassword(_emailCtrl.text);
+    final error = await AuthService.instancia.enviarRecuperacionPassword(
+      _emailCtrl.text,
+    );
     if (!mounted) return;
     if (error == null) {
       Navigator.of(context).pop(true);
@@ -747,7 +864,11 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tr('Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.')),
+            Text(
+              tr(
+                'Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.',
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _emailCtrl,
@@ -757,8 +878,9 @@ class _DialogoRecuperarState extends State<_DialogoRecuperar> {
                 labelText: tr('Correo electrónico *'),
                 prefixIcon: Icon(Icons.email_outlined),
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? tr('Ingresa tu correo') : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? tr('Ingresa tu correo')
+                  : null,
               onFieldSubmitted: (_) => _enviar(),
             ),
             if (_error != null) ...[

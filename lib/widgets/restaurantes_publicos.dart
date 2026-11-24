@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -29,8 +30,10 @@ class RestaurantesPublicos extends StatefulWidget {
   State<RestaurantesPublicos> createState() => _RestaurantesPublicosState();
 }
 
-class _RestaurantesPublicosState extends State<RestaurantesPublicos> with SingleTickerProviderStateMixin {
-  late final Future<List<Map<String, String>>> _lista = NegocioService.instancia.directorioPublico();
+class _RestaurantesPublicosState extends State<RestaurantesPublicos>
+    with SingleTickerProviderStateMixin {
+  late final Future<List<Map<String, String>>> _lista = NegocioService.instancia
+      .directorioPublico();
 
   /// Entrada escalonada de las tarjetas (una tras otra).
   late final AnimationController _entrada = AnimationController(
@@ -46,23 +49,10 @@ class _RestaurantesPublicosState extends State<RestaurantesPublicos> with Single
   }
 
   void _elegir(Map<String, String> r) {
-    final codigo = r['codigo'] ?? '';
-    final nombre = r['nombre'] ?? '';
-    final mensajero = ScaffoldMessenger.of(context);
-    if (codigo.isEmpty) {
-      mensajero.showSnackBar(SnackBar(
-        content: Text(tr('Inicia sesión o crea tu cuenta y elige {nombre} en la lista.', {'nombre': nombre})),
-      ));
-      return;
+    if (elegirRestaurante(context, r)) {
+      setState(() {});
+      widget.onElegido?.call();
     }
-    setState(() => CodigoNegocioService.codigoDelEnlace = codigo);
-    widget.onElegido?.call();
-    mensajero
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(tr('Elegiste {nombre} (código {codigo}). Inicia sesión o crea tu cuenta para entrar.',
-            {'nombre': nombre, 'codigo': codigo})),
-      ));
   }
 
   @override
@@ -91,13 +81,19 @@ class _RestaurantesPublicosState extends State<RestaurantesPublicos> with Single
               Text(
                 tr('Restaurantes donde puedes pedir'),
                 textAlign: TextAlign.center,
-                style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: textos.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                tr('Toca un restaurante para usar su código, o inicia sesión y elígelo de la lista.'),
+                tr(
+                  'Toca un restaurante para usar su código, o inicia sesión y elígelo de la lista.',
+                ),
                 textAlign: TextAlign.center,
-                style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                style: textos.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               LayoutBuilder(
@@ -107,7 +103,17 @@ class _RestaurantesPublicosState extends State<RestaurantesPublicos> with Single
                   final w = restricciones.maxWidth;
                   const separacion = AppSpacing.sm + 4;
                   final columnas = math.max(2, math.min(4, (w / 170).floor()));
-                  final ancho = (w - separacion * (columnas - 1)) / columnas;
+                  // La última fila, si queda incompleta, se reparte todo el
+                  // ancho (sin huecos al costado).
+                  final enUltima = lista.length % columnas;
+                  final inicioUltima = lista.length - enUltima;
+                  double anchoDe(int i) {
+                    final n = (enUltima != 0 && i >= inicioUltima)
+                        ? enUltima
+                        : columnas;
+                    return (w - separacion * (n - 1)) / n;
+                  }
+
                   return Wrap(
                     spacing: separacion,
                     runSpacing: separacion,
@@ -118,10 +124,12 @@ class _RestaurantesPublicosState extends State<RestaurantesPublicos> with Single
                           indice: i,
                           total: lista.length,
                           child: SizedBox(
-                            width: ancho,
+                            width: anchoDe(i),
                             child: _Restaurante(
                               datos: lista[i],
-                              elegido: elegido != null && elegido == lista[i]['codigo'],
+                              elegido:
+                                  elegido != null &&
+                                  elegido == lista[i]['codigo'],
                               onTap: () => _elegir(lista[i]),
                             ),
                           ),
@@ -138,6 +146,235 @@ class _RestaurantesPublicosState extends State<RestaurantesPublicos> with Single
   }
 }
 
+/// Deja elegido el código del restaurante [r] (para entrar a él al iniciar
+/// sesión o crear la cuenta) y avisa con un mensaje. Devuelve true si se
+/// eligió (false si el restaurante no tiene código publicado).
+bool elegirRestaurante(BuildContext context, Map<String, String> r) {
+  final codigo = r['codigo'] ?? '';
+  final nombre = r['nombre'] ?? '';
+  final mensajero = ScaffoldMessenger.of(context);
+  if (codigo.isEmpty) {
+    mensajero.showSnackBar(
+      SnackBar(
+        content: Text(
+          tr('Inicia sesión o crea tu cuenta y elige {nombre} en la lista.', {
+            'nombre': nombre,
+          }),
+        ),
+      ),
+    );
+    return false;
+  }
+  CodigoNegocioService.codigoDelEnlace = codigo;
+  mensajero
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(
+            'Elegiste {nombre} (código {codigo}). Inicia sesión o crea tu cuenta para entrar.',
+            {'nombre': nombre, 'codigo': codigo},
+          ),
+        ),
+      ),
+    );
+  return true;
+}
+
+/// Carrusel de restaurantes para el panel oscuro del login en la
+/// computadora: las mismas tarjetas que se dan vuelta, en una fila que
+/// avanza sola cada pocos segundos (se detiene con el mouse encima y no se
+/// mueve sola con "reducir animaciones"). Tiene flechas para moverla a mano.
+class CarruselRestaurantes extends StatefulWidget {
+  /// Se llama cuando el cliente elige un restaurante con código.
+  final VoidCallback? onElegido;
+
+  const CarruselRestaurantes({super.key, this.onElegido});
+
+  @override
+  State<CarruselRestaurantes> createState() => _CarruselRestaurantesState();
+}
+
+class _CarruselRestaurantesState extends State<CarruselRestaurantes> {
+  static const double _anchoTarjeta = 176;
+  static const double _separacion = 12;
+
+  late final Future<List<Map<String, String>>> _lista = NegocioService.instancia
+      .directorioPublico();
+  final ScrollController _scroll = ScrollController();
+  Timer? _reloj;
+  bool _encima = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reloj = Timer.periodic(
+      const Duration(milliseconds: 3200),
+      (_) => _avanzar(auto: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _reloj?.cancel();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _avanzar({bool auto = false, int paso = 1}) {
+    if (!mounted || !_scroll.hasClients) return;
+    if (auto && (_encima || MediaQuery.disableAnimationsOf(context))) return;
+    final pos = _scroll.position;
+    var destino = pos.pixels + paso * (_anchoTarjeta + _separacion);
+    // Al llegar al final vuelve al inicio (y al revés).
+    if (destino > pos.maxScrollExtent + 1) destino = 0;
+    if (destino < -1) destino = pos.maxScrollExtent;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _scroll.jumpTo(destino.clamp(0, pos.maxScrollExtent));
+    } else {
+      _scroll.animateTo(
+        destino.clamp(0, pos.maxScrollExtent),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return FutureBuilder<List<Map<String, String>>>(
+      future: _lista,
+      builder: (context, snap) {
+        final lista = snap.data ?? const <Map<String, String>>[];
+        if (lista.isEmpty) return const SizedBox.shrink();
+        final elegido = CodigoNegocioService.codigoDelEnlace;
+        Widget flecha(IconData icono, int paso, String etiqueta) => Semantics(
+          button: true,
+          label: etiqueta,
+          child: IconButton.filledTonal(
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.12),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => _avanzar(paso: paso),
+            icon: Icon(icono),
+          ),
+        );
+        return MouseRegion(
+          onEnter: (_) => _encima = true,
+          onExit: (_) => _encima = false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('Restaurantes donde puedes pedir'),
+                          style: textos.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tr(
+                            'Toca un restaurante para usar su código, o inicia sesión y elígelo de la lista.',
+                          ),
+                          style: textos.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (lista.length > 1) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    flecha(Icons.chevron_left_rounded, -1, tr('Anterior')),
+                    const SizedBox(width: AppSpacing.xs),
+                    flecha(Icons.chevron_right_rounded, 1, tr('Siguiente')),
+                  ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: 216,
+                child: ListView.separated(
+                  controller: _scroll,
+                  scrollDirection: Axis.horizontal,
+                  // Un poco de margen para que se vea la sombra.
+                  padding: const EdgeInsets.only(bottom: 12),
+                  itemCount: lista.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: _separacion),
+                  itemBuilder: (context, i) => SizedBox(
+                    width: _anchoTarjeta,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      widthFactor: 1,
+                      child: SizedBox(
+                        width: _anchoTarjeta,
+                        child: _Restaurante(
+                          datos: lista[i],
+                          elegido:
+                              elegido != null && elegido == lista[i]['codigo'],
+                          onTap: () {
+                            if (elegirRestaurante(context, lista[i])) {
+                              setState(() {});
+                              widget.onElegido?.call();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Pantalla con todos los restaurantes (en el celular se abre desde el
+/// login con "Ver restaurantes", para no alargar el formulario). Al elegir
+/// uno con código vuelve al login, que muestra "Vas a pedir en …".
+class RestaurantesScreen extends StatelessWidget {
+  const RestaurantesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(tr('Restaurantes'))),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.lg,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: RestaurantesPublicos(
+                onElegido: () => Navigator.of(context).maybePop(true),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Hace aparecer cada tarjeta un poco después que la anterior: sube,
 /// crece y se aclara.
 class _Aparecer extends StatelessWidget {
@@ -146,7 +383,12 @@ class _Aparecer extends StatelessWidget {
   final int total;
   final Widget child;
 
-  const _Aparecer({required this.animacion, required this.indice, required this.total, required this.child});
+  const _Aparecer({
+    required this.animacion,
+    required this.indice,
+    required this.total,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +396,11 @@ class _Aparecer extends StatelessWidget {
     final inicio = math.min(indice * paso, 0.5);
     final curva = CurvedAnimation(
       parent: animacion,
-      curve: Interval(inicio, math.min(inicio + 0.5, 1), curve: Curves.easeOutBack),
+      curve: Interval(
+        inicio,
+        math.min(inicio + 0.5, 1),
+        curve: Curves.easeOutBack,
+      ),
     );
     return AnimatedBuilder(
       animation: curva,
@@ -182,13 +428,18 @@ class _Restaurante extends StatefulWidget {
   final bool elegido;
   final VoidCallback onTap;
 
-  const _Restaurante({required this.datos, required this.elegido, required this.onTap});
+  const _Restaurante({
+    required this.datos,
+    required this.elegido,
+    required this.onTap,
+  });
 
   @override
   State<_Restaurante> createState() => _RestauranteState();
 }
 
-class _RestauranteState extends State<_Restaurante> with SingleTickerProviderStateMixin {
+class _RestauranteState extends State<_Restaurante>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _giro = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 450),
@@ -226,39 +477,68 @@ class _RestauranteState extends State<_Restaurante> with SingleTickerProviderSta
     final etiqueta = [
       nombre,
       if (ciudad.isNotEmpty) ciudad,
-      if (codigo.isNotEmpty) tr('código {codigo}', {'codigo': codigo.split('').join(' ')}),
+      if (codigo.isNotEmpty)
+        tr('código {codigo}', {'codigo': codigo.split('').join(' ')}),
       if (elegido) tr('elegido'),
     ].join(', ');
 
     Widget marco(Widget hijo, {required bool trasera}) => Container(
-          decoration: brand.decoracionTarjeta(scheme).copyWith(
-                color: trasera ? Color.alphaBlend(color.withValues(alpha: 0.08), scheme.surface) : null,
-                border: Border.all(
-                  color: elegido ? color : (trasera ? color.withValues(alpha: 0.5) : scheme.outlineVariant),
-                  width: elegido ? 2 : 1,
-                ),
-                boxShadow: [
-                  if (elegido || trasera)
-                    BoxShadow(color: color.withValues(alpha: 0.22), blurRadius: 16, offset: const Offset(0, 6)),
-                ],
-              ),
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              borderRadius: brand.card,
-              // Tocar la tarjeta la da vuelta (en el celular no hay mouse).
-              onTap: () => _voltear(!_atras),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.md, AppSpacing.sm, AppSpacing.sm + 2),
-                child: hijo,
-              ),
+      decoration: brand
+          .decoracionTarjeta(scheme)
+          .copyWith(
+            color: trasera
+                ? Color.alphaBlend(
+                    color.withValues(alpha: 0.08),
+                    scheme.surface,
+                  )
+                : null,
+            border: Border.all(
+              color: elegido
+                  ? color
+                  : (trasera
+                        ? color.withValues(alpha: 0.5)
+                        : scheme.outlineVariant),
+              width: elegido ? 2 : 1,
             ),
+            boxShadow: [
+              if (elegido || trasera)
+                BoxShadow(
+                  color: color.withValues(alpha: 0.22),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+            ],
           ),
-        );
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: brand.card,
+          // Tocar la tarjeta la da vuelta (en el celular no hay mouse).
+          onTap: () => _voltear(!_atras),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm + 2,
+            ),
+            child: hijo,
+          ),
+        ),
+      ),
+    );
 
-    final frente = marco(_Frente(datos: datos, color: color, elegido: elegido), trasera: false);
+    final frente = marco(
+      _Frente(datos: datos, color: color, elegido: elegido),
+      trasera: false,
+    );
     final reverso = marco(
-      _Reverso(datos: datos, color: color, elegido: elegido, onElegir: widget.onTap),
+      _Reverso(
+        datos: datos,
+        color: color,
+        elegido: elegido,
+        onElegir: widget.onTap,
+      ),
       trasera: true,
     );
 
@@ -324,7 +604,11 @@ class _Frente extends StatelessWidget {
   final Map<String, String> datos;
   final Color color;
   final bool elegido;
-  const _Frente({required this.datos, required this.color, required this.elegido});
+  const _Frente({
+    required this.datos,
+    required this.color,
+    required this.elegido,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +640,9 @@ class _Frente extends StatelessWidget {
                         alignment: Alignment.center,
                         child: Text(
                           nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
-                          style: textos.titleLarge?.copyWith(color: textoSobreColor(color)),
+                          style: textos.titleLarge?.copyWith(
+                            color: textoSobreColor(color),
+                          ),
                         ),
                       ),
               ),
@@ -372,7 +658,11 @@ class _Frente extends StatelessWidget {
                     border: Border.all(color: scheme.surface, width: 2),
                   ),
                   padding: const EdgeInsets.all(2),
-                  child: Icon(Icons.check_rounded, size: 14, color: textoSobreColor(color)),
+                  child: Icon(
+                    Icons.check_rounded,
+                    size: 14,
+                    color: textoSobreColor(color),
+                  ),
                 ),
               ),
           ],
@@ -409,7 +699,10 @@ class _Frente extends StatelessWidget {
                   codigo.isEmpty ? tr('Iniciar sesión') : tr('Ver código'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: textos.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w700),
+                  style: textos.labelMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -427,7 +720,12 @@ class _Reverso extends StatelessWidget {
   final Color color;
   final bool elegido;
   final VoidCallback onElegir;
-  const _Reverso({required this.datos, required this.color, required this.elegido, required this.onElegir});
+  const _Reverso({
+    required this.datos,
+    required this.color,
+    required this.elegido,
+    required this.onElegir,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -443,14 +741,20 @@ class _Reverso extends StatelessWidget {
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: textos.labelMedium?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w700),
+          style: textos.labelMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: AppSpacing.xs),
         if (codigo.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: Text(
-              tr('Inicia sesión o crea tu cuenta y elige {nombre} en la lista.', {'nombre': nombre}),
+              tr(
+                'Inicia sesión o crea tu cuenta y elige {nombre} en la lista.',
+                {'nombre': nombre},
+              ),
               textAlign: TextAlign.center,
               style: textos.bodySmall,
             ),
@@ -458,7 +762,11 @@ class _Reverso extends StatelessWidget {
         else ...[
           Text(
             tr('Código').toUpperCase(),
-            style: textos.labelSmall?.copyWith(color: color, letterSpacing: 1.4, fontWeight: FontWeight.w800),
+            style: textos.labelSmall?.copyWith(
+              color: color,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           _EtiquetaCodigo(codigo: codigo, color: color),
           const SizedBox(height: AppSpacing.sm),
@@ -470,7 +778,10 @@ class _Reverso extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12),
             ),
             onPressed: onElegir,
-            icon: Icon(elegido ? Icons.check_rounded : Icons.login_rounded, size: 16),
+            icon: Icon(
+              elegido ? Icons.check_rounded : Icons.login_rounded,
+              size: 16,
+            ),
             label: Text(elegido ? tr('Elegido') : tr('Entrar')),
           ),
         ],
@@ -529,7 +840,13 @@ class _EtiquetaCodigo extends StatelessWidget {
               onPressed: () async {
                 final mensajero = ScaffoldMessenger.of(context);
                 await Clipboard.setData(ClipboardData(text: codigo));
-                mensajero.showSnackBar(SnackBar(content: Text(tr('Código copiado: {codigo}', {'codigo': codigo}))));
+                mensajero.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      tr('Código copiado: {codigo}', {'codigo': codigo}),
+                    ),
+                  ),
+                );
               },
             ),
           ),
