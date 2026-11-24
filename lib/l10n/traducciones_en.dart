@@ -956,4 +956,6 @@ const traduccionesEn = <String, String>{
   'elegido': 'selected',
   'Copiar código': 'Copy code',
   'Código copiado: {codigo}': 'Code copied: {codigo}',
+  'Ver código': 'See code',
+  'Elegido': 'Selected',
 };
