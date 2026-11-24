@@ -14,6 +14,7 @@ import '../../widgets/aviso_pedidos_nuevos.dart';
 import '../../widgets/panel_personal.dart';
 import '../../widgets/tarjeta_pedido_personal.dart';
 import '../../widgets/avisos_personal.dart';
+import '../../widgets/boton_entregas_realizadas.dart';
 
 /// Grupos en los que el Cajero ve los pedidos.
 enum GrupoPedidos { nuevos, preparando, listos, reparto, entregados, cancelados }
@@ -129,7 +130,19 @@ class _CajeroPedidosScreenState extends State<CajeroPedidosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('Pedidos')),
-        actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+        actions: [
+          if (_idNegocio != null)
+            BotonEntregasRealizadas(
+              cargar: () async => reporteEntregasDeLaSesion(
+                pedidos: await PedidoService.instancia
+                    .streamRecientesPorEstado(_idNegocio, PedidoEstado.entregado)
+                    .first,
+                periodo: 'Últimos 7 días',
+              ),
+            ),
+          const CampanaAvisosPersonal(),
+          const SizedBox(width: AppSpacing.xs),
+        ],
       ),
       body: idNegocio == null || enCurso == null || entregados == null
           ? Center(child: Text(tr('No se pudo identificar tu negocio.')))

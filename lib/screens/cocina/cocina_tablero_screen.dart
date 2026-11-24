@@ -20,6 +20,7 @@ import '../../widgets/tarjeta_pedido_personal.dart';
 import '../../widgets/texto_traducido.dart';
 import '../cliente/pedido_detalle_screen.dart';
 import '../../widgets/avisos_personal.dart';
+import '../../widgets/boton_entregas_realizadas.dart';
 
 /// "12 min", "3 h 05" o "2 d": el tiempo que lleva esperando un pedido.
 String textoEspera(int minutos) => duracionCorta(minutos);
@@ -146,6 +147,15 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
                           icon: const Icon(Icons.pause),
                           label: Text(angosto ? tr('Pausar') : tr('Pausar pedidos nuevos')),
                         ),
+                ),
+              if (idNegocio != null)
+                BotonEntregasRealizadas(
+                  cargar: () async => reporteEntregasDeLaSesion(
+                    pedidos: await PedidoService.instancia
+                        .streamRecientesPorEstado(idNegocio, PedidoEstado.entregado)
+                        .first,
+                    periodo: 'Últimos 7 días',
+                  ),
                 ),
               const CampanaAvisosPersonal(),
               const SizedBox(width: AppSpacing.xs),

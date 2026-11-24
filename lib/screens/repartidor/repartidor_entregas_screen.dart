@@ -20,6 +20,8 @@ import '../../widgets/panel_personal.dart';
 import '../../widgets/tarjeta_pedido_personal.dart';
 import '../../widgets/texto_traducido.dart';
 import '../../widgets/avisos_personal.dart';
+import '../../widgets/boton_entregas_realizadas.dart';
+import '../../utils/reporte_entregas.dart';
 
 /// Efectivo que el repartidor todavía tiene que entregar en caja (sin sus
 /// propinas): pedidos entregados, pagados en efectivo y no rendidos.
@@ -572,7 +574,21 @@ class _MiEfectivoState extends State<_MiEfectivo> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('Mi efectivo')),
-        actions: const [CampanaAvisosPersonal(), SizedBox(width: AppSpacing.xs)],
+        actions: [
+          BotonEntregasRealizadas(
+            cargar: () async {
+              final hoy = DateTime.now();
+              return reporteEntregasDeLaSesion(
+                pedidos: await PedidoService.instancia
+                    .streamEntregadosHoy(widget.idNegocio, widget.usuario.idUsuario)
+                    .first,
+                periodo: 'Hoy, ${ReporteEntregas.fecha(hoy)}',
+              );
+            },
+          ),
+          const CampanaAvisosPersonal(),
+          const SizedBox(width: AppSpacing.xs),
+        ],
       ),
       body: StreamBuilder<List<PedidoModel>>(
         stream: _hoy,

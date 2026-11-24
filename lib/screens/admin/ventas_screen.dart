@@ -13,6 +13,7 @@ import '../../widgets/app_contenido_centrado.dart';
 import '../../widgets/app_empty_state.dart';
 import '../cliente/pedido_detalle_screen.dart';
 import '../../utils/formato.dart';
+import '../../widgets/boton_entregas_realizadas.dart';
 
 enum _Periodo { hoy, sieteDias, mes, personalizado }
 
@@ -242,29 +243,48 @@ class _VentasScreenState extends State<VentasScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            onPressed: filtradas.isEmpty
-                ? null
-                : () {
-                    final l = _limites();
-                    String f(DateTime d) =>
-                        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-                    String d(DateTime x) =>
-                        '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
-                    final hasta = l.hasta.subtract(const Duration(days: 1));
-                    exportarExcel(
-                      context,
-                      nombreArchivo: 'ventas_${f(l.desde)}_a_${f(hasta)}.xlsx',
-                      pedidos: filtradas,
-                      nombresSucursal: nombres,
-                      periodo: 'Del ${d(l.desde)} al ${d(hasta)}',
-                    );
-                  },
-            icon: const Icon(Icons.download_rounded, size: 18),
-            label: const Text('Exportar a Excel'),
-          ),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            // Entregas realizadas del periodo y los filtros elegidos, en Word
+            // o para imprimir.
+            BotonEntregasRealizadas(
+              conTexto: true,
+              cargar: () {
+                final l = _limites();
+                String d(DateTime x) =>
+                    '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+                return reporteEntregasDeLaSesion(
+                  pedidos: filtradas,
+                  periodo: 'Del ${d(l.desde)} al ${d(l.hasta.subtract(const Duration(days: 1)))}',
+                  nombresSucursal: nombres,
+                );
+              },
+            ),
+            OutlinedButton.icon(
+              onPressed: filtradas.isEmpty
+                  ? null
+                  : () {
+                      final l = _limites();
+                      String f(DateTime d) =>
+                          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+                      String d(DateTime x) =>
+                          '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+                      final hasta = l.hasta.subtract(const Duration(days: 1));
+                      exportarExcel(
+                        context,
+                        nombreArchivo: 'ventas_${f(l.desde)}_a_${f(hasta)}.xlsx',
+                        pedidos: filtradas,
+                        nombresSucursal: nombres,
+                        periodo: 'Del ${d(l.desde)} al ${d(hasta)}',
+                      );
+                    },
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: const Text('Exportar a Excel'),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.sm),
         if (filtradas.isEmpty)
