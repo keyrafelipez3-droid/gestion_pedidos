@@ -961,4 +961,6 @@ const traduccionesPt = <String, String>{
   'Anterior': 'Anterior',
   'Siguiente': 'Próximo',
   'Ver restaurantes': 'Ver restaurantes',
+  'Código del restaurante (opcional)': 'Código do restaurante (opcional)',
+  'Si no lo tienes, después eliges el restaurante de la lista.': 'Se não tiver, depois você escolhe o restaurante na lista.',
 };

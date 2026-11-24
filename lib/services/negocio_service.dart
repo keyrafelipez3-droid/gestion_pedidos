@@ -19,7 +19,8 @@ class NegocioService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> get _col => _db.collection('negocios');
+  CollectionReference<Map<String, dynamic>> get _col =>
+      _db.collection('negocios');
 
   /// Trae los datos de UN negocio por su id. Si el documento todavía no
   /// existe, devuelve un NegocioModel con valores por defecto (mismo
@@ -41,13 +42,15 @@ class NegocioService {
   /// (`directorio`): así los restaurantes que ya existían aparecen en el
   /// inicio de sesión apenas el SuperAdmin abre su panel.
   Stream<List<NegocioModel>> streamNegocios() => _col.snapshots().map((qs) {
-        final lista = qs.docs.map((d) => NegocioModel.fromMap(d.id, d.data())).toList()
-          ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
-        for (final n in lista) {
-          unawaited(publicarEnDirectorio(n));
-        }
-        return lista;
-      });
+    final lista =
+        qs.docs.map((d) => NegocioModel.fromMap(d.id, d.data())).toList()..sort(
+          (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+        );
+    for (final n in lista) {
+      unawaited(publicarEnDirectorio(n));
+    }
+    return lista;
+  });
 
   // ------------------------------------------------ lista pública
   // `directorio/{idNegocio}`: SOLO nombre, logo, color, ciudad y el código
@@ -55,7 +58,8 @@ class NegocioService {
   // sesión (pantalla de inicio de sesión), para que el cliente vea el
   // código en la tarjeta del restaurante y pueda entrar. No lleva NIT,
   // teléfono, dirección ni QR de pago.
-  CollectionReference<Map<String, dynamic>> get _directorio => _db.collection('directorio');
+  CollectionReference<Map<String, dynamic>> get _directorio =>
+      _db.collection('directorio');
 
   /// Lo último que se publicó de cada negocio en esta sesión, para no
   /// escribir lo mismo otra vez.
@@ -64,12 +68,16 @@ class NegocioService {
   /// Código de cada negocio ya leído en esta sesión ('' = no tiene).
   final Map<String, String> _codigoConocido = {};
 
+  /// Quita espacios de más ("pollos     locos" -> "pollos locos").
+  static String limpio(String? texto) =>
+      (texto ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
   static Map<String, dynamic> datosPublicos(NegocioModel n) => {
-        'nombre': n.nombre.trim(),
-        'logoUrl': n.logoUrl.trim(),
-        'colorPrimario': n.colorPrimario.trim(),
-        'ciudad': n.ciudad.trim(),
-      };
+    'nombre': limpio(n.nombre),
+    'logoUrl': n.logoUrl.trim(),
+    'colorPrimario': n.colorPrimario.trim(),
+    'ciudad': limpio(n.ciudad),
+  };
 
   /// Publica (o quita, si está desactivado o sin nombre) un restaurante en
   /// la lista pública, con su código para entrar si ya tiene uno. Nunca
@@ -100,6 +108,10 @@ class NegocioService {
           // publica igual el resto (nombre, logo...) para no perder la
           // tarjeta del restaurante.
           if (!datos.containsKey('codigo')) rethrow;
+          // Pero si la tarjeta ya tiene su código (por ejemplo, publicado
+          // con scripts/demo/publicar_directorio.js), no se le quita.
+          final actual = await _directorio.doc(n.idNegocio).get();
+          if ((actual.data()?['codigo'] as String? ?? '').isNotEmpty) rethrow;
           datos.remove('codigo');
           await _directorio.doc(n.idNegocio).set(datos);
         }
@@ -120,14 +132,17 @@ class NegocioService {
       final lista = [
         for (final d in qs.docs)
           {
-            'nombre': (d.data()['nombre'] as String?)?.trim() ?? '',
+            'nombre': limpio(d.data()['nombre'] as String?),
             'logoUrl': d.data()['logoUrl'] as String? ?? '',
             'colorPrimario': d.data()['colorPrimario'] as String? ?? '',
-            'ciudad': d.data()['ciudad'] as String? ?? '',
+            'ciudad': limpio(d.data()['ciudad'] as String?),
             'codigo': d.data()['codigo'] as String? ?? '',
           },
       ]..removeWhere((m) => m['nombre']!.isEmpty);
-      lista.sort((a, b) => a['nombre']!.toLowerCase().compareTo(b['nombre']!.toLowerCase()));
+      lista.sort(
+        (a, b) =>
+            a['nombre']!.toLowerCase().compareTo(b['nombre']!.toLowerCase()),
+      );
       return lista;
     } catch (_) {
       return const [];
@@ -141,11 +156,17 @@ class NegocioService {
   Stream<List<NegocioModel>> streamDirectorio() => _col
       .where('estado', isEqualTo: true)
       .snapshots()
-      .map((qs) => qs.docs
-          .map((d) => NegocioModel.fromMap(d.id, d.data()))
-          .where((n) => n.nombre.trim().isNotEmpty)
-          .toList()
-        ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase())));
+      .map(
+        (qs) =>
+            qs.docs
+                .map((d) => NegocioModel.fromMap(d.id, d.data()))
+                .where((n) => n.nombre.trim().isNotEmpty)
+                .toList()
+              ..sort(
+                (a, b) =>
+                    a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+              ),
+      );
 
   /// Los negocios a los que entró el cliente, leídos uno por uno por su id
   /// (el cliente no puede listar todos los negocios). Si alguno falla o ya
@@ -158,7 +179,9 @@ class NegocioService {
         if (snap.exists) lista.add(NegocioModel.fromMap(id, snap.data() ?? {}));
       } catch (_) {}
     }
-    lista.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+    lista.sort(
+      (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+    );
     return lista;
   }
 
@@ -175,7 +198,9 @@ class NegocioService {
   /// Crea o actualiza el documento de un negocio ya existente (set con
   /// merge, así no hace falta preocuparse de si ya existía o no).
   Future<void> guardarNegocio(NegocioModel negocio) async {
-    await _col.doc(negocio.idNegocio).set(negocio.toMap(), SetOptions(merge: true));
+    await _col
+        .doc(negocio.idNegocio)
+        .set(negocio.toMap(), SetOptions(merge: true));
     // El enlace del restaurante muestra su nombre y logo actuales.
     await CodigoNegocioService.instancia.sincronizarMarca(negocio);
     // Y la lista pública de restaurantes, con el estado real del negocio

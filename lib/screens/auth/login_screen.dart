@@ -427,12 +427,19 @@ class _PanelMarca extends StatelessWidget {
       color: AppBrand.berenjena,
       child: LayoutBuilder(
         builder: (context, c) {
-          // El plato es un poco más chico para dejar lugar al carrusel de
-          // restaurantes abajo a la izquierda.
-          final diametro = c.maxHeight * 0.66;
           // En ventanas muy bajas el carrusel no entra; ahí el formulario
           // muestra el botón "Ver restaurantes" (ver LoginScreen.build).
           final hayCarrusel = c.maxHeight >= 600;
+          // Con carrusel, el plato sube a la esquina de arriba a la derecha
+          // (más chico) y el carrusel usa todo el ancho de abajo: así no se
+          // tapan. Tampoco debe tocar la frase (que llega hasta ~520 px).
+          final diametro = hayCarrusel
+              ? math.min(
+                  math.min(c.maxHeight * 0.46, c.maxWidth * 0.5),
+                  (c.maxWidth - 520) / 0.8,
+                )
+              : c.maxHeight * 0.78;
+          final hayPlato = diametro >= 160;
           return AnimatedBuilder(
             animation: entrada,
             builder: (context, _) {
@@ -454,29 +461,36 @@ class _PanelMarca extends StatelessWidget {
                 clipBehavior: Clip.hardEdge,
                 children: [
                   // El "plato": la foto en un círculo con un aro de ají.
-                  Positioned(
-                    right: -diametro * 0.22,
-                    bottom: -diametro * 0.24,
-                    width: diametro,
-                    height: diametro,
-                    child: Opacity(
-                      opacity: plato.clamp(0.0, 1.0),
-                      child: Transform.scale(
-                        scale: 0.7 + 0.3 * plato,
-                        alignment: Alignment.bottomRight,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppBrand.aji, width: 10),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: ClipOval(child: foto),
+                  if (hayPlato)
+                    Positioned(
+                      right: -diametro * (hayCarrusel ? 0.2 : 0.22),
+                      top: hayCarrusel ? -diametro * 0.2 : null,
+                      bottom: hayCarrusel ? null : -diametro * 0.24,
+                      width: diametro,
+                      height: diametro,
+                      child: Opacity(
+                        opacity: plato.clamp(0.0, 1.0),
+                        child: Transform.scale(
+                          scale: 0.7 + 0.3 * plato,
+                          alignment: hayCarrusel
+                              ? Alignment.topRight
+                              : Alignment.bottomRight,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppBrand.aji,
+                                width: 10,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: ClipOval(child: foto),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(56, 48, 56, 48),
                     child: Column(
@@ -568,11 +582,10 @@ class _PanelMarca extends StatelessWidget {
                             child: IgnorePointer(
                               ignoring: plato < 0.5,
                               child: ConstrainedBox(
+                                // Todo el ancho del panel (el plato está
+                                // arriba, no abajo).
                                 constraints: BoxConstraints(
-                                  maxWidth: math.max(
-                                    380.0,
-                                    c.maxWidth - 112 - diametro * 0.55,
-                                  ),
+                                  maxWidth: c.maxWidth - 112,
                                 ),
                                 child: CarruselRestaurantes(
                                   onElegido: onRestauranteElegido,
