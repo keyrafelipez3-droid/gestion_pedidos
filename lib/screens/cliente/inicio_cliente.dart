@@ -12,6 +12,7 @@ import '../../widgets/panel_personal.dart';
 import '../../widgets/tarjeta_pedido_personal.dart';
 import '../legal/info_negocio_screen.dart';
 import 'condiciones_restaurante_screen.dart';
+import 'directorio_restaurantes.dart';
 import 'mis_pedidos_screen.dart';
 import 'pedido_detalle_screen.dart';
 
@@ -40,8 +41,9 @@ String mensajeEstadoCliente(PedidoModel p) {
 
 /// Pantalla de inicio del cliente: su restaurante (portada, logo y botón
 /// grande para pedir), sus pedidos en curso y accesos rápidos. Si todavía
-/// no entró a ningún restaurante, le pide el código; si entró a varios,
-/// los muestra para elegir.
+/// no entró a ningún restaurante, le muestra la lista de restaurantes con
+/// logo (o el código, si la lista no carga); si entró a varios, los
+/// muestra para elegir.
 class InicioCliente extends StatelessWidget {
   final String nombre;
 
@@ -97,10 +99,12 @@ class InicioCliente extends StatelessWidget {
       ),
       if (lista != null && lista.isNotEmpty)
         (
-          Icons.vpn_key_outlined,
-          tr('Agregar un restaurante'),
-          tr('Con el código que te dio el restaurante'),
-          onIngresarCodigo,
+          Icons.storefront_outlined,
+          tr('Más restaurantes'),
+          tr('Elige de la lista o usa su código'),
+          () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => DirectorioRestaurantesScreen(misIds: {for (final n in lista) n.idNegocio}),
+              )),
         ),
     ];
 
@@ -129,8 +133,23 @@ class InicioCliente extends StatelessWidget {
                         padding: EdgeInsets.all(AppSpacing.xl),
                         child: Center(child: CircularProgressIndicator()),
                       )
-                    else if (lista.isEmpty)
-                      _SinRestaurante(onIngresarCodigo: onIngresarCodigo)
+                    else if (lista.isEmpty) ...[
+                      // Lista de restaurantes con logo: el cliente nuevo
+                      // elige dónde pedir sin saber ningún código. Si la
+                      // lista no carga, queda la opción del código.
+                      DirectorioRestaurantes(
+                        misIds: const {},
+                        respaldo: _SinRestaurante(onIngresarCodigo: onIngresarCodigo),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: onIngresarCodigo,
+                          icon: const Icon(Icons.vpn_key_outlined),
+                          label: Text(tr('Tengo un código')),
+                        ),
+                      ),
+                    ]
                     else if (unico != null)
                       _PortadaRestaurante(negocio: unico, alto: amplio ? 240 : 200)
                     else

@@ -887,17 +887,102 @@ describe('Código de acceso de cada restaurante', () => {
     await assertFails(updateDoc(doc(como('admin1'), 'negocios', 'n1'), { codigoAcceso: 'MIO123' }));
   });
 
-  test('un cliente lee un negocio por su id, pero no puede listar todos', async () => {
+  test('un cliente lee un negocio por su id, pero no puede listar todos sin filtro', async () => {
     await assertSucceeds(getDoc(doc(como('cli1'), 'negocios', 'n1')));
     await assertFails(getDocs(collection(como('cli1'), 'negocios')));
     await assertFails(getDocs(collection(como('admin1'), 'negocios')));
     await assertSucceeds(getDocs(collection(como('super1'), 'negocios')));
   });
 
+  test('un cliente ve la lista de restaurantes ACTIVOS (con logo), pero no los desactivados', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'negocios', 'n3'), { nombre: 'Cerrado', estado: false }));
+    const activos = query(collection(como('cli1'), 'negocios'), where('estado', '==', true));
+    const lista = await assertSucceeds(getDocs(activos));
+    const ids = lista.docs.map((d) => d.id).sort();
+    if (ids.join(',') !== 'n1,n2') throw new Error(`Se esperaban n1,n2 y llegaron: ${ids}`);
+    // Sin el filtro, o pidiendo los desactivados, no.
+    await assertFails(getDocs(collection(como('cli1'), 'negocios')));
+    await assertFails(getDocs(query(collection(como('cli1'), 'negocios'), where('estado', '==', false))));
+    // Sin sesión, nadie lista.
+    const anon = env.unauthenticatedContext().firestore();
+    await assertFails(getDocs(query(collection(anon, 'negocios'), where('estado', '==', true))));
+  });
+
+  test('la lista de restaurantes es solo para clientes, no para el personal', async () => {
+    const activos = (uid) => query(collection(como(uid), 'negocios'), where('estado', '==', true));
+    await assertFails(getDocs(activos('admin1')));
+    await assertFails(getDocs(activos('cajero1')));
+    await assertFails(getDocs(activos('cocina1')));
+    await assertFails(getDocs(activos('repa1')));
+  });
+
+  test('la lista de restaurantes no deja ver el código privado', async () => {
+    await assertFails(getDocs(collection(como('cli1'), 'negocios/n1/privado')));
+    await assertFails(getDoc(doc(como('cli3'), 'negocios/n2/privado', 'acceso')));
+  });
+
+  test('sin código: entra eligiendo un restaurante activo de la lista y ya puede pedir', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'usuarios', 'cli3'), { rol: 'Cliente', estado: true, email: 'c3@x.com' }));
+    await assertSucceeds(unirse('cli3', 'n1', ''));
+    await assertSucceeds(crearPedido(como('cli3'), 'nuevo', pedidoCliente('cli3')));
+  });
+
+  test('sin código no puede entrar a un restaurante desactivado o que no existe', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'negocios', 'n3'), { nombre: 'Cerrado', estado: false }));
+    await assertFails(unirse('cli3', 'n3', ''));
+    await assertFails(unirse('cli3', 'noexiste', ''));
+    // Ni a nombre de otro cliente.
+    await assertFails(setDoc(doc(como('cli3'), 'usuarios/cli2/misNegocios', 'n2'), { codigo: '', fecha: serverTimestamp() }));
+  });
+
   test('solo el SuperAdmin crea códigos', async () => {
     await assertSucceeds(setDoc(doc(como('super1'), 'codigosNegocio', 'NUEVO9'), { idNegocio: 'n1', nombre: 'x' }));
     await assertFails(setDoc(doc(como('admin1'), 'codigosNegocio', 'MIO123'), { idNegocio: 'n1', nombre: 'x' }));
     await assertFails(setDoc(doc(como('cli1'), 'codigosNegocio', 'MIO123'), { idNegocio: 'n1', nombre: 'x' }));
+  });
+});
+
+describe('Lista pública de restaurantes (inicio de sesión)', () => {
+  const publico = { nombre: 'Pollos Caro', logoUrl: 'https://x.bo/logo.png', colorPrimario: '#C2301A', ciudad: 'La Paz' };
+
+  test('cualquiera, incluso sin sesión, ve la lista con logo, nombre y ciudad', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'directorio', 'n1'), publico));
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(getDocs(collection(anon, 'directorio')));
+    await assertSucceeds(getDoc(doc(anon, 'directorio', 'n1')));
+  });
+
+  test('sin sesión no se listan los negocios completos (NIT, teléfono, QR)', async () => {
+    const anon = env.unauthenticatedContext().firestore();
+    await assertFails(getDocs(collection(anon, 'negocios')));
+    await assertFails(getDoc(doc(anon, 'negocios', 'n1')));
+  });
+
+  test('la lista pública solo acepta nombre, logo, color y ciudad', async () => {
+    await assertSucceeds(setDoc(doc(como('super1'), 'directorio', 'n1'), publico));
+    await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, nit: '123' }));
+    await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, codigo: 'POLLO1' }));
+    await assertFails(setDoc(doc(como('super1'), 'directorio', 'n1'), { ...publico, nombre: '' }));
+  });
+
+  test('el Administrador publica solo su restaurante, y solo si está activo', async () => {
+    await assertSucceeds(setDoc(doc(como('admin1'), 'directorio', 'n1'), publico));
+    await assertFails(setDoc(doc(como('admin1'), 'directorio', 'n2'), publico));
+    await assertFails(deleteDoc(doc(como('admin1'), 'directorio', 'n1')));
+    await env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'negocios', 'n1'), { estado: false }));
+    await assertFails(setDoc(doc(como('admin1'), 'directorio', 'n1'), publico));
+  });
+
+  test('clientes, personal y visitantes no pueden escribir en la lista pública', async () => {
+    const anon = env.unauthenticatedContext().firestore();
+    await assertFails(setDoc(doc(anon, 'directorio', 'n9'), publico));
+    await assertFails(setDoc(doc(como('cli1'), 'directorio', 'n9'), publico));
+    await assertFails(setDoc(doc(como('cajero1'), 'directorio', 'n1'), publico));
+    await assertSucceeds(deleteDoc(doc(como('super1'), 'directorio', 'n1')));
   });
 });
 

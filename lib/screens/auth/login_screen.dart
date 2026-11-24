@@ -17,6 +17,7 @@ import '../cuenta/dos_pasos_screen.dart';
 import '../legal/legal_screen.dart';
 import 'registro_screen.dart';
 import '../../widgets/resenas_destacadas.dart';
+import '../../widgets/restaurantes_publicos.dart';
 
 /// HU-02 — Pantalla de inicio de sesión.
 /// ("Iniciar sesión con mis credenciales")
@@ -672,6 +673,9 @@ class _Formulario extends StatelessWidget {
             ],
           )),
           entra(const EtiquetaVersion()),
+          // Restaurantes donde se puede pedir (logo, nombre y ciudad), para
+          // que un cliente nuevo sepa dónde pedir sin conocer ningún código.
+          entra(const RestaurantesPublicos()),
           // Las mejores reseñas de los clientes, antes de entrar.
           entra(const ResenasDestacadas()),
         ],
