@@ -173,8 +173,10 @@ class _Aparecer extends StatelessWidget {
   }
 }
 
-/// Tarjeta de un restaurante: logo con aro de su color, nombre, ciudad y
-/// su código en una etiqueta. Al pasar el mouse se eleva un poco.
+/// Tarjeta de un restaurante que SE DA VUELTA: adelante el logo, el
+/// nombre y la ciudad; atrás el CÓDIGO para entrar, con un botón para
+/// elegirlo. En la computadora se voltea al pasar el mouse; en el celular,
+/// al tocarla. Con "reducir animaciones" cambia de cara sin girar.
 class _Restaurante extends StatefulWidget {
   final Map<String, String> datos;
   final bool elegido;
@@ -186,20 +188,38 @@ class _Restaurante extends StatefulWidget {
   State<_Restaurante> createState() => _RestauranteState();
 }
 
-class _RestauranteState extends State<_Restaurante> {
-  bool _encima = false;
+class _RestauranteState extends State<_Restaurante> with SingleTickerProviderStateMixin {
+  late final AnimationController _giro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  );
+
+  @override
+  void dispose() {
+    _giro.dispose();
+    super.dispose();
+  }
+
+  void _voltear(bool atras) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _giro.value = atras ? 1 : 0;
+    } else if (atras) {
+      _giro.forward();
+    } else {
+      _giro.reverse();
+    }
+  }
+
+  bool get _atras => _giro.value >= 0.5;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textos = Theme.of(context).textTheme;
     final datos = widget.datos;
     final nombre = datos['nombre'] ?? '';
     final ciudad = datos['ciudad'] ?? '';
-    final logo = datos['logoUrl'] ?? '';
     final codigo = datos['codigo'] ?? '';
     final color = colorDesdeHex(datos['colorPrimario'], scheme.primary);
-    final sinAnimacion = MediaQuery.disableAnimationsOf(context);
     final brand = context.brand;
     final elegido = widget.elegido;
 
@@ -210,134 +230,251 @@ class _RestauranteState extends State<_Restaurante> {
       if (elegido) tr('elegido'),
     ].join(', ');
 
+    Widget marco(Widget hijo, {required bool trasera}) => Container(
+          decoration: brand.decoracionTarjeta(scheme).copyWith(
+                color: trasera ? Color.alphaBlend(color.withValues(alpha: 0.08), scheme.surface) : null,
+                border: Border.all(
+                  color: elegido ? color : (trasera ? color.withValues(alpha: 0.5) : scheme.outlineVariant),
+                  width: elegido ? 2 : 1,
+                ),
+                boxShadow: [
+                  if (elegido || trasera)
+                    BoxShadow(color: color.withValues(alpha: 0.22), blurRadius: 16, offset: const Offset(0, 6)),
+                ],
+              ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: brand.card,
+              // Tocar la tarjeta la da vuelta (en el celular no hay mouse).
+              onTap: () => _voltear(!_atras),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.md, AppSpacing.sm, AppSpacing.sm + 2),
+                child: hijo,
+              ),
+            ),
+          ),
+        );
+
+    final frente = marco(_Frente(datos: datos, color: color, elegido: elegido), trasera: false);
+    final reverso = marco(
+      _Reverso(datos: datos, color: color, elegido: elegido, onElegir: widget.onTap),
+      trasera: true,
+    );
+
     return Semantics(
       button: true,
       selected: elegido,
       label: etiqueta,
       excludeSemantics: true,
+      onTap: widget.onTap,
       child: MouseRegion(
-        onEnter: (_) => setState(() => _encima = true),
-        onExit: (_) => setState(() => _encima = false),
-        child: AnimatedSlide(
-          duration: sinAnimacion ? Duration.zero : const Duration(milliseconds: 160),
-          offset: _encima ? const Offset(0, -0.03) : Offset.zero,
-          child: AnimatedContainer(
-            duration: sinAnimacion ? Duration.zero : const Duration(milliseconds: 200),
-            decoration: brand.decoracionTarjeta(scheme).copyWith(
-                  border: Border.all(
-                    color: elegido ? color : (_encima ? color.withValues(alpha: 0.5) : scheme.outlineVariant),
-                    width: elegido ? 2 : 1,
+        onEnter: (_) => _voltear(true),
+        onExit: (_) => _voltear(false),
+        child: AnimatedBuilder(
+          animation: _giro,
+          builder: (context, _) {
+            final t = Curves.easeInOutCubic.transform(_giro.value);
+            final atras = t >= 0.5;
+            final angulo = math.pi * t;
+            // Las dos caras están siempre (así la tarjeta mide lo que la
+            // más alta) y solo se ve la que corresponde.
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.0012)
+                ..rotateY(angulo),
+              child: Stack(
+                // Las caras usan todo el ancho que le da la grilla.
+                fit: StackFit.passthrough,
+                children: [
+                  Visibility(
+                    visible: !atras,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: frente,
                   ),
-                  boxShadow: [
-                    if (_encima || elegido)
-                      BoxShadow(color: color.withValues(alpha: 0.22), blurRadius: 16, offset: const Offset(0, 6)),
-                  ],
-                ),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                borderRadius: brand.card,
-                onTap: widget.onTap,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.md, AppSpacing.sm, AppSpacing.sm + 2),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: color, width: 2),
-                            ),
-                            child: ClipOval(
-                              child: logo.isNotEmpty
-                                  ? AppImagenRed(url: logo, icono: Icons.storefront_outlined)
-                                  : Container(
-                                      color: color,
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
-                                        style: textos.titleLarge?.copyWith(color: textoSobreColor(color)),
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          if (elegido)
-                            Positioned(
-                              right: -4,
-                              bottom: -2,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: scheme.surface, width: 2),
-                                ),
-                                padding: const EdgeInsets.all(2),
-                                child: Icon(Icons.check_rounded, size: 14, color: textoSobreColor(color)),
-                              ),
-                            ),
-                        ],
+                  Positioned.fill(
+                    child: Visibility(
+                      visible: atras,
+                      maintainState: true,
+                      maintainAnimation: true,
+                      // La cara de atrás se dibuja girada para que no se
+                      // lea al revés.
+                      child: Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.rotationY(math.pi),
+                        child: reverso,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        nombre,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: textos.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      if (ciudad.isNotEmpty)
-                        Text(
-                          ciudad,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (codigo.isNotEmpty)
-                        _EtiquetaCodigo(codigo: codigo, color: color)
-                      else
-                        // Sin código publicado: se elige al iniciar sesión.
-                        // Misma altura que la etiqueta del código, así las
-                        // tarjetas de una fila quedan parejas.
-                        Container(
-                          height: 36,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: scheme.outlineVariant),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.login_rounded, size: 14, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  tr('Iniciar sesión'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: textos.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
+    );
+  }
+}
+
+/// Cara de adelante: logo, nombre, ciudad y una pista "Ver código".
+class _Frente extends StatelessWidget {
+  final Map<String, String> datos;
+  final Color color;
+  final bool elegido;
+  const _Frente({required this.datos, required this.color, required this.elegido});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final nombre = datos['nombre'] ?? '';
+    final ciudad = datos['ciudad'] ?? '';
+    final logo = datos['logoUrl'] ?? '';
+    final codigo = datos['codigo'] ?? '';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: 2),
+              ),
+              child: ClipOval(
+                child: logo.isNotEmpty
+                    ? AppImagenRed(url: logo, icono: Icons.storefront_outlined)
+                    : Container(
+                        color: color,
+                        alignment: Alignment.center,
+                        child: Text(
+                          nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
+                          style: textos.titleLarge?.copyWith(color: textoSobreColor(color)),
+                        ),
+                      ),
+              ),
+            ),
+            if (elegido)
+              Positioned(
+                right: -4,
+                bottom: -2,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: scheme.surface, width: 2),
+                  ),
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(Icons.check_rounded, size: 14, color: textoSobreColor(color)),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          nombre,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: textos.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        Text(
+          ciudad.isEmpty ? ' ' : ciudad,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textos.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          height: 36,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                codigo.isEmpty ? Icons.login_rounded : Icons.flip_rounded,
+                size: 16,
+                color: color,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  codigo.isEmpty ? tr('Iniciar sesión') : tr('Ver código'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textos.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Cara de atrás: el código grande, para copiarlo, y el botón para entrar
+/// con él.
+class _Reverso extends StatelessWidget {
+  final Map<String, String> datos;
+  final Color color;
+  final bool elegido;
+  final VoidCallback onElegir;
+  const _Reverso({required this.datos, required this.color, required this.elegido, required this.onElegir});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final nombre = datos['nombre'] ?? '';
+    final codigo = datos['codigo'] ?? '';
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          nombre,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textos.labelMedium?.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (codigo.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: Text(
+              tr('Inicia sesión o crea tu cuenta y elige {nombre} en la lista.', {'nombre': nombre}),
+              textAlign: TextAlign.center,
+              style: textos.bodySmall,
+            ),
+          )
+        else ...[
+          Text(
+            tr('Código').toUpperCase(),
+            style: textos.labelSmall?.copyWith(color: color, letterSpacing: 1.4, fontWeight: FontWeight.w800),
+          ),
+          _EtiquetaCodigo(codigo: codigo, color: color),
+          const SizedBox(height: AppSpacing.sm),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: textoSobreColor(color),
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            onPressed: onElegir,
+            icon: Icon(elegido ? Icons.check_rounded : Icons.login_rounded, size: 16),
+            label: Text(elegido ? tr('Elegido') : tr('Entrar')),
+          ),
+        ],
+      ],
     );
   }
 }
