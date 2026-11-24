@@ -75,7 +75,7 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
   void _mostrar(List<PedidoModel> nuevos) {
     final p = nuevos.last;
     final texto = nuevos.length == 1
-        ? 'Nuevo pedido #${p.id.substring(0, 6)} · ${p.etiquetaModalidad} · ${dinero(p.montoNegocio)}'
+        ? 'Nuevo pedido #${p.id.substring(0, 6).toUpperCase()} · ${p.etiquetaModalidad} · ${dinero(p.montoNegocio)}'
         : '${nuevos.length} pedidos nuevos';
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
@@ -91,9 +91,9 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
         ),
         action: SnackBarAction(
           label: 'VER',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => PedidoDetalleScreen(idPedido: p.id, esPersonal: true)),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => PedidoDetalleScreen(idPedido: p.id, esPersonal: true))),
         ),
       ),
     );
@@ -106,8 +106,10 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
       children: [
         widget.child,
         Positioned(
-          right: 12,
-          bottom: 12,
+          // Por encima de la barra de navegación del celular (antes quedaba
+          // tapada por los botones de Android).
+          right: 12 + MediaQuery.paddingOf(context).right,
+          bottom: 12 + MediaQuery.paddingOf(context).bottom,
           child: Material(
             color: scheme.surfaceContainerHigh,
             shape: const StadiumBorder(),
@@ -130,9 +132,7 @@ class _AvisoPedidosNuevosState extends State<AvisoPedidosNuevos> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _silencio
-                          ? 'Sonido apagado'
-                          : (_nuevos > 0 ? '$_nuevos nuevos' : 'Avisos activados'),
+                      _silencio ? 'Sonido apagado' : (_nuevos > 0 ? '$_nuevos nuevos' : 'Avisos activados'),
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
                   ],

@@ -252,6 +252,7 @@ const traduccionesEn = <String, String>{
   'Número no válido para {nombre}': 'Invalid number for {nombre}',
   'O pega un link': 'Or paste a link',
   'Ocupada': 'Occupied',
+  'El servidor está ocupado en este momento. Espera un minuto e intenta de nuevo.': 'The server is busy right now. Wait a minute and try again.',
   'Ocurrió un error inesperado. Intenta de nuevo.': 'An unexpected error occurred. Try again.',
   'Operación cancelada.': 'Operation cancelled.',
   'Pago no verificado': 'Payment not verified',

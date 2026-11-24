@@ -228,7 +228,7 @@ class CajaService {
             'metodoPago': metodoPago,
           });
           _agregarCobro(lote, caja, pedido,
-              concepto: 'Mesa ${mesa.numero} · #${pedido.id.substring(0, 6)}',
+              concepto: 'Mesa ${mesa.numero} · #${pedido.id.substring(0, 6).toUpperCase()}',
               metodoPago: metodoPago,
               idUsuario: idUsuario,
               idMesa: mesa.id);
@@ -281,7 +281,7 @@ class CajaService {
         });
         tx.set(_movimientos(caja.id).doc('cobro_${actual.id}'), {
           'tipo': MovimientoTipo.cobro,
-          'concepto': 'Pedido #${actual.id.substring(0, 6)}',
+          'concepto': 'Pedido #${actual.id.substring(0, 6).toUpperCase()}',
           'monto': redondearDinero(actual.montoNegocio),
           'metodoPago': actual.metodoPago,
           'idPedido': actual.id,
@@ -316,7 +316,7 @@ class CajaService {
         final lote = _db.batch();
         for (final pedido in pendientes.skip(i).take(_pedidosPorLote)) {
           _agregarCobro(lote, caja, pedido,
-              concepto: 'Delivery #${pedido.id.substring(0, 6)} · ${pedido.nombreRepartidor ?? 'Repartidor'}',
+              concepto: 'Delivery #${pedido.id.substring(0, 6).toUpperCase()} · ${pedido.nombreRepartidor ?? 'Repartidor'}',
               metodoPago: pedido.metodoPago,
               idUsuario: idUsuario);
           lote.update(_db.collection('pedidos').doc(pedido.id), {

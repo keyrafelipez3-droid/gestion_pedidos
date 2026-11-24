@@ -325,7 +325,8 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
         }
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xl),
+          // Abajo deja lugar para el botón "Avisos activados".
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 88),
           children: [
             if (avisoPausa != null) avisoPausa,
             resumen,
