@@ -15,6 +15,7 @@ import '../../widgets/app_status_badge.dart';
 import 'crear_empleado_screen.dart';
 import 'roles_permisos_screen.dart';
 import '../../widgets/app_cargando.dart';
+import '../../widgets/fila_adaptable.dart';
 
 /// HU-05 — "Gestionar empleados y asignar roles".
 /// Lista en tiempo real de todo el personal (no Clientes), con acciones
@@ -148,7 +149,7 @@ class EmpleadosScreen extends StatelessWidget {
               // SuperAdmin.
               final esUnoMismo = e.idUsuario == SesionActual.instancia.actual?.idUsuario;
               return Card(
-                child: ListTile(
+                child: ListTileAdaptable(
                   leading: CircleAvatar(
                     child: Text(
                       e.nombre.isNotEmpty ? e.nombre[0].toUpperCase() : '?',

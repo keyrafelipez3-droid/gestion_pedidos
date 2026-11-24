@@ -17,6 +17,7 @@ import '../../widgets/selector_imagen.dart';
 import '../../widgets/app_cargando.dart';
 import '../../utils/formato.dart';
 import '../../widgets/campo_desplegable.dart';
+import '../../widgets/fila_adaptable.dart';
 
 class CatalogoScreen extends StatefulWidget {
   /// Pestaña con la que se abre la pantalla (0=Categorías, 1=Productos,
@@ -222,7 +223,7 @@ class _CategoriasTab extends StatelessWidget {
                     final item = items[i];
                     final cantidad = conteo[item.id] ?? 0;
                     return Card(
-                      child: ListTile(
+                      child: ListTileAdaptable(
                         leading: AvatarImagen(
                           url: item.imagenUrl,
                           icono: Icons.category_outlined,
@@ -768,7 +769,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                           itemBuilder: (context, i) {
                             final item = items[i];
                             return Card(
-                              child: ListTile(
+                              child: ListTileAdaptable(
                                 leading: AvatarImagen(
                                   url: item.imagenUrl,
                                   icono: item.disponible
@@ -1048,7 +1049,7 @@ class _ComplementosTab extends StatelessWidget {
             itemBuilder: (context, i) {
               final item = items[i];
               return Card(
-                child: ListTile(
+                child: ListTileAdaptable(
                   leading: const CircleAvatar(child: Icon(Icons.add_circle_outline)),
                   title: Text(item.nombre),
                   subtitle: Text(
@@ -1240,7 +1241,7 @@ class _VariantesTab extends StatelessWidget {
                 itemBuilder: (context, i) {
                   final item = items[i];
                   return Card(
-                    child: ListTile(
+                    child: ListTileAdaptable(
                       leading: const CircleAvatar(child: Icon(Icons.tune)),
                       title: Text(item.nombre),
                       subtitle: Text(

@@ -11,6 +11,7 @@ import '../../widgets/app_cargando.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_status_badge.dart';
 import '../../utils/formato.dart';
+import '../../widgets/fila_adaptable.dart';
 
 /// Cupones de descuento del negocio: el Administrador crea códigos (por
 /// porcentaje o monto fijo, con compra mínima y fecha de vencimiento) que
@@ -254,7 +255,7 @@ class CuponesScreen extends StatelessWidget {
                       c.vence == null ? 'Sin vencimiento' : 'Vence el ${_fecha(c.vence!)}',
                     ].join(' · ');
                     return Card(
-                      child: ListTile(
+                      child: ListTileAdaptable(
                         leading: CircleAvatar(
                           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                           child: Icon(Icons.local_offer_outlined,
