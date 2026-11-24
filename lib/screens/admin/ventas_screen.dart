@@ -14,6 +14,7 @@ import '../../widgets/app_empty_state.dart';
 import '../cliente/pedido_detalle_screen.dart';
 import '../../utils/formato.dart';
 import '../../widgets/boton_entregas_realizadas.dart';
+import '../../widgets/campo_desplegable.dart';
 
 enum _Periodo { hoy, sieteDias, mes, personalizado }
 
@@ -384,7 +385,7 @@ class _FiltroDropdown extends StatelessWidget {
     final actual = opciones.containsKey(valor) ? valor : null;
     return SizedBox(
       width: 200,
-      child: DropdownButtonFormField<String?>(
+      child: CampoDesplegable<String?>(
         initialValue: actual,
         isExpanded: true,
         decoration: InputDecoration(labelText: etiqueta),

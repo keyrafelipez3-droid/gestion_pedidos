@@ -12,6 +12,7 @@ import '../../theme/design_tokens.dart';
 import '../../utils/errores.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/documento_legal.dart';
+import '../../widgets/campo_desplegable.dart';
 
 /// El Administrador personaliza:
 /// - las condiciones que acepta cada cliente al pedir en su restaurante
@@ -217,7 +218,7 @@ class _CondicionesNegocioScreenState extends State<CondicionesNegocioScreen> {
                           '${tr('Cada cliente las acepta antes de pedir.')} '
                               '${n.condiciones.version.isEmpty ? tr('Todavía usas las condiciones de base.') : '${tr('Versión vigente')}: ${n.condiciones.version}'}',
                           [
-                            DropdownButtonFormField<String>(
+                            CampoDesplegable<String>(
                               initialValue: _reembolso,
                               isExpanded: true,
                               decoration: InputDecoration(labelText: tr('Cómo devuelves el dinero')),

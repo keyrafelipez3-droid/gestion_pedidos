@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../l10n/idioma.dart';
 import '../theme/design_tokens.dart';
 import '../utils/telefono.dart';
+import 'campo_desplegable.dart';
 
 /// Campo de teléfono con selector de país. Escribe en [controller] el número
 /// en formato internacional (+59171234567), así el resto de la app no cambia.
@@ -76,7 +77,7 @@ class _CampoTelefonoState extends State<CampoTelefono> {
       children: [
         SizedBox(
           width: 112,
-          child: DropdownButtonFormField<PaisTelefono>(
+          child: CampoDesplegable<PaisTelefono>(
             key: ValueKey(_pais.iso),
             initialValue: _pais,
             isExpanded: true,
