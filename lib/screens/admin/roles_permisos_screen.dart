@@ -40,9 +40,9 @@ class RolesPermisosScreen extends StatelessWidget {
       color: Colors.deepPurple,
       descripcion: 'Control total de SU negocio (asignado por el SuperAdmin).',
       permisos: [
-        'Gestiona empleados de su negocio: crea cuentas y asigna sus roles (HU-05)',
-        'Gestiona clientes registrados (HU-04)',
-        'Configura sucursales y horarios de su negocio (HU-08, HU-09)',
+        'Gestiona empleados de su negocio: crea cuentas y asigna sus roles',
+        'Gestiona clientes registrados',
+        'Configura sucursales y horarios de su negocio',
         'Administra el catálogo de su negocio: categorías, productos, extras, variantes',
         'Crea promociones, cupones y combos',
         'Ve el historial completo de pedidos y puede eliminarlos',

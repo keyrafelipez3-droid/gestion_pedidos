@@ -1,6 +1,7 @@
-// Fotos para TODOS los restaurantes: productos, categorías, sucursales,
-// banner y logo. Solo llena lo que está VACÍO (no toca las fotos que un
-// restaurante ya subió) y escribe como mucho UNA vez por documento.
+// Fotos para TODOS los restaurantes: productos, categorías, extras,
+// variantes, sucursales, banner y logo. Solo llena lo que está VACÍO (no
+// toca las fotos que un restaurante ya subió) y escribe como mucho UNA vez
+// por documento.
 //
 // Las fotos son enlaces públicos y gratuitos de Unsplash (no se sube nada
 // a Storage). Se elige la foto según el nombre del plato o de la categoría
@@ -102,6 +103,22 @@ const F = {
     '1466978913421-dad2ebd01d17', '1537047902294-62a40c20a6ae', '1590846406792-0adc7f938f1d',
   ],
   localCafe: ['1554118811-1e0d58224f24', '1501339847302-ac426a4a7cbb'],
+  // Ingredientes sueltos, para los extras.
+  queso: ['1486297678162-eb2a19b0a32d'],
+  tocino: ['1606851094655-b2593a9af63f'],
+  pina: ['1587883012610-e3df17d41270'],
+  frutilla: ['1518635017498-87f514b751ba'],
+  palta: ['1523049673857-eb18f1d7b578'],
+  huevoDuro: ['1482049016688-2d3e1b311543'],
+  salsa: ['1472476443507-c7a5948772fc'],
+  aji: ['1583119022894-919a68a3d0e3'],
+  cebolla: ['1618512496248-a07fe83aa8cb'],
+  jamon: ['1524438418049-ab2acb7aa48f'],
+  champinon: ['1504545102780-26774c1bb073'],
+  cereza: ['1559181567-c3190ca9959b'],
+  leche: ['1550583724-b2692b85b150'],
+  pepino: ['1589621316382-008455b857cd'],
+  verduras: ['1573246123716-6b1782bfc499'],
 };
 
 // Reglas en orden: la primera que coincide con el nombre gana. Se compara
@@ -169,6 +186,26 @@ const REGLAS = [
   [/cafeter/, 'cafe'],
 ];
 
+// Para los extras se miran primero los ingredientes sueltos ("Queso extra",
+// "Tocino", "Piña"...) y después las reglas de platos.
+const REGLAS_EXTRAS = [
+  [/tocino|bacon|panceta/, 'tocino'],
+  [/jamon/, 'jamon'],
+  [/queso|cheddar|mozzarella|parmesano/, 'queso'],
+  [/pina|anana/, 'pina'],
+  [/frutilla|fresa/, 'frutilla'],
+  [/palta|aguacate|guacamole/, 'palta'],
+  [/huevo/, 'huevoDuro'],
+  [/salsa|mayonesa|ketchup|mostaza|aderezo|llajua|chimichurri/, 'salsa'],
+  [/aji\b|picante|jalapen|locoto/, 'aji'],
+  [/cebolla/, 'cebolla'],
+  [/champi|hongo/, 'champinon'],
+  [/cereza/, 'cereza'],
+  [/leche|crema|chantilly/, 'leche'],
+  [/pepin/, 'pepino'],
+  [/lechuga|tomate|verdura|vegetal/, 'verduras'],
+];
+
 const sinTildes = (s) =>
   String(s ?? '')
     .normalize('NFD')
@@ -221,9 +258,21 @@ const conTema = (grupo, negocio) =>
 
 const vacia = (v) => typeof v !== 'string' || v.trim() === '';
 
+/** Grupo para un extra: primero como ingrediente, luego como plato. */
+function grupoExtra(...textos) {
+  for (const t of textos) {
+    const limpio = sinTildes(t);
+    if (!limpio) continue;
+    for (const [regla, grupo] of REGLAS_EXTRAS) if (regla.test(limpio)) return grupo;
+  }
+  return grupoPara(...textos);
+}
+
 async function main() {
-  const [negocios, categorias, productos, sucursales] = await Promise.all(
-    ['negocios', 'categorias', 'productos', 'sucursales'].map((c) => db.collection(c).get()),
+  const [negocios, categorias, productos, sucursales, complementos, variantes] = await Promise.all(
+    ['negocios', 'categorias', 'productos', 'sucursales', 'complementos', 'variantes'].map((c) =>
+      db.collection(c).get(),
+    ),
   );
   const nombreNegocio = new Map(negocios.docs.map((d) => [d.id, d.data().nombre ?? '']));
   const nombreCategoria = new Map(categorias.docs.map((d) => [d.id, d.data().nombre ?? '']));
@@ -232,7 +281,7 @@ async function main() {
   const cambios = [];
 
   if (QUITAR) {
-    for (const snap of [categorias, productos, sucursales]) {
+    for (const snap of [categorias, productos, sucursales, complementos, variantes]) {
       for (const d of snap.docs) {
         if (d.data().fotoDemo === true) cambios.push([d.ref, { imagenUrl: '', fotoDemo: admin.firestore.FieldValue.delete() }]);
       }
@@ -248,6 +297,10 @@ async function main() {
   } else {
     // Primera foto de cada categoría (por si la categoría tiene un nombre raro).
     const fotoDeCategoria = new Map();
+    // Foto de cada producto (la que ya tenía o la nueva), para sus variantes.
+    const fotoDeProducto = new Map(
+      productos.docs.filter((d) => !vacia(d.data().imagenUrl)).map((d) => [d.id, d.data().imagenUrl]),
+    );
 
     for (const d of productos.docs) {
       const p = d.data();
@@ -258,6 +311,7 @@ async function main() {
       );
       const url = foto(elegirDe(grupo, d.id), 600, 450);
       if (p.idCategoria && !fotoDeCategoria.has(p.idCategoria)) fotoDeCategoria.set(p.idCategoria, url);
+      fotoDeProducto.set(d.id, url);
       cambios.push([d.ref, { imagenUrl: url, fotoDemo: true }]);
     }
     for (const d of productos.docs) {
@@ -273,6 +327,25 @@ async function main() {
       // La foto de su primer plato; si no tiene platos, según su nombre.
       const grupo = conTema(grupoPara(c.nombre, c.descripcion), nombreNegocio.get(c.idNegocio));
       const url = fotoDeCategoria.get(d.id) ?? foto(elegirDe(grupo, d.id), 600, 450);
+      cambios.push([d.ref, { imagenUrl: url, fotoDemo: true }]);
+    }
+
+    // Extras: según el ingrediente o el plato; si no se reconoce, una foto
+    // de comida del estilo del restaurante.
+    for (const d of complementos.docs) {
+      const c = d.data();
+      if (!vacia(c.imagenUrl)) continue;
+      const grupo = conTema(grupoExtra(c.nombre, c.descripcion), nombreNegocio.get(c.idNegocio));
+      cambios.push([d.ref, { imagenUrl: foto(elegirDe(grupo, d.id), 300, 300), fotoDemo: true }]);
+    }
+
+    // Variantes (tamaños, presentaciones): la foto de su producto.
+    for (const d of variantes.docs) {
+      const v = d.data();
+      if (!vacia(v.imagenUrl)) continue;
+      const url =
+        fotoDeProducto.get(v.idProducto) ??
+        foto(elegirDe(conTema(grupoPara(v.nombre), nombreNegocio.get(v.idNegocio)), d.id), 600, 450);
       cambios.push([d.ref, { imagenUrl: url, fotoDemo: true }]);
     }
 
@@ -304,7 +377,8 @@ async function main() {
     }
   }
 
-  const lecturas = negocios.size + categorias.size + productos.size + sucursales.size;
+  const lecturas =
+    negocios.size + categorias.size + productos.size + sucursales.size + complementos.size + variantes.size;
   console.log(`Leídos: ${lecturas} documentos.`);
   console.log(`Escrituras necesarias: ${cambios.length} (una por documento).`);
   if (PROBAR) {
