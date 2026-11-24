@@ -882,6 +882,8 @@ class _ComplementosTab extends StatelessWidget {
   Future<void> _editar(BuildContext context, {ComplementoModel? item}) async {
     final nombre = TextEditingController(text: item?.nombre ?? '');
     final descripcion = TextEditingController(text: item?.descripcion ?? '');
+    final imagen = TextEditingController(text: item?.imagenUrl ?? '');
+    final idImagen = item?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
     final precio = TextEditingController(
       text: item == null ? '' : item.precio.toStringAsFixed(2),
     );
@@ -901,6 +903,7 @@ class _ComplementosTab extends StatelessWidget {
       nombre.dispose();
       descripcion.dispose();
       precio.dispose();
+      imagen.dispose();
       return;
     }
 
@@ -951,6 +954,13 @@ class _ComplementosTab extends StatelessWidget {
                     return null;
                   },
                 ),
+                const SizedBox(height: 12),
+                SelectorImagen(
+                  etiqueta: 'Imagen del extra (opcional)',
+                  controller: imagen,
+                  rutaStorage:
+                      'negocios/${SesionActual.instancia.idNegocio}/productos/extra-$idImagen',
+                ),
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -998,6 +1008,7 @@ class _ComplementosTab extends StatelessWidget {
                     precio: double.parse(precio.text.replaceAll(',', '.')),
                     estado: item?.estado ?? true,
                     idNegocio: SesionActual.instancia.idNegocio,
+                    imagenUrl: imagen.text.trim(),
                     productos: elegidos.toList(),
                   ),
                 );
@@ -1019,6 +1030,7 @@ class _ComplementosTab extends StatelessWidget {
       nombre.dispose();
       descripcion.dispose();
       precio.dispose();
+      imagen.dispose();
     });
   }
 
@@ -1050,7 +1062,12 @@ class _ComplementosTab extends StatelessWidget {
               final item = items[i];
               return Card(
                 child: ListTileAdaptable(
-                  leading: const CircleAvatar(child: Icon(Icons.add_circle_outline)),
+                  leading: AvatarImagen(
+                    url: item.imagenUrl,
+                    icono: Icons.add_circle_outline,
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
                   title: Text(item.nombre),
                   subtitle: Text(
                     '${dinero(item.precio)} · '
@@ -1107,6 +1124,8 @@ class _VariantesTab extends StatelessWidget {
     final precio = TextEditingController(
       text: item == null ? '' : item.precioAdicional.toStringAsFixed(2),
     );
+    final imagen = TextEditingController(text: item?.imagenUrl ?? '');
+    final idImagen = item?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
     final key = GlobalKey<FormState>();
     var idProducto = item?.idProducto.isNotEmpty == true ? item!.idProducto : productos.first.id;
     var estado = item?.estado ?? true;
@@ -1162,6 +1181,13 @@ class _VariantesTab extends StatelessWidget {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 12),
+                  SelectorImagen(
+                    etiqueta: 'Imagen de la variante (opcional; si no, se usa la del producto)',
+                    controller: imagen,
+                    rutaStorage:
+                        'negocios/${SesionActual.instancia.idNegocio}/productos/variante-$idImagen',
+                  ),
                   SwitchListTile(
                     title: const Text('Activa'),
                     value: estado,
@@ -1185,6 +1211,7 @@ class _VariantesTab extends StatelessWidget {
                       precioAdicional: double.parse(precio.text.replaceAll(',', '.')),
                       estado: estado,
                       idNegocio: SesionActual.instancia.idNegocio,
+                      imagenUrl: imagen.text.trim(),
                     ),
                   );
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -1204,6 +1231,7 @@ class _VariantesTab extends StatelessWidget {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       nombre.dispose();
       precio.dispose();
+      imagen.dispose();
     });
   }
 
@@ -1224,6 +1252,7 @@ class _VariantesTab extends StatelessWidget {
             builder: (context, productSnapshot) {
               final products = productSnapshot.data ?? [];
               final names = {for (final p in products) p.id: p.nombre};
+              final fotos = {for (final p in products) p.id: p.imagenUrl};
               if (items.isEmpty) {
                 return AppEmptyState(
                   icon: Icons.tune,
@@ -1242,7 +1271,15 @@ class _VariantesTab extends StatelessWidget {
                   final item = items[i];
                   return Card(
                     child: ListTileAdaptable(
-                      leading: const CircleAvatar(child: Icon(Icons.tune)),
+                      // Sin foto propia, la del producto al que pertenece.
+                      leading: AvatarImagen(
+                        url: item.imagenUrl.trim().isNotEmpty
+                            ? item.imagenUrl
+                            : fotos[item.idProducto] ?? '',
+                        icono: Icons.tune,
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
                       title: Text(item.nombre),
                       subtitle: Text(
                         '${names[item.idProducto] ?? 'Producto'} · '
