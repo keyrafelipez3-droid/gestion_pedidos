@@ -23,8 +23,9 @@ class InvitacionNegocio {
 }
 
 /// Código de acceso de cada restaurante: lo crea el SuperAdmin y el cliente
-/// lo escribe (o entra por el enlace del restaurante) para pedir SOLO en
-/// ese restaurante. El cliente nunca ve la lista de los demás.
+/// lo escribe (o entra por el enlace del restaurante). Es opcional: el
+/// cliente también puede elegir el restaurante en la lista con logos
+/// (ver [unirseDesdeLista]). El código nunca se muestra en esa lista.
 class CodigoNegocioService {
   CodigoNegocioService._();
   static final instancia = CodigoNegocioService._();
@@ -125,6 +126,14 @@ class CodigoNegocioService {
     final ref = _mios(uid).doc(inv.idNegocio);
     if ((await ref.get()).exists) return; // ya había entrado
     await ref.set({'codigo': inv.codigo, 'fecha': FieldValue.serverTimestamp()});
+  }
+
+  /// El cliente entra a un restaurante eligiéndolo en la lista (sin
+  /// código). Las reglas solo lo dejan si el restaurante está activo.
+  Future<void> unirseDesdeLista(String uid, String idNegocio) async {
+    final ref = _mios(uid).doc(idNegocio);
+    if ((await ref.get()).exists) return; // ya había entrado
+    await ref.set({'codigo': '', 'fecha': FieldValue.serverTimestamp()});
   }
 
   /// Ids de los restaurantes a los que el cliente entró, en vivo.
