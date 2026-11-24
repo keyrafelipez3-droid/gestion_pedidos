@@ -422,9 +422,11 @@ service cloud.firestore {
           && subcollection != 'misNegocios';
       }
 
-      // Restaurantes a los que el cliente entro con su codigo. Solo se
-      // agrega uno si el codigo existe y es de ese negocio; el cliente no
-      // puede "inventarse" acceso a otro restaurante.
+      // Restaurantes a los que el cliente entro. Se agrega uno de dos
+      // formas: con su codigo (el codigo existe y es de ese negocio) o
+      // eligiendolo en la lista de restaurantes (codigo vacio), solo si el
+      // restaurante esta activo. No se puede entrar a uno desactivado ni
+      // con el codigo de otro.
       match /misNegocios/{idNegocio} {
         allow read: if signedIn() && (request.auth.uid == userId || isSuperAdmin());
         allow create: if signedIn()
@@ -432,8 +434,13 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['codigo', 'fecha'])
           && request.resource.data.codigo is string
           && request.resource.data.fecha == request.time
-          && get(/databases/$(database)/documents/codigosNegocio/$(request.resource.data.codigo))
-               .data.idNegocio == idNegocio;
+          && (
+            (request.resource.data.codigo == ''
+              && get(/databases/$(database)/documents/negocios/$(idNegocio)).data.get('estado', false) == true)
+            || (request.resource.data.codigo != ''
+              && get(/databases/$(database)/documents/codigosNegocio/$(request.resource.data.codigo))
+                   .data.idNegocio == idNegocio)
+          );
         allow delete: if signedIn() && request.auth.uid == userId;
         // Solo para registrar que acepto las condiciones del restaurante
         // (version y hora del servidor).
@@ -575,11 +582,17 @@ service cloud.firestore {
 
     // ----------------------------------------------------------- negocios
     match /negocios/{documentId} {
-      // Cada negocio se lee por su id (el cliente solo conoce los de los
-      // restaurantes a los que entro con su codigo). Listarlos todos es
-      // solo del SuperAdmin.
+      // Cada negocio se lee por su id. Listar: el SuperAdmin ve todos; un
+      // cliente con sesion ve solo los ACTIVOS (lista de restaurantes con
+      // logo, para elegir donde pedir sin saber el codigo). La consulta
+      // debe pedir estado == true. El codigo de acceso NO esta en este
+      // documento (ver privado/acceso), asi que nunca se muestra.
       allow get: if signedIn();
-      allow list: if isSuperAdmin();
+      allow list: if isSuperAdmin()
+        || (signedIn()
+            && datosUsuarioActual().rol == 'Cliente'
+            && datosUsuarioActual().estado == true
+            && resource.data.estado == true);
       // El Administrador edita los datos de SU negocio, pero no puede
       // activarlo/desactivarlo (eso es del SuperAdmin). El codigo de acceso
       // ya no se guarda aqui (ver privado/acceso).
@@ -1236,6 +1249,32 @@ service cloud.firestore {
     match /plataforma/{documento} {
       allow read: if true;
       allow write: if isSuperAdmin();
+    }
+
+    // ------------------------------------------- lista publica de restaurantes
+    // Pantalla de inicio de sesion: cualquiera, incluso sin sesion, ve los
+    // restaurantes activos con SOLO su nombre, logo, color y ciudad. Nada
+    // mas: ni NIT, ni telefono, ni direccion, ni QR de pago, ni el codigo
+    // de acceso. Lo publica el SuperAdmin o el Administrador de ese
+    // negocio (este ultimo solo si el negocio esta activo); quitarlo es
+    // del SuperAdmin.
+    match /directorio/{idNegocio} {
+      allow read: if true;
+      allow create, update: if (isSuperAdmin()
+          || (isAdmin()
+              && idNegocioActual() == idNegocio
+              && get(/databases/$(database)/documents/negocios/$(idNegocio)).data.get('estado', false) == true))
+        && request.resource.data.keys().hasOnly(['nombre', 'logoUrl', 'colorPrimario', 'ciudad'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.get('logoUrl', '') is string
+        && request.resource.data.get('logoUrl', '').size() <= 2048
+        && request.resource.data.get('colorPrimario', '') is string
+        && request.resource.data.get('colorPrimario', '').size() <= 20
+        && request.resource.data.get('ciudad', '') is string
+        && request.resource.data.get('ciudad', '').size() <= 60;
+      allow delete: if isSuperAdmin();
     }
 
     // ------------------------------------------- resenas destacadas

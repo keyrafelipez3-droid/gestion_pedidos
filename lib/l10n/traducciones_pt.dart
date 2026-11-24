@@ -938,4 +938,13 @@ const traduccionesPt = <String, String>{
   'Lo que dicen nuestros clientes': 'O que dizem nossos clientes',
   'Pasamos los términos y la política de privacidad a un formato formal, listo para imprimir y firmar, y ahora las mejores reseñas pueden mostrarse en la pantalla de inicio de sesión. Revisa los cambios y acéptalos para seguir pidiendo.':
       'Passamos os termos e a política de privacidade para um formato formal, pronto para imprimir e assinar, e agora as melhores avaliações podem aparecer na tela de login. Revise as mudanças e aceite-as para continuar pedindo.',
+  'Tengo un código': 'Tenho um código',
+  'Más restaurantes': 'Mais restaurantes',
+  'Elige de la lista o usa su código': 'Escolha na lista ou use o código',
+  'Ver el menú de {restaurante}': 'Ver o cardápio de {restaurante}',
+  'No pudimos abrir este restaurante. Inténtalo de nuevo o usa su código.': 'Não conseguimos abrir este restaurante. Tente de novo ou use o código.',
+  'Elige un restaurante para ver su menú. No necesitas código.': 'Escolha um restaurante para ver o cardápio. Não precisa de código.',
+  'Ya es uno de tus restaurantes': 'Já é um dos seus restaurantes',
+  'Restaurantes donde puedes pedir': 'Restaurantes onde você pode pedir',
+  'Inicia sesión o crea tu cuenta y elige uno. No necesitas código.': 'Entre ou crie sua conta e escolha um. Não precisa de código.',
 };
