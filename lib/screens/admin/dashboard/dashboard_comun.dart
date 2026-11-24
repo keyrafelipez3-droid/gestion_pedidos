@@ -68,7 +68,8 @@ class PanelDashboard extends StatelessWidget {
 
 /// Tarjetas de resumen (ventas, pedidos…) que llenan todo el ancho:
 /// 3 por fila en computadora, 2 en tablet y 1 en un celular angosto.
-/// La última fila, si queda incompleta, se centra.
+/// Si la última fila queda incompleta, sus tarjetas se reparten todo el
+/// ancho (no queda ningún hueco al costado).
 class GrillaKpi extends StatelessWidget {
   final List<Widget> children;
   const GrillaKpi({super.key, required this.children});
@@ -77,18 +78,13 @@ class GrillaKpi extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, c) {
       final columnas = c.maxWidth >= 900 ? 3 : (c.maxWidth >= 440 ? 2 : 1);
-      final ancho = ((c.maxWidth - AppSpacing.md * (columnas - 1)) / columnas).floorToDouble();
-      return Wrap(
-        spacing: AppSpacing.md,
-        runSpacing: AppSpacing.md,
-        alignment: WrapAlignment.center,
-        children: [for (final hijo in children) SizedBox(width: ancho, child: hijo)],
-      );
+      return _filasSinHuecos(children, columnas);
     });
   }
 }
 
-/// Grilla del panel: 1 columna en el celular, 2 en pantallas anchas.
+/// Grilla del panel: 1 columna en el celular, 2 en pantallas anchas. Si
+/// son impares, la última ocupa todo el ancho.
 class GrillaDashboard extends StatelessWidget {
   final List<Widget> children;
   const GrillaDashboard({super.key, required this.children});
@@ -96,31 +92,31 @@ class GrillaDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, c) {
-      if (c.maxWidth < 860) {
-        return Column(
-          children: [
-            for (var i = 0; i < children.length; i++) ...[
-              if (i > 0) const SizedBox(height: AppSpacing.md),
-              children[i],
-            ],
-          ],
-        );
-      }
-      final filas = <Widget>[];
-      for (var i = 0; i < children.length; i += 2) {
-        if (i > 0) filas.add(const SizedBox(height: AppSpacing.md));
-        filas.add(Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: children[i]),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: i + 1 < children.length ? children[i + 1] : const SizedBox.shrink()),
-          ],
-        ));
-      }
-      return Column(children: filas);
+      return _filasSinHuecos(children, c.maxWidth < 860 ? 1 : 2);
     });
   }
+}
+
+/// Arma filas de [columnas] tarjetas; cada fila (también la última,
+/// aunque tenga menos) llena todo el ancho.
+Widget _filasSinHuecos(List<Widget> hijos, int columnas) {
+  final filas = <Widget>[];
+  for (var i = 0; i < hijos.length; i += columnas) {
+    if (i > 0) filas.add(const SizedBox(height: AppSpacing.md));
+    final fila = hijos.sublist(i, (i + columnas).clamp(0, hijos.length));
+    filas.add(fila.length == 1
+        ? fila.first
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var j = 0; j < fila.length; j++) ...[
+                if (j > 0) const SizedBox(width: AppSpacing.md),
+                Expanded(child: fila[j]),
+              ],
+            ],
+          ));
+  }
+  return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: filas);
 }
 
 /// Gráfico de barras simple (sin librerías externas). Cada barra muestra

@@ -204,6 +204,14 @@ class AdminService {
     });
   }
 
+  /// Asigna (o quita, con null) la sucursal donde trabaja un empleado.
+  /// Sin sucursal, el Cajero no puede abrir caja ni ver las mesas.
+  Future<void> cambiarSucursal(String idUsuario, String? idSucursal) {
+    return _db.collection('usuarios').doc(idUsuario).update({
+      'idSucursal': idSucursal,
+    });
+  }
+
   /// Cambia el rol asignado a un empleado.
   Future<void> cambiarRol(String idUsuario, String nuevoRol) {
     return _db.collection('usuarios').doc(idUsuario).update({
