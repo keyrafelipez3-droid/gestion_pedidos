@@ -935,4 +935,5 @@ const traduccionesPt = <String, String>{
   'Tu cuenta fue desactivada. Consulta con el administrador.': 'Sua conta foi desativada. Fale com o administrador.',
   'Cambiaron los permisos de tu cuenta. Vuelve a iniciar sesión.': 'As permissões da sua conta mudaram. Entre novamente.',
   'Confirma que eres tú para {accion}.': 'Confirme que é você para {accion}.',
+  'Lo que dicen nuestros clientes': 'O que dizem nossos clientes',
 };
