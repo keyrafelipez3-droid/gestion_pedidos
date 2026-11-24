@@ -49,15 +49,34 @@ void main() {
     expect(resumen.join(' '), contains('3 días hábiles'));
   });
 
-  test('cada sección tiene su "En simple" y van numeradas', () {
-    for (final s in [
-      ...TextosLegales.condicionesRestaurante(pollos),
-      ...TextosLegales.terminos(),
-      ...TextosLegales.politicaPrivacidad(),
+  test('cada cláusula tiene su "En simple" y van en formato formal (PRIMERA.- …)', () {
+    for (final doc in [
+      TextosLegales.condicionesRestaurante(pollos),
+      TextosLegales.terminos(),
+      TextosLegales.politicaPrivacidad(),
     ]) {
-      expect(s.enSimple, isNotNull, reason: s.titulo);
-      expect(RegExp(r'^\d+\. ').hasMatch(s.titulo), isTrue, reason: s.titulo);
+      expect(doc.first.titulo, startsWith('PRIMERA.- ('));
+      for (final s in doc) {
+        expect(s.enSimple, isNotNull, reason: s.titulo);
+        expect(RegExp(r'^[A-ZÉ ]+\.- \(.+\)$').hasMatch(s.titulo), isTrue, reason: s.titulo);
+      }
     }
+  });
+
+  test('la privacidad y los términos están en tercera persona y nombran a las partes', () {
+    final privacidad = _todo(TextosLegales.politicaPrivacidad());
+    final terminos = _todo(TextosLegales.terminos());
+    for (final t in [privacidad, terminos]) {
+      expect(t, contains('"EL TITULAR"'));
+      expect(t, contains('"EL USUARIO"'));
+      expect(t, contains('"LA PLATAFORMA"'));
+    }
+    // Las reseñas destacadas antes de iniciar sesión están informadas.
+    expect(privacidad, contains('pantalla de inicio de sesión'));
+    // Se conserva lo legal de Bolivia.
+    expect(privacidad, contains('Acción de Protección de Privacidad'));
+    expect(terminos, contains('Ley 453'));
+    expect(terminos, contains('Ley 045'));
   });
 
   test('el acuerdo del personal es personal y solo con las tareas de su cargo', () {

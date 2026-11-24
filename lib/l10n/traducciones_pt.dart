@@ -936,4 +936,6 @@ const traduccionesPt = <String, String>{
   'Cambiaron los permisos de tu cuenta. Vuelve a iniciar sesión.': 'As permissões da sua conta mudaram. Entre novamente.',
   'Confirma que eres tú para {accion}.': 'Confirme que é você para {accion}.',
   'Lo que dicen nuestros clientes': 'O que dizem nossos clientes',
+  'Pasamos los términos y la política de privacidad a un formato formal, listo para imprimir y firmar, y ahora las mejores reseñas pueden mostrarse en la pantalla de inicio de sesión. Revisa los cambios y acéptalos para seguir pidiendo.':
+      'Passamos os termos e a política de privacidade para um formato formal, pronto para imprimir e assinar, e agora as melhores avaliações podem aparecer na tela de login. Revise as mudanças e aceite-as para continuar pedindo.',
 };

@@ -316,7 +316,6 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
       final ok = await imprimirDocumentoLegal(
         titulo: TextosLegales.tituloAcuerdo,
         subtitulo: negocio?.nombre ?? '',
-        resumen: TextosLegales.resumenAcuerdo(negocio: negocio, rol: usuario.rol),
         secciones: TextosLegales.acuerdoPersonal(negocio: negocio, usuario: usuario, sucursal: sucursal),
         firma: FirmaDocumento(
           detalle: 'Firmado por ${acuerdo.nombre} (CI ${acuerdo.ci})',
@@ -324,6 +323,8 @@ class _MiCuentaScreenState extends State<MiCuentaScreen> {
           version: acuerdo.version,
           trazos: acuerdo.firma,
         ),
+        // El restaurante puede pedir además la firma en papel.
+        espacioFirma: espacioFirmaDeLaSesion(),
       );
       if (!ok && mounted) {
         _aviso(tr('Para imprimir o guardar en PDF, abre la app en el navegador.'));

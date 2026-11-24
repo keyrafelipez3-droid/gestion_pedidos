@@ -82,8 +82,8 @@ class _CondicionesRestauranteScreenState extends State<CondicionesRestauranteScr
     final ok = await imprimirDocumentoLegal(
       titulo: TextosLegales.tituloCondiciones(_n),
       subtitulo: _version,
-      resumen: TextosLegales.resumenCondiciones(_n),
       secciones: TextosLegales.condicionesRestaurante(_n),
+      espacioFirma: espacioFirmaDeLaSesion(),
     );
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
