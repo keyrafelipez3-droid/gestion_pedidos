@@ -29,12 +29,15 @@ class RegistroScreen extends StatefulWidget {
   State<RegistroScreen> createState() => _RegistroScreenState();
 }
 
-class _RegistroScreenState extends State<RegistroScreen> with SingleTickerProviderStateMixin {
+class _RegistroScreenState extends State<RegistroScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
   /// Animación de entrada (más corta que la bienvenida del login).
-  late final AnimationController _entrada =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
+  late final AnimationController _entrada = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  );
   bool _arranco = false;
 
   final _nombreCtrl = TextEditingController();
@@ -43,7 +46,9 @@ class _RegistroScreenState extends State<RegistroScreen> with SingleTickerProvid
   final _passwordCtrl = TextEditingController();
   final _confirmarCtrl = TextEditingController();
   // Código del restaurante (viene ya escrito si entró por su enlace).
-  final _codigoCtrl = TextEditingController(text: CodigoNegocioService.codigoDelEnlace ?? '');
+  final _codigoCtrl = TextEditingController(
+    text: CodigoNegocioService.codigoDelEnlace ?? '',
+  );
 
   bool _cargando = false;
   bool _verPassword = false;
@@ -85,21 +90,30 @@ class _RegistroScreenState extends State<RegistroScreen> with SingleTickerProvid
 
     setState(() => _cargando = true);
 
-    // El cliente se registra para pedir en UN restaurante: su código debe
-    // existir. Al entrar, la pantalla principal lo deja dentro de él.
-    final invitacion = await CodigoNegocioService.instancia.buscar(_codigoCtrl.text);
-    if (!mounted) return;
-    if (invitacion == null) {
-      setState(() => _cargando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('Ese código de restaurante no existe. Revisa que esté bien escrito.')),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+    // El código del restaurante es opcional: sin código, el cliente se
+    // registra y después elige el restaurante de la lista. Si lo escribe,
+    // tiene que existir; al entrar, la pantalla principal lo deja dentro.
+    if (CodigoNegocioService.normalizar(_codigoCtrl.text).isNotEmpty) {
+      final invitacion = await CodigoNegocioService.instancia.buscar(
+        _codigoCtrl.text,
       );
-      return;
+      if (!mounted) return;
+      if (invitacion == null) {
+        setState(() => _cargando = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              tr(
+                'Ese código de restaurante no existe. Revisa que esté bien escrito.',
+              ),
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        return;
+      }
+      CodigoNegocioService.codigoDelEnlace = invitacion.codigo;
     }
-    CodigoNegocioService.codigoDelEnlace = invitacion.codigo;
 
     final error = await AuthService.instancia.registrarCliente(
       nombre: _nombreCtrl.text,
@@ -113,7 +127,10 @@ class _RegistroScreenState extends State<RegistroScreen> with SingleTickerProvid
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Theme.of(context).colorScheme.error),
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
       return;
     }
@@ -158,7 +175,10 @@ class _RegistroScreenState extends State<RegistroScreen> with SingleTickerProvid
         floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
         floatingActionButton: const Padding(
           padding: EdgeInsets.only(top: AppSpacing.sm),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [BotonTamanoTexto(), BotonIdioma()]),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [BotonTamanoTexto(), BotonIdioma()],
+          ),
         ),
         body: Row(
           children: [
@@ -188,7 +208,10 @@ class _RegistroScreenState extends State<RegistroScreen> with SingleTickerProvid
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         title: Text(tr('Crear cuenta')),
-        actions: const [BotonTamanoTexto(color: Colors.white), BotonIdioma(color: Colors.white)],
+        actions: const [
+          BotonTamanoTexto(color: Colors.white),
+          BotonIdioma(color: Colors.white),
+        ],
       ),
       body: AppPantallaFoto(
         asset: 'assets/images/comida_terraza.jpg',
@@ -213,7 +236,8 @@ class _PanelMarca extends StatelessWidget {
     final foto = Image.asset(
       'assets/images/comida_steak.jpg',
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stack) => const ColoredBox(color: AppBrand.locoto),
+      errorBuilder: (context, error, stack) =>
+          const ColoredBox(color: AppBrand.locoto),
     );
     return ColoredBox(
       color: AppBrand.berenjena,
@@ -224,8 +248,11 @@ class _PanelMarca extends StatelessWidget {
             animation: entrada,
             builder: (context, _) {
               final v = entrada.value;
-              double tramo(double a, double b, [Curve curva = Curves.easeOutCubic]) =>
-                  curva.transform(((v - a) / (b - a)).clamp(0.0, 1.0));
+              double tramo(
+                double a,
+                double b, [
+                Curve curva = Curves.easeOutCubic,
+              ]) => curva.transform(((v - a) / (b - a)).clamp(0.0, 1.0));
               final logo = tramo(0.0, 0.25, Curves.easeOutBack);
               final escrito = tramo(0.10, 0.40, Curves.linear);
               final frase = tramo(0.30, 0.55);
@@ -269,13 +296,19 @@ class _PanelMarca extends StatelessWidget {
                               opacity: logo.clamp(0.0, 1.0),
                               child: Transform.scale(
                                 scale: 0.5 + 0.5 * logo,
-                                child: const LogoNami(size: 52, conFondo: false),
+                                child: const LogoNami(
+                                  size: 52,
+                                  conFondo: false,
+                                ),
                               ),
                             ),
                             const SizedBox(width: AppSpacing.sm),
                             RevelarHorizontal(
                               progreso: escrito,
-                              child: const WordmarkNami(alto: 36, color: AppBrand.leche),
+                              child: const WordmarkNami(
+                                alto: 36,
+                                color: AppBrand.leche,
+                              ),
                             ),
                           ],
                         ),
@@ -287,7 +320,9 @@ class _PanelMarca extends StatelessWidget {
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 440),
                               child: Text(
-                                tr('Únete a {nombre}', {'nombre': AppBrand.nombre}),
+                                tr('Únete a {nombre}', {
+                                  'nombre': AppBrand.nombre,
+                                }),
                                 style: texto.displaySmall?.copyWith(
                                   color: AppBrand.leche,
                                   height: 1.08,
@@ -304,7 +339,9 @@ class _PanelMarca extends StatelessWidget {
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 380),
                               child: Text(
-                                tr('Crea tu cuenta y empieza a pedir en segundos.'),
+                                tr(
+                                  'Crea tu cuenta y empieza a pedir en segundos.',
+                                ),
                                 style: texto.bodyLarge?.copyWith(
                                   color: AppBrand.leche.withValues(alpha: 0.72),
                                   height: 1.5,
@@ -395,9 +432,9 @@ class _Formulario extends StatelessWidget {
           ],
           Text(
             tr('Crea tu cuenta de cliente para hacer pedidos.'),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             textAlign: mostrarEncabezado ? TextAlign.center : TextAlign.start,
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -408,13 +445,19 @@ class _Formulario extends StatelessWidget {
             controller: codigoCtrl,
             textCapitalization: TextCapitalization.characters,
             decoration: InputDecoration(
-              labelText: tr('Código del restaurante *'),
-              helperText: tr('Te lo da el restaurante donde quieres pedir.'),
+              labelText: tr('Código del restaurante (opcional)'),
+              helperText: tr(
+                'Si no lo tienes, después eliges el restaurante de la lista.',
+              ),
+              helperMaxLines: 2,
               prefixIcon: const Icon(Icons.vpn_key_outlined),
             ),
-            validator: (v) => CodigoNegocioService.normalizar(v ?? '').length < 4
-                ? tr('Ingresa el código del restaurante')
-                : null,
+            validator: (v) {
+              final c = CodigoNegocioService.normalizar(v ?? '');
+              return c.isNotEmpty && c.length < 4
+                  ? tr('Ingresa el código del restaurante')
+                  : null;
+            },
           ),
           const SizedBox(height: AppSpacing.md),
 
@@ -426,8 +469,9 @@ class _Formulario extends StatelessWidget {
               labelText: tr('Nombre completo *'),
               prefixIcon: Icon(Icons.person_outline),
             ),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? tr('Ingresa tu nombre') : null,
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? tr('Ingresa tu nombre')
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
 
@@ -451,10 +495,7 @@ class _Formulario extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
 
-          CampoTelefono(
-            controller: telefonoCtrl,
-            obligatorio: true,
-          ),
+          CampoTelefono(controller: telefonoCtrl, obligatorio: true),
           const SizedBox(height: AppSpacing.md),
 
           TextFormField(
@@ -497,7 +538,9 @@ class _Formulario extends StatelessWidget {
             children: [
               Checkbox(
                 value: aceptaTerminos,
-                onChanged: cargando ? null : (v) => onCambiarTerminos(v ?? false),
+                onChanged: cargando
+                    ? null
+                    : (v) => onCambiarTerminos(v ?? false),
               ),
               Expanded(
                 child: Padding(
@@ -515,7 +558,11 @@ class _Formulario extends StatelessWidget {
                         texto: tr('Política de privacidad'),
                         tipo: TipoTextoLegal.politicaPrivacidad,
                       ),
-                      Text(tr(', y confirmo que tengo 18 años o más (o el permiso de mi madre, padre o tutor)')),
+                      Text(
+                        tr(
+                          ', y confirmo que tengo 18 años o más (o el permiso de mi madre, padre o tutor)',
+                        ),
+                      ),
                       const Text(' *'),
                     ],
                   ),
@@ -528,10 +575,9 @@ class _Formulario extends StatelessWidget {
               padding: const EdgeInsets.only(left: 12, bottom: AppSpacing.xs),
               child: Text(
                 tr('Debes aceptar para crear tu cuenta'),
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: scheme.error),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.error),
               ),
             ),
           const SizedBox(height: AppSpacing.md),
@@ -567,9 +613,9 @@ class _EnlaceLegal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => LegalScreen(tipo: tipo)),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => LegalScreen(tipo: tipo))),
       child: Text(
         texto,
         style: TextStyle(
@@ -588,7 +634,11 @@ class _ColumnaEscalonada extends StatelessWidget {
   final double inicio;
   final List<Widget> children;
 
-  const _ColumnaEscalonada({required this.entrada, required this.inicio, required this.children});
+  const _ColumnaEscalonada({
+    required this.entrada,
+    required this.inicio,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
