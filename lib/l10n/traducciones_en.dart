@@ -961,4 +961,6 @@ const traduccionesEn = <String, String>{
   'Anterior': 'Previous',
   'Siguiente': 'Next',
   'Ver restaurantes': 'See restaurants',
+  'Código del restaurante (opcional)': 'Restaurant code (optional)',
+  'Si no lo tienes, después eliges el restaurante de la lista.': "If you don't have it, you can pick the restaurant from the list later.",
 };
