@@ -42,12 +42,14 @@ class PanelCajero extends StatelessWidget {
           iconoActivo: Icons.point_of_sale,
           etiqueta: tr('Caja'),
           builder: (_) => const CajeroCajaScreen(),
+          anchoMaximo: 900,
         ),
         DestinoPanel(
           icono: Icons.two_wheeler_outlined,
           iconoActivo: Icons.two_wheeler,
           etiqueta: tr('Rendición'),
           builder: (_) => const CajeroRendicionScreen(),
+          anchoMaximo: 900,
         ),
       ],
     );

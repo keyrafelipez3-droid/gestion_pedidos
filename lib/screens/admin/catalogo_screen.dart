@@ -16,6 +16,7 @@ import '../../services/sesion_actual.dart';
 import '../../widgets/selector_imagen.dart';
 import '../../widgets/app_cargando.dart';
 import '../../utils/formato.dart';
+import '../../widgets/campo_desplegable.dart';
 
 class CatalogoScreen extends StatefulWidget {
   /// Pestaña con la que se abre la pantalla (0=Categorías, 1=Productos,
@@ -493,7 +494,7 @@ class _ProductosTabState extends State<_ProductosTab> {
                         ),
                     ],
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    CampoDesplegable<String>(
                       initialValue: idCategoria.isEmpty ? null : idCategoria,
                       decoration: const InputDecoration(
                         labelText: 'Categoría',
@@ -1124,7 +1125,7 @@ class _VariantesTab extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<String>(
+                  CampoDesplegable<String>(
                     initialValue: idProducto,
                     decoration: const InputDecoration(
                       labelText: 'Producto',

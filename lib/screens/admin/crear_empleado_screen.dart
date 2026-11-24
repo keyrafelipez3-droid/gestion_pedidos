@@ -10,6 +10,7 @@ import '../../services/sesion_actual.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/contrasena.dart';
 import '../../widgets/campo_telefono.dart';
+import '../../widgets/campo_desplegable.dart';
 
 /// HU-05 — Formulario para que un Administrador cree la cuenta de un
 /// empleado y le asigne su rol (y opcionalmente su sucursal).
@@ -188,7 +189,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                     // Administrador para un negocio), no hay nada que
                     // elegir — se muestra solo como texto informativo.
                     if (widget.rolFijo == null) ...[
-                      DropdownButtonFormField<String>(
+                      CampoDesplegable<String>(
                         initialValue: _rolSeleccionado,
                         decoration: const InputDecoration(
                           labelText: 'Rol',
@@ -212,7 +213,7 @@ class _CrearEmpleadoScreenState extends State<CrearEmpleadoScreen> {
                             .streamSucursales(SesionActual.instancia.idNegocio!),
                         builder: (context, snapshot) {
                           final sucursales = snapshot.data ?? [];
-                          return DropdownButtonFormField<String?>(
+                          return CampoDesplegable<String?>(
                             initialValue: _idSucursalSeleccionada,
                             decoration: InputDecoration(
                               labelText: 'Sucursal (opcional)',

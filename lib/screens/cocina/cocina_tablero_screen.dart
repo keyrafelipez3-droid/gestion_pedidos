@@ -120,6 +120,7 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
     final stream = _stream;
     final idNegocio = _idNegocio;
     final sucursal = _sucursal;
+    final angosto = MediaQuery.sizeOf(context).width < 520;
     return StreamBuilder<SucursalModel?>(
       stream: sucursal,
       builder: (context, sSucursal) {
@@ -128,6 +129,8 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
           appBar: AppBar(
             title: Text(tr('Cocina')),
             actions: [
+              // En el celular el botón queda corto ("Pausar" / "Reanudar")
+              // para que no se monte sobre el título.
               if (s != null)
                 Padding(
                   padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -135,12 +138,12 @@ class _CocinaTableroScreenState extends State<CocinaTableroScreen> {
                       ? FilledButton.icon(
                           onPressed: () => _cambiarPausa(s),
                           icon: const Icon(Icons.play_arrow),
-                          label: Text(tr('Reanudar pedidos')),
+                          label: Text(angosto ? tr('Reanudar') : tr('Reanudar pedidos')),
                         )
                       : OutlinedButton.icon(
                           onPressed: () => _cambiarPausa(s),
                           icon: const Icon(Icons.pause),
-                          label: Text(tr('Pausar pedidos nuevos')),
+                          label: Text(angosto ? tr('Pausar') : tr('Pausar pedidos nuevos')),
                         ),
                 ),
             ],

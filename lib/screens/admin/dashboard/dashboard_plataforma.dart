@@ -136,7 +136,7 @@ class _DashboardPlataformaState extends State<DashboardPlataforma> {
             ),
             KpiCard(
               icono: Icons.receipt_long_outlined,
-              color: AppBrand.rojo,
+              color: AppBrand.locoto,
               etiqueta: 'Pedidos',
               valor: periodo == null ? null : '${periodo.length}',
               variacion: (periodo == null || anterior == null)

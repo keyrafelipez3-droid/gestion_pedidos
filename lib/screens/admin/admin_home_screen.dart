@@ -98,6 +98,10 @@ class AdminHomeScreen extends StatefulWidget {
   State<AdminHomeScreen> createState() => _AdminHomeScreenState();
 }
 
+/// Ancho máximo del contenido de cada sección del panel en pantallas
+/// anchas (Admin y SuperAdmin).
+const double anchoMaximoPanel = 1120;
+
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   late SeccionAdmin _seccion;
 
@@ -456,7 +460,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         child: hijo,
                       ),
                     ),
-                    child: _construirContenido(_seccion, usuario),
+                    // Contenido centrado con un ancho máximo: en monitores
+                    // grandes las listas y tarjetas no se estiran de borde a
+                    // borde, y el título de la sección queda alineado con
+                    // ellas.
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: anchoMaximoPanel),
+                        child: _construirContenido(_seccion, usuario),
+                      ),
+                    ),
                   ),
                 ),
               ],

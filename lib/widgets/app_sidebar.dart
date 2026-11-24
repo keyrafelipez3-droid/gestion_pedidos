@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'etiqueta_version.dart';
-import 'logo_caro.dart';
+import 'logo_nami.dart';
 
 /// Un ítem individual de navegación dentro del sidebar del panel de
 /// administración.
@@ -62,7 +62,7 @@ class AppSidebar extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               child: Row(
                 children: [
-                  const LogoCaro(size: 40),
+                  const LogoNami(size: 40),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -98,11 +98,10 @@ class AppSidebar extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
                         child: Text(
-                          seccion.title!.toUpperCase(),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          seccion.title!,
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                 color: scheme.onSurfaceVariant,
-                                letterSpacing: 0.6,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
                               ),
                         ),
                       ),
@@ -110,33 +109,56 @@ class AppSidebar extends StatelessWidget {
                       Padding(
                         padding:
                             const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        // Ítem activo: fondo del color de marca suave y
+                        // una barrita del color de marca a la izquierda.
                         child: Material(
                           color: item.selected
                               ? scheme.primaryContainer
                               : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          child: ListTile(
-                            dense: true,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            leading: Icon(
-                              item.icon,
-                              color: item.selected
-                                  ? scheme.onPrimaryContainer
-                                  : scheme.onSurfaceVariant,
-                            ),
-                            title: Text(
-                              item.label,
-                              style: TextStyle(
-                                color: item.selected
-                                    ? scheme.onPrimaryContainer
-                                    : scheme.onSurface,
-                                fontWeight:
-                                    item.selected ? FontWeight.w600 : FontWeight.normal,
+                          borderRadius: BorderRadius.circular(14),
+                          clipBehavior: Clip.antiAlias,
+                          child: Stack(
+                            children: [
+                              ListTile(
+                                dense: true,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                leading: Icon(
+                                  item.icon,
+                                  color: item.selected
+                                      ? scheme.primary
+                                      : scheme.onSurfaceVariant,
+                                ),
+                                title: Text(
+                                  item.label,
+                                  style: TextStyle(
+                                    color: item.selected
+                                        ? scheme.onPrimaryContainer
+                                        : scheme.onSurface,
+                                    fontWeight: item.selected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                                onTap: item.onTap,
                               ),
-                            ),
-                            onTap: item.onTap,
+                              if (item.selected)
+                                Positioned(
+                                  left: 0,
+                                  top: 10,
+                                  bottom: 10,
+                                  child: Container(
+                                    width: 4,
+                                    decoration: BoxDecoration(
+                                      color: scheme.primary,
+                                      borderRadius: const BorderRadius.horizontal(
+                                        right: Radius.circular(4),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),

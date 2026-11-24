@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/idioma.dart';
 import '../theme/design_tokens.dart';
-import 'logo_caro.dart';
+import 'logo_nami.dart';
 
 /// Piezas de animación de la marca (estilo "Slate"): la entrada del
 /// inicio de sesión, los puntitos del botón y la pantalla de carga.
@@ -70,7 +70,7 @@ class TextoEscrito extends StatelessWidget {
           // para que el texto no se mueva mientras se escribe.
           TextSpan(
             text: escribiendo ? '|' : '',
-            style: const TextStyle(color: AppBrand.dorado, fontWeight: FontWeight.w300),
+            style: const TextStyle(color: AppBrand.aji, fontWeight: FontWeight.w300),
           ),
           TextSpan(
             text: texto.substring(letras),
@@ -81,6 +81,26 @@ class TextoEscrito extends StatelessWidget {
       style: estilo,
       textAlign: TextAlign.center,
       semanticsLabel: texto,
+    );
+  }
+}
+
+/// Muestra a su hijo de izquierda a derecha según [progreso] (0 a 1), como
+/// si se escribiera. Se usa para el logotipo "nami", que no es texto común.
+class RevelarHorizontal extends StatelessWidget {
+  final double progreso;
+  final Widget child;
+
+  const RevelarHorizontal({super.key, required this.progreso, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        widthFactor: progreso.clamp(0.0, 1.0),
+        child: child,
+      ),
     );
   }
 }
@@ -169,7 +189,7 @@ class _PuntosCargandoState extends State<PuntosCargando> with SingleTickerProvid
 }
 
 /// Pantalla de carga con la marca: el logo late suavemente y una barra
-/// dorada avanza. Se muestra mientras se prepara la pantalla de cada rol.
+/// de ají avanza. Se muestra mientras se prepara la pantalla de cada rol.
 class CargandoMarca extends StatefulWidget {
   const CargandoMarca({super.key});
 
@@ -207,7 +227,7 @@ class _CargandoMarcaState extends State<CargandoMarca> with SingleTickerProvider
         children: [
           ScaleTransition(
             scale: Tween<double>(begin: 0.92, end: 1.06).animate(latido),
-            child: const LogoCaro(size: 88),
+            child: const LogoNami(size: 88),
           ),
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
@@ -216,8 +236,8 @@ class _CargandoMarcaState extends State<CargandoMarca> with SingleTickerProvider
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 minHeight: 4,
-                color: AppBrand.dorado,
-                backgroundColor: AppBrand.dorado.withValues(alpha: 0.18),
+                color: AppBrand.aji,
+                backgroundColor: AppBrand.aji.withValues(alpha: 0.18),
               ),
             ),
           ),

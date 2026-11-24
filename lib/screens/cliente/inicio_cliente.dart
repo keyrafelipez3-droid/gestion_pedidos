@@ -64,7 +64,6 @@ class InicioCliente extends StatelessWidget {
   Widget build(BuildContext context) {
     final lista = restaurantes;
     final textos = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
     final unico = lista != null && lista.length == 1 ? lista.first : null;
 
     final accesos = <(IconData, String, String, VoidCallback)>[
@@ -182,12 +181,8 @@ class InicioCliente extends StatelessWidget {
                     ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      tr('Accesos rápidos').toUpperCase(),
-                      style: textos.labelLarge?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                      ),
+                      tr('Accesos rápidos'),
+                      style: textos.titleLarge,
                     ),
                     const SizedBox(height: AppSpacing.sm + 4),
                     LayoutBuilder(
@@ -267,8 +262,8 @@ class _PortadaRestaurante extends StatelessWidget {
                       height: 64,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.black,
-                        border: Border.all(color: scheme.primary, width: 2.5),
+                        color: scheme.surfaceContainerLowest,
+                        border: Border.all(color: Colors.white, width: 3),
                       ),
                       child: ClipOval(
                         child: AppImagenRed(

@@ -29,6 +29,7 @@ import '../../widgets/tema_negocio.dart';
 import 'carrito_screen.dart';
 import 'resenas_negocio_screen.dart';
 import '../../utils/formato.dart';
+import '../../widgets/campo_desplegable.dart';
 
 /// Variantes y complementos que el cliente eligió para un producto.
 typedef ExtrasElegidos = ({List<OpcionSeleccionada> variantes, List<OpcionSeleccionada> complementos});
@@ -458,9 +459,8 @@ class _SelectorSucursalCompacto extends StatelessWidget {
         }
         return Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: seleccionado,
+          child: CampoDesplegable<String>(
+            initialValue: seleccionado,
             hint: Text(tr('Elige una sucursal')),
             items: sucursales
                 .map((s) => DropdownMenuItem(
@@ -700,7 +700,7 @@ class _TarjetaProducto extends StatelessWidget {
                           if (producto.promoActiva())
                             _Etiqueta(
                               texto: tr('PROMO -{n}%', {'n': producto.porcentajePromo()}),
-                              color: AppBrand.rojo,
+                              color: AppBrand.locoto,
                             ),
                         ],
                       ),
@@ -809,7 +809,7 @@ class _TarjetaProducto extends StatelessWidget {
                         child: Icon(
                           esFavorito ? Icons.favorite : Icons.favorite_border,
                           size: 18,
-                          color: esFavorito ? AppBrand.rojo : Colors.black87,
+                          color: esFavorito ? AppBrand.locoto : Colors.black87,
                         ),
                       ),
                     ),

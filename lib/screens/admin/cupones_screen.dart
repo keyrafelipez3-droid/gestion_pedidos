@@ -50,7 +50,7 @@ class CuponesScreen extends StatelessWidget {
                       textCapitalization: TextCapitalization.characters,
                       decoration: const InputDecoration(
                         labelText: 'Código *',
-                        hintText: 'Ej. CARO10',
+                        hintText: 'Ej. NAMI10',
                         helperText: 'Solo letras y números, sin espacios.',
                       ),
                       validator: (v) {
@@ -239,7 +239,7 @@ class CuponesScreen extends StatelessWidget {
                   return const AppEmptyState(
                     icon: Icons.local_offer_outlined,
                     title: 'Todavía no tienes cupones',
-                    message: 'Crea un código de descuento (ej. CARO10) y compártelo con tus clientes.',
+                    message: 'Crea un código de descuento (ej. NAMI10) y compártelo con tus clientes.',
                   );
                 }
                 return ListView.separated(

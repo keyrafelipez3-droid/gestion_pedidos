@@ -200,6 +200,7 @@ const traduccionesPt = <String, String>{
   'Mesa {numero} ({estado})': 'Mesa {numero} ({estado})',
   'Mesas': 'Mesas',
   'Mi cuenta': 'Minha conta',
+  'Más opciones': 'Mais opções',
   'Mis entregas': 'Minhas entregas',
   'Mis pedidos': 'Meus pedidos',
   'Modalidad: {etiquetaModalidad}': 'Modalidade: {etiquetaModalidad}',
@@ -869,6 +870,8 @@ const traduccionesPt = <String, String>{
   "Logo de {restaurante}": "Logo de {restaurante}",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Alimente-se bem: prefira água natural, frutas e verduras, e modere o sal, o açúcar e as gorduras.',
+  'Del fogón a la mesa, sin papelitos.': 'Do fogão à mesa, sem papelzinho.',
+  'Pedidos, cocina, caja y reparto de tu restaurante en un solo lugar.': 'Pedidos, cozinha, caixa e entregas do seu restaurante em um só lugar.',
   // Pedido: precios y líneas, y aviso de documentos legales
   '"{producto}" ya no está disponible. Quítalo para continuar.': '"{producto}" não está mais disponível. Remova-o para continuar.',
   'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'O preço mudou para: {productos}. Confira o total e confirme novamente.',

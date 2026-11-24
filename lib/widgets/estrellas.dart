@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
+
 /// Calificación de 1 a 5 estrellas, solo para mostrar.
 class Estrellas extends StatelessWidget {
   final double valor;
@@ -9,7 +11,7 @@ class Estrellas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Colors.amber.shade700;
+    const color = AppBrand.aji;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -35,7 +37,7 @@ class SelectorEstrellas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Colors.amber.shade700;
+    const color = AppBrand.aji;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

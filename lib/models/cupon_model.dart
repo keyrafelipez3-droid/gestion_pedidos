@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/formato.dart';
 
 /// Cupón de descuento de un negocio: `negocios/{id}/cupones/{CODIGO}`.
-/// El id del documento es el código en mayúsculas (ej. CARO10).
+/// El id del documento es el código en mayúsculas (ej. NAMI10).
 class CuponModel {
   static const porcentaje = 'porcentaje';
   static const monto = 'monto';

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/version_service.dart';
 
-/// "Caro v1.0.0 (1)" en letra pequeña. Sirve para saber qué versión tiene
+/// "Nami v1.0.0 (1)" en letra pequeña. Sirve para saber qué versión tiene
 /// cada persona cuando reporta un problema.
 class EtiquetaVersion extends StatelessWidget {
   final TextAlign textAlign;

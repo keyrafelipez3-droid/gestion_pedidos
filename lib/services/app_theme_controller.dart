@@ -81,17 +81,25 @@ class AppThemeController {
   /// con un Theme real aún sin guardar.
   ThemeData buildThemeFor(NegocioModel? data, Brightness brightness) {
     // Sin negocio (inicio de sesión, cliente, SuperAdmin) se usa la marca
-    // Caro: fondo casi negro, dorado y tarjetas finas con borde.
-    final primary = _color(data?.colorPrimario ?? '', AppBrand.dorado);
+    // Nami: fondo "masa", rojo locoto para las acciones, texto berenjena
+    // y tarjetas blancas tipo plato.
+    final esMarcaNami = data == null;
+    // Modo oscuro de la marca: fondo "noche" (berenjena muy oscura), texto
+    // masa y un locoto más claro que se lee bien sobre ese fondo.
+    final nocheNami = esMarcaNami && brightness == Brightness.dark;
+    final primary = nocheNami
+        ? AppBrand.locotoClaro
+        : _color(data?.colorPrimario ?? '', AppBrand.locoto);
     final secondary = data == null
-        ? AppBrand.doradoOscuro
+        ? AppBrand.aji
         : _color(data.colorSecundario, const Color(0xFFFFF3E0));
     // HU-10 (Fase 5): "Fondo" es opcional. Si el negocio eligió uno, el
     // esquema entero se adapta a él (texto con buen contraste, superficies
     // mezcladas) para que un fondo oscuro tipo "Brasa" funcione aunque el
     // modo claro/oscuro del sistema diga otra cosa.
-    final fondoPersonalizado =
-        data == null ? AppBrand.fondoOscuro : _colorOpcional(data.colorFondo);
+    final fondoPersonalizado = data == null
+        ? (nocheNami ? AppBrand.noche : AppBrand.masa)
+        : _colorOpcional(data.colorFondo);
     if (fondoPersonalizado != null) {
       brightness = ThemeData.estimateBrightnessForColor(fondoPersonalizado);
     }
@@ -101,7 +109,9 @@ class AppThemeController {
       secondary: secondary,
     );
     final base = fondoPersonalizado ?? scheme.surface;
-    final onBase = fondoPersonalizado != null ? colorSobre(base) : scheme.onSurface;
+    final onBase = esMarcaNami
+        ? (nocheNami ? AppBrand.masa : AppBrand.berenjena)
+        : (fondoPersonalizado != null ? colorSobre(base) : scheme.onSurface);
     Color mezcla(double a) => Color.alphaBlend(onBase.withValues(alpha: a), base);
     // El color de marca se usa TAL CUAL (fromSeed lo transforma y la marca
     // deja de parecerse a la que eligió el SuperAdmin).
@@ -110,7 +120,7 @@ class AppThemeController {
           ? ThemeData.estimateBrightnessForColor(base)
           : null,
       primary: primary,
-      onPrimary: colorSobre(primary),
+      onPrimary: nocheNami ? AppBrand.berenjena : colorSobre(primary),
       secondary: secondary,
       onSecondary: colorSobre(secondary),
       primaryContainer: Color.alphaBlend(primary.withValues(alpha: 0.18), base),
@@ -120,7 +130,10 @@ class AppThemeController {
       onSurfaceVariant: onBase.withValues(alpha: 0.68),
       outline: onBase.withValues(alpha: 0.32),
       outlineVariant: onBase.withValues(alpha: 0.12),
-      surfaceContainerLowest: fondoPersonalizado != null ? mezcla(0.04) : null,
+      // En la marca Nami las tarjetas son blancas sobre el fondo "masa".
+      surfaceContainerLowest: esMarcaNami && !nocheNami
+          ? AppBrand.leche
+          : (fondoPersonalizado != null ? mezcla(0.04) : null),
       surfaceContainerLow: mezcla(0.04),
       surfaceContainer: mezcla(0.06),
       surfaceContainerHigh: mezcla(0.08),
@@ -128,13 +141,13 @@ class AppThemeController {
     );
     final isDark = scheme.brightness == Brightness.dark;
     final brand = BrandStyle.desde(
-      forma: data?.formaBotones ?? 'redondeado',
-      estilo: data?.estiloBase ?? 'caro',
+      forma: data?.formaBotones ?? 'pildora',
+      estilo: data?.estiloBase ?? 'nami',
       primary: primary,
     );
     final textTheme = _buildTextTheme(
       scheme,
-      tipografia: data?.tipografia ?? 'redondeada',
+      tipografia: data?.tipografia ?? 'nami',
       brand: brand,
     );
     // Las sombras no se ven sobre fondo oscuro: ahí las tarjetas llevan un
@@ -171,7 +184,14 @@ class AppThemeController {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: textTheme.titleLarge?.copyWith(color: scheme.onSurface),
+        // Tamaño explícito: el textTheme de aquí todavía no tiene tamaños
+        // (Flutter los agrega después), así que el título de cada pantalla
+        // salía a 14 px, casi igual que el texto normal.
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          color: scheme.onSurface,
+          fontSize: 21,
+          height: 1.2,
+        ),
       ),
 
       cardTheme: CardThemeData(
@@ -180,37 +200,57 @@ class AppThemeController {
             : (isDark ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest),
         surfaceTintColor: Colors.transparent,
         shadowColor: brand.colorSombra,
-        elevation: brand.tarjeta == 'sombra' && !isDark ? 2 : 0,
+        elevation: isDark
+            ? 0
+            : (brand.tarjeta == 'sombra' ? 2 : (brand.tarjeta == 'plato' ? 1 : 0)),
         shape: RoundedRectangleBorder(
           borderRadius: brand.card,
           side: conBorde ? bordeFino : BorderSide.none,
         ),
-        margin: EdgeInsets.zero,
+        // Aire entre tarjetas seguidas (12 px entre una y otra): antes
+        // quedaban pegadas en las listas que no ponían separación propia.
+        margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm - 2),
       ),
 
+      // Campos rellenos con la etiqueta DENTRO del recuadro. Con el borde
+      // "outline" invisible la etiqueta flotaba por encima del campo y se
+      // montaba sobre lo que hubiera arriba (las letras "chocaban").
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.7),
-        border: OutlineInputBorder(
+        border: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide.none,
         ),
-        enabledBorder: OutlineInputBorder(
+        enabledBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: conBorde ? bordeFino : BorderSide.none,
         ),
-        focusedBorder: OutlineInputBorder(
+        focusedBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide(color: scheme.primary, width: 2),
         ),
-        errorBorder: OutlineInputBorder(
+        errorBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(brand.radioCampo),
           borderSide: BorderSide(color: scheme.error, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.md,
+        focusedErrorBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.circular(brand.radioCampo),
+          borderSide: BorderSide(color: scheme.error, width: 2),
         ),
+        disabledBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.circular(brand.radioCampo),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm + 4,
+          AppSpacing.md,
+          AppSpacing.sm + 4,
+        ),
+        // Los textos de ayuda y error pueden ocupar dos líneas sin cortarse.
+        helperMaxLines: 3,
+        errorMaxLines: 3,
       ),
 
       filledButtonTheme: FilledButtonThemeData(

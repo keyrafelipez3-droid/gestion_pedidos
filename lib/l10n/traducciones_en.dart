@@ -200,6 +200,7 @@ const traduccionesEn = <String, String>{
   'Mesa {numero} ({estado})': 'Table {numero} ({estado})',
   'Mesas': 'Tables',
   'Mi cuenta': 'My account',
+  'Más opciones': 'More options',
   'Mis entregas': 'My deliveries',
   'Mis pedidos': 'My orders',
   'Modalidad: {etiquetaModalidad}': 'Type: {etiquetaModalidad}',
@@ -870,6 +871,8 @@ const traduccionesEn = <String, String>{
   "Logo de {restaurante}": "{restaurante} logo",
   // Ley 775
   'Aliméntate sano: prefiere agua natural, frutas y verduras, y modera el consumo de sal, azúcar y grasas.': 'Eat healthy: choose plain water, fruits and vegetables, and limit salt, sugar and fat.',
+  'Del fogón a la mesa, sin papelitos.': 'From the stove to the table, no paper slips.',
+  'Pedidos, cocina, caja y reparto de tu restaurante en un solo lugar.': 'Orders, kitchen, cash register and delivery for your restaurant in one place.',
   // Pedido: precios y líneas, y aviso de documentos legales
   '"{producto}" ya no está disponible. Quítalo para continuar.': '"{producto}" is no longer available. Remove it to continue.',
   'Cambió el precio de: {productos}. Revisa el total y vuelve a confirmar.': 'The price changed for: {productos}. Check the total and confirm again.',

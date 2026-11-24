@@ -254,7 +254,7 @@ class _DashboardNegocioState extends State<DashboardNegocio> {
             ),
             KpiCard(
               icono: Icons.local_fire_department_outlined,
-              color: AppBrand.rojo,
+              color: AppBrand.locoto,
               etiqueta: 'En curso ahora',
               valor: enCurso == null ? null : '${enCurso.length}',
               detalle: 'Pedidos sin terminar',
@@ -414,7 +414,7 @@ class _PanelEnCurso extends StatelessWidget {
     } else {
       final conteo = agruparConteo(lista, (p) => p.estado);
       final colores = <String, Color>{
-        PedidoEstado.pendiente: AppBrand.rojo,
+        PedidoEstado.pendiente: AppBrand.locoto,
         PedidoEstado.enPreparacion: semantic.warning,
         PedidoEstado.listo: semantic.success,
         PedidoEstado.enCamino: semantic.info,
@@ -864,7 +864,7 @@ class _PanelResenasState extends State<_PanelResenas> {
                 datos: distribucion,
                 formato: (v) => v.toStringAsFixed(0),
                 vacio: 'No hay reseñas visibles.',
-                colores: {for (var e = 1; e <= 5; e++) '$e ★': AppBrand.dorado},
+                colores: {for (var e = 1; e <= 5; e++) '$e ★': AppBrand.aji},
               ),
               if (ultima != null) ...[
                 const Divider(),

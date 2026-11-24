@@ -1,5 +1,5 @@
 /**
- * Funciones del servidor de Caro (Cloud Functions de Firebase, 2.ª gen.).
+ * Funciones del servidor de Nami (Cloud Functions de Firebase, 2.ª gen.).
  *
  * ESTADO: PREPARADAS, NO DESPLEGADAS. Cloud Functions necesita el plan
  * Blaze (pago por uso). Con el volumen de un restaurante mediano el costo

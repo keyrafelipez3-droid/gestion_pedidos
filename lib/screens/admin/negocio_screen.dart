@@ -10,6 +10,7 @@ import '../../widgets/selector_imagen.dart';
 import '../../widgets/campo_telefono.dart';
 import '../../widgets/app_cargando.dart';
 import '../../widgets/codigo_restaurante.dart';
+import '../../widgets/campo_desplegable.dart';
 
 /// HU-07 — Pantalla para que el Administrador configure la información
 /// general del negocio (nombre, descripción, teléfono, si está activo).
@@ -205,7 +206,7 @@ class _NegocioScreenState extends State<NegocioScreen> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    DropdownButtonFormField<String>(
+                    CampoDesplegable<String>(
                       initialValue: _pais,
                       isExpanded: true,
                       decoration: const InputDecoration(
