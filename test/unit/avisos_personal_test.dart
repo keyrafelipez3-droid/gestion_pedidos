@@ -45,7 +45,7 @@ void main() {
     final avisos = detectarAvisos(vistos, lista);
     expect(avisos.length, 1);
     expect(avisos.single.tipo, TipoAvisoPersonal.pedidoNuevo);
-    expect(avisos.single.texto, contains('#nuevo0'));
+    expect(avisos.single.texto, contains('#NUEVO0'));
     expect(avisos.single.texto, contains('para preparar'));
     vistos['nuevo01'] = PedidoEstado.pendiente;
     expect(detectarAvisos(vistos, lista), isEmpty);
@@ -73,7 +73,7 @@ void main() {
       ReglasAvisoPersonal.cancelado(_pedido('canc001', PedidoEstado.cancelado), ahora: _ahora),
     ]);
     expect(avisos.single.tipo, TipoAvisoPersonal.pedidoCancelado);
-    expect(avisos.single.texto, contains('#canc00'));
+    expect(avisos.single.texto, contains('#CANC00'));
   });
 
   test('al repartidor: entrega disponible y la que le asignaron, no la que él tomó', () {

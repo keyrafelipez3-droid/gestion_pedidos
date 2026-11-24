@@ -52,7 +52,10 @@ class ActividadService {
   Future<void> cerrarSesion() async {
     final u = SesionActual.instancia.actual;
     if (u != null && !u.esCliente) {
-      await registrar(ActividadTipo.sesion, 'Cerró sesión');
+      // Sin internet, Firestore no confirma la escritura y el botón se
+      // quedaría colgado: se espera como mucho 3 segundos.
+      await registrar(ActividadTipo.sesion, 'Cerró sesión')
+          .timeout(const Duration(seconds: 3), onTimeout: () {});
       olvidarSesion(u.idUsuario);
     }
     SesionActual.instancia.limpiar();

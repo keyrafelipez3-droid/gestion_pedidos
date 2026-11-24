@@ -45,7 +45,7 @@ void main() {
   test('solo entran los pedidos entregados, del más antiguo al más nuevo', () {
     final r = _reporte(Rol.cajero);
     expect(r.pedidos.map((p) => p.id), ['ped0001', 'ped0002']);
-    expect(r.filas.first[3], '#ped000');
+    expect(r.filas.first[3], '#PED000');
     expect(r.datosCabecera, contains('Total de entregas: 2'));
   });
 

@@ -83,7 +83,7 @@ class ReporteEntregas {
         '${i + 1}',
         f == null ? '' : fecha(f),
         f == null ? '' : hora(f),
-        '#${p.id.length >= 6 ? p.id.substring(0, 6) : p.id}',
+        '#${p.id.length >= 6 ? p.id.substring(0, 6).toUpperCase() : p.id}',
       ];
       final cliente = (p.nombreCliente ?? '').trim().isNotEmpty
           ? p.nombreCliente!.trim()

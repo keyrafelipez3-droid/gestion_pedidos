@@ -103,7 +103,7 @@ class MisPedidosScreen extends StatelessWidget {
                   ),
                   leading: AvatarModalidad(modalidad: p.modalidad),
                   title: Text(
-                    tr('Pedido #{id}', {'id': p.id.substring(0, 6)}),
+                    tr('Pedido #{id}', {'id': p.id.substring(0, 6).toUpperCase()}),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(

@@ -318,7 +318,7 @@ class _Detalle extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(tr('Pedido #{id}', {'id': pedido.id.substring(0, 6)}),
+                    Text(tr('Pedido #{id}', {'id': pedido.id.substring(0, 6).toUpperCase()}),
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium

@@ -302,7 +302,7 @@ class _VentasScreenState extends State<VentasScreen> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
-                '${p.etiquetaModalidad} · #${p.id.substring(0, 6)}',
+                '${p.etiquetaModalidad} · #${p.id.substring(0, 6).toUpperCase()}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Text(
