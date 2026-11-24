@@ -1142,7 +1142,9 @@ async function ampliarNegocio(idNegocio, objetivo) {
     const antes = diasEntre(dia, objetivo);
     creados += await generarDia(w, ctx, {
       dia, d: antes, completo, clientes, mesas, cajero, sucursal, repartidores, ultimoPorCliente,
-      factor: antes > 30 ? 0.75 : 0.85,
+      // Los otros restaurantes completos (llenados con --todos, 10 días)
+      // crecen menos por día para que todo entre en el cupo gratis.
+      factor: completo && idNegocio !== 'principal' ? 0.55 : antes > 30 ? 0.75 : 0.85,
     });
     await w.cerrar();
     diasHechos++;
@@ -1302,6 +1304,29 @@ const PULIR = {
   },
 };
 
+/**
+ * Menú propio para los restaurantes que recibieron el menú boliviano de
+ * ejemplo pero no son de comida boliviana (nombre del plato → [nuevo, descripción]).
+ */
+const MENU_PROPIO = {
+  'Taquería La Esquina': {
+    'Pique macho': ['Tacos al pastor (5)', 'Cerdo al pastor con piña, cebolla y cilantro'],
+    'Silpancho': ['Torta ahogada', 'Birote con carnitas bañado en salsa de jitomate'],
+    'Pollo a la broaster': ['Pollo en mole', 'Pierna de pollo en mole poblano con arroz'],
+    'Majadito': ['Enchiladas verdes', 'Tres enchiladas de pollo con crema y queso'],
+    'Sajta de pollo': ['Pozole rojo', 'Maíz cacahuazintle con cerdo, rábano y lechuga'],
+    'Salteña de carne': ['Taco de suadero', 'Con salsa verde de la casa'],
+    'Empanada de queso': ['Quesadilla de queso', 'Tortilla de maíz con queso Oaxaca'],
+    'Anticucho': ['Gringa de pastor', 'Tortilla de harina con pastor y queso'],
+    'Mocochinchi': ['Agua de jamaica', 'Natural, vaso grande'],
+    'Limonada': ['Agua de horchata', 'De arroz con canela'],
+    'Gaseosa 2 L': ['Refresco 2 L', 'Coca-Cola, Fanta o Sprite'],
+    'Api con pastel': ['Champurrado con concha', 'Bebida caliente de maíz y chocolate'],
+    'Helado de canela': ['Churros con cajeta', 'Cinco churros recién hechos'],
+    'Flan casero': ['Flan napolitano', 'Con caramelo'],
+  },
+};
+
 /** Solicitudes de ejemplo que repetían restaurantes que ya funcionan. */
 const SOLICITUDES_NUEVAS = {
   'Salteñería Doña Mari': 'Salteñas La Tradicional',
@@ -1322,13 +1347,20 @@ const nombreCorto = (nombre) => {
 
 async function pulirNegocio(doc) {
   const datos = PULIR[doc.data().nombre];
-  if (!datos || !doc.data().demoDatos) return 0;
+  if (!datos) return 0;
   const id = doc.id;
   const w = new Escritor();
   const dominio = datos.correo.split('@')[1];
 
-  // Restaurante y sucursal
-  await w.update(doc.ref, { descripcion: datos.descripcion, direccion: datos.direccion, correoContacto: datos.correo });
+  // Restaurante: solo los campos vacíos o con el texto de ejemplo (si el
+  // negocio es real, por ejemplo uno aprobado desde una solicitud, no se
+  // pisa lo que su Administrador ya escribió).
+  const ejemplo = (v) => !v || v === 'Restaurante de ejemplo para la demostración' || v === 'Av. Principal #100';
+  const campos = {};
+  if (ejemplo(doc.data().descripcion)) campos.descripcion = datos.descripcion;
+  if (ejemplo(doc.data().direccion)) campos.direccion = datos.direccion;
+  if (!doc.data().correoContacto) campos.correoContacto = datos.correo;
+  if (Object.keys(campos).length > 0) await w.update(doc.ref, campos);
   for (const s of (await db.collection('sucursales').where('idNegocio', '==', id).get()).docs) {
     if (s.data().demoDatos && s.data().nombre === 'Sucursal Central') {
       await w.update(s.ref, { nombre: `Sucursal ${datos.sucursal}`, direccion: datos.direccion });
@@ -1362,6 +1394,24 @@ async function pulirNegocio(doc) {
     await w.update(u.ref, { nombre: datos.repartidor, email: correoDe(datos.repartidor, dominio) });
     for (const p of pedidos) {
       if (p.data().idRepartidor === u.id) await w.update(p.ref, { nombreRepartidor: datos.repartidor });
+    }
+  }
+
+  // Menú propio (y el nombre de los platos en los pedidos de ejemplo).
+  const menu = MENU_PROPIO[doc.data().nombre];
+  if (menu) {
+    const cambiados = {};
+    for (const pr of (await db.collection('productos').where('idNegocio', '==', id).where('demoDatos', '==', true).get()).docs) {
+      const nuevo = menu[pr.data().nombre];
+      if (!nuevo) continue;
+      cambiados[pr.data().nombre] = nuevo[0];
+      await w.update(pr.ref, { nombre: nuevo[0], descripcion: nuevo[1] });
+    }
+    for (const p of pedidos) {
+      const nombres = p.data().lineasNombre ?? [];
+      if (nombres.some((n) => cambiados[n])) {
+        await w.update(p.ref, { lineasNombre: nombres.map((n) => cambiados[n] ?? n) });
+      }
     }
   }
 
@@ -1412,7 +1462,7 @@ async function pulirNegocio(doc) {
 
 async function pulir() {
   let total = 0;
-  for (const n of (await db.collection('negocios').where('demoDatos', '==', true).get()).docs) total += await pulirNegocio(n);
+  for (const n of (await db.collection('negocios').get()).docs) total += await pulirNegocio(n);
   // Solicitudes pendientes de ejemplo que repetían un restaurante activo.
   for (const s of (await db.collection('solicitudesNegocio').where('demo', '==', true).get()).docs) {
     const nuevo = SOLICITUDES_NUEVAS[s.data().nombreNegocio];
