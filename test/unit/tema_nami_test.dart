@@ -52,12 +52,8 @@ void main() {
     expect(contraste(AppBrand.locotoClaro, AppBrand.berenjena), greaterThanOrEqualTo(4.5));
   });
 
-  test('un logo para cada momento del día', () {
-    expect(AppBrand.momento(DateTime(2026, 1, 1, 8)), 'manana');
-    expect(AppBrand.momento(DateTime(2026, 1, 1, 12)), 'tarde');
-    expect(AppBrand.momento(DateTime(2026, 1, 1, 18, 59)), 'tarde');
-    expect(AppBrand.momento(DateTime(2026, 1, 1, 19)), 'noche');
-    expect(AppBrand.momento(DateTime(2026, 1, 1, 5, 59)), 'noche');
+  test('la marca usa un solo logo (el plato de la tarde)', () {
+    expect(AppBrand.logoAsset, 'assets/images/logo_nami.png');
   });
 
   test('un negocio sin fondo propio sigue en modo claro con su color', () {

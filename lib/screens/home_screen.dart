@@ -21,7 +21,6 @@ import '../theme/brand_style.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/animaciones_marca.dart';
 import '../widgets/aparecer_suave.dart';
-import '../widgets/app_status_badge.dart';
 import '../widgets/app_fotos_comida.dart';
 import '../widgets/avisos_cliente.dart';
 import '../widgets/avisos_personal.dart';
@@ -540,7 +539,9 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
           final columnas = amplio ? 2 : 1;
           final filas = <Widget>[];
           for (var i = 0; i < acciones.length; i += columnas) {
-            if (columnas == 1) {
+            // Una sola columna, o el último acceso cuando son impares: ocupa
+            // todo el ancho (así no queda un hueco vacío al lado).
+            if (columnas == 1 || i + 1 >= acciones.length) {
               filas.add(acciones[i]);
             } else {
               filas.add(IntrinsicHeight(
@@ -549,9 +550,7 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
                   children: [
                     Expanded(child: acciones[i]),
                     const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: i + 1 < acciones.length ? acciones[i + 1] : const SizedBox.shrink(),
-                    ),
+                    Expanded(child: acciones[i + 1]),
                   ],
                 ),
               ));
@@ -585,10 +584,7 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
                       ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      tr('Accesos rápidos'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    _TituloSeccion(texto: tr('Accesos rápidos')),
                     const SizedBox(height: AppSpacing.sm + 4),
                     ...filas,
                   ],
@@ -597,6 +593,35 @@ class _ContenidoInicioState extends State<_ContenidoInicio> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Título de sección sobrio: texto en versalitas con una línea fina que
+/// llena el resto del ancho.
+class _TituloSeccion extends StatelessWidget {
+  final String texto;
+  const _TituloSeccion({required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      header: true,
+      child: Row(
+        children: [
+          Text(
+            texto.toUpperCase(),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(child: Divider(color: scheme.outlineVariant, height: 1)),
+        ],
       ),
     );
   }
@@ -755,8 +780,9 @@ class _AccionHome extends StatelessWidget {
   }
 }
 
-/// Saludo: foto con aro del color de marca, nombre y correo; el rol y
-/// "Sesión activa" a la derecha (o debajo, en el celular).
+/// Saludo formal del inicio: una franja oscura con el color de la marca
+/// (berenjena), el saludo según la hora, el nombre, el correo y el rol. A
+/// la derecha, el plato de Nami en grande y muy suave como sello.
 class _TarjetaBienvenida extends StatelessWidget {
   final UsuarioModel usuario;
   final ColorScheme scheme;
@@ -764,32 +790,66 @@ class _TarjetaBienvenida extends StatelessWidget {
 
   const _TarjetaBienvenida({required this.usuario, required this.scheme, required this.amplio});
 
+  /// El personal ve su panel en español; solo el cliente cambia de idioma
+  /// (y el cliente tiene su propio inicio), así que el saludo va directo.
+  static String _saludo(DateTime ahora) {
+    final h = ahora.hour;
+    if (h >= 5 && h < 12) return 'Buenos días';
+    if (h >= 12 && h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
     final textos = Theme.of(context).textTheme;
     final inicial = usuario.nombre.isNotEmpty ? usuario.nombre[0].toUpperCase() : '?';
-    final etiquetas = Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.xs,
-      children: [
-        AppStatusBadge(label: usuario.rol, tone: AppStatusTone.neutral),
-        AppStatusBadge(label: tr('Sesión activa'), tone: AppStatusTone.success),
-      ],
+    final primerNombre = usuario.nombre.trim().split(RegExp(r'\s+')).first;
+    const claro = Colors.white;
+    final fondo = AppBrand.berenjena;
+    final acento = Color.lerp(AppBrand.berenjena, scheme.primary, 0.45)!;
+
+    final rol = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: claro.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: claro.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(color: Color(0xFF4ADE80), shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              '${usuario.rol} · ${tr('Sesión activa')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textos.labelLarge?.copyWith(color: claro, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
+
     final datos = Row(
       children: [
         Container(
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: scheme.primary, width: 2),
+            border: Border.all(color: AppBrand.aji, width: 2),
           ),
           child: CircleAvatar(
-            radius: amplio ? 30 : 26,
-            backgroundColor: scheme.primary,
-            foregroundColor: scheme.onPrimary,
-            child: Text(inicial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+            radius: amplio ? 30 : 24,
+            backgroundColor: claro,
+            foregroundColor: fondo,
+            child: Text(inicial, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -798,9 +858,19 @@ class _TarjetaBienvenida extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                tr('¡Hola, {nombre}!', {'nombre': usuario.nombre}),
-                style: amplio ? textos.headlineSmall : textos.titleLarge,
-                maxLines: 2,
+                _saludo(DateTime.now()).toUpperCase(),
+                style: textos.labelMedium?.copyWith(
+                  color: AppBrand.aji,
+                  letterSpacing: 1.4,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                primerNombre.isEmpty ? usuario.nombre : primerNombre,
+                style: (amplio ? textos.headlineMedium : textos.headlineSmall)
+                    ?.copyWith(color: claro, fontWeight: FontWeight.w800, height: 1.15),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
@@ -808,44 +878,57 @@ class _TarjetaBienvenida extends StatelessWidget {
                 usuario.email,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: textos.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                style: textos.bodyMedium?.copyWith(color: claro.withValues(alpha: 0.72)),
               ),
             ],
           ),
         ),
       ],
     );
+
     return Container(
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
-      decoration: brand.decoracionTarjeta(scheme),
-      child: DecoratedBox(
-        // Un brillo suave del color de marca desde la esquina.
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topLeft,
-            radius: 1.6,
-            colors: [
-              scheme.primary.withValues(alpha: 0.16),
-              scheme.primary.withValues(alpha: 0.0),
-            ],
+      decoration: BoxDecoration(
+        borderRadius: brand.card,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [fondo, acento],
+        ),
+        boxShadow: [
+          BoxShadow(color: fondo.withValues(alpha: 0.25), blurRadius: 18, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Sello de la marca, grande y casi transparente.
+          PositionedDirectional(
+            end: amplio ? -10 : -36,
+            top: amplio ? -24 : -20,
+            child: ExcludeSemantics(
+              child: Opacity(
+                opacity: 0.12,
+                child: LogoNami(size: amplio ? 190 : 140, conFondo: false),
+              ),
+            ),
           ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(amplio ? AppSpacing.lg : AppSpacing.md + 4),
-          child: amplio
-              ? Row(
-                  children: [
-                    Expanded(child: datos),
-                    const SizedBox(width: AppSpacing.md),
-                    etiquetas,
-                  ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [datos, const SizedBox(height: AppSpacing.md), etiquetas],
-                ),
-        ),
+          Padding(
+            padding: EdgeInsets.all(amplio ? AppSpacing.lg + 4 : AppSpacing.md + 4),
+            child: amplio
+                ? Row(
+                    children: [
+                      Expanded(child: datos),
+                      const SizedBox(width: AppSpacing.md),
+                      rol,
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [datos, const SizedBox(height: AppSpacing.md), rol],
+                  ),
+          ),
+        ],
       ),
     );
   }

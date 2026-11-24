@@ -949,4 +949,11 @@ const traduccionesEn = <String, String>{
   'Inicia sesión o crea tu cuenta y elige uno. No necesitas código.': 'Sign in or create your account and pick one. No code needed.',
   'Añadir restaurante': 'Add restaurant',
   'Con su código o desde la lista. Tus restaurantes de antes se quedan.': 'With its code or from the list. Your previous restaurants stay.',
+  'Inicia sesión o crea tu cuenta y elige {nombre} en la lista.': 'Sign in or create your account and pick {nombre} from the list.',
+  'Elegiste {nombre} (código {codigo}). Inicia sesión o crea tu cuenta para entrar.': 'You picked {nombre} (code {codigo}). Sign in or create your account to join.',
+  'Toca un restaurante para usar su código, o inicia sesión y elígelo de la lista.': 'Tap a restaurant to use its code, or sign in and pick it from the list.',
+  'código {codigo}': 'code {codigo}',
+  'elegido': 'selected',
+  'Copiar código': 'Copy code',
+  'Código copiado: {codigo}': 'Code copied: {codigo}',
 };

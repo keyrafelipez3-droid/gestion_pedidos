@@ -50,15 +50,19 @@ class NegocioService {
       });
 
   // ------------------------------------------------ lista pública
-  // `directorio/{idNegocio}`: SOLO nombre, logo, color y ciudad de cada
-  // restaurante activo. La lee cualquiera, incluso sin sesión (pantalla de
-  // inicio de sesión). No lleva NIT, teléfono, dirección, QR de pago ni el
-  // código de acceso.
+  // `directorio/{idNegocio}`: SOLO nombre, logo, color, ciudad y el código
+  // para entrar de cada restaurante activo. La lee cualquiera, incluso sin
+  // sesión (pantalla de inicio de sesión), para que el cliente vea el
+  // código en la tarjeta del restaurante y pueda entrar. No lleva NIT,
+  // teléfono, dirección ni QR de pago.
   CollectionReference<Map<String, dynamic>> get _directorio => _db.collection('directorio');
 
   /// Lo último que se publicó de cada negocio en esta sesión, para no
   /// escribir lo mismo otra vez.
   final Map<String, String> _publicado = {};
+
+  /// Código de cada negocio ya leído en esta sesión ('' = no tiene).
+  final Map<String, String> _codigoConocido = {};
 
   static Map<String, dynamic> datosPublicos(NegocioModel n) => {
         'nombre': n.nombre.trim(),
@@ -68,16 +72,37 @@ class NegocioService {
       };
 
   /// Publica (o quita, si está desactivado o sin nombre) un restaurante en
-  /// la lista pública. Nunca falla: si no se puede, queda como estaba.
-  Future<void> publicarEnDirectorio(NegocioModel n) async {
+  /// la lista pública, con su código para entrar si ya tiene uno. Nunca
+  /// falla: si no se puede, queda como estaba.
+  ///
+  /// [codigo]: si ya se conoce (recién asignado), se usa ese; si no, se lee
+  /// el actual del negocio.
+  Future<void> publicarEnDirectorio(NegocioModel n, {String? codigo}) async {
     if (n.idNegocio.isEmpty) return;
     final visible = n.estado && n.nombre.trim().isNotEmpty;
     final datos = datosPublicos(n);
+    if (visible) {
+      // El código se lee una sola vez por sesión (la lista del SuperAdmin
+      // llama a esto con cada cambio; así no se gastan lecturas de más).
+      if (codigo != null) _codigoConocido[n.idNegocio] = codigo;
+      final c = _codigoConocido[n.idNegocio] ??=
+          await CodigoNegocioService.instancia.codigoActual(n.idNegocio) ?? '';
+      if (c.isNotEmpty) datos['codigo'] = c;
+    }
     final firma = visible ? datos.values.join('|') : '-';
     if (_publicado[n.idNegocio] == firma) return;
     try {
       if (visible) {
-        await _directorio.doc(n.idNegocio).set(datos);
+        try {
+          await _directorio.doc(n.idNegocio).set(datos);
+        } on FirebaseException {
+          // Si las reglas publicadas todavía no aceptan el código, se
+          // publica igual el resto (nombre, logo...) para no perder la
+          // tarjeta del restaurante.
+          if (!datos.containsKey('codigo')) rethrow;
+          datos.remove('codigo');
+          await _directorio.doc(n.idNegocio).set(datos);
+        }
       } else {
         await _directorio.doc(n.idNegocio).delete();
       }
@@ -99,6 +124,7 @@ class NegocioService {
             'logoUrl': d.data()['logoUrl'] as String? ?? '',
             'colorPrimario': d.data()['colorPrimario'] as String? ?? '',
             'ciudad': d.data()['ciudad'] as String? ?? '',
+            'codigo': d.data()['codigo'] as String? ?? '',
           },
       ]..removeWhere((m) => m['nombre']!.isEmpty);
       lista.sort((a, b) => a['nombre']!.toLowerCase().compareTo(b['nombre']!.toLowerCase()));

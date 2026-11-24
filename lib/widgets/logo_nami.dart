@@ -6,12 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/app_theme_controller.dart';
 import '../theme/design_tokens.dart';
 
-/// Logo de la marca Nami. Cambia según el momento del día (ver
-/// AppBrand.momento):
-/// - mañana: el plato verde (imagen logo_dia.png),
-/// - tarde: un plato hondo color locoto con tres hilos de vapor en ají
-///   amarillo, dibujado en vector (así se ve nítido en cualquier tamaño),
-/// - noche: la cuchara sobre verde oliva (imagen logo_noche.png).
+/// Logo de la marca Nami: un plato hondo color locoto con tres hilos de
+/// vapor en ají amarillo, dibujado en vector (así se ve nítido en cualquier
+/// tamaño). Es el mismo logo a cualquier hora del día.
 class LogoNami extends StatelessWidget {
   final double size;
 
@@ -23,21 +20,6 @@ class LogoNami extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (AppBrand.momento() != 'tarde') {
-      // Mañana y noche: el logo en imagen, con las esquinas redondeadas.
-      // Si el archivo faltara, se dibuja el plato para no dejar un hueco.
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.225),
-        child: Image.asset(
-          AppBrand.logoAsset,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          semanticLabel: 'Logo de ${AppBrand.nombre}',
-          errorBuilder: (context, error, stack) => _plato(),
-        ),
-      );
-    }
     return Semantics(
       label: 'Logo de ${AppBrand.nombre}',
       image: true,

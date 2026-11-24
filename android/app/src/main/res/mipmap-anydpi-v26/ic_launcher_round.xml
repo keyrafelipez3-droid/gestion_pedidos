@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ícono adaptativo (Android 8+): fondo verde menta y el plato de Nami
+<!-- Ícono adaptativo (Android 8+): fondo berenjena y el plato de Nami
      dentro de la zona segura, así ningún launcher lo recorta. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/nami_menta"/>
+    <background android:drawable="@color/nami_berenjena"/>
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>

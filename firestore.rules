@@ -1264,7 +1264,16 @@ service cloud.firestore {
           || (isAdmin()
               && idNegocioActual() == idNegocio
               && get(/databases/$(database)/documents/negocios/$(idNegocio)).data.get('estado', false) == true))
-        && request.resource.data.keys().hasOnly(['nombre', 'logoUrl', 'colorPrimario', 'ciudad'])
+        // El código para entrar se muestra en la tarjeta del restaurante
+        // (decisión de Kiara): solo se acepta el código REAL de ese
+        // negocio, el que está en codigosNegocio apuntando a él.
+        && request.resource.data.keys().hasOnly(['nombre', 'logoUrl', 'colorPrimario', 'ciudad', 'codigo'])
+        && (!request.resource.data.keys().hasAny(['codigo'])
+            || request.resource.data.codigo == ''
+            || (request.resource.data.codigo is string
+                && request.resource.data.codigo.size() <= 12
+                && existsAfter(/databases/$(database)/documents/codigosNegocio/$(request.resource.data.codigo))
+                && getAfter(/databases/$(database)/documents/codigosNegocio/$(request.resource.data.codigo)).data.idNegocio == idNegocio))
         && request.resource.data.nombre is string
         && request.resource.data.nombre.size() > 0
         && request.resource.data.nombre.size() <= 80

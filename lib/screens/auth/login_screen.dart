@@ -164,6 +164,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       onTogglePassword: () => setState(() => _verPassword = !_verPassword),
       onSubmit: _iniciarSesion,
       onOlvide: _olvidePassword,
+      onRestauranteElegido: () => setState(() {}),
       entrada: _entrada,
       inicioEntrada: _finBienvenida - 0.02,
     );
@@ -534,6 +535,9 @@ class _Formulario extends StatelessWidget {
   final VoidCallback onSubmit;
   final VoidCallback onOlvide;
 
+  /// El cliente tocó la tarjeta de un restaurante (su código quedó elegido).
+  final VoidCallback onRestauranteElegido;
+
   /// Animación de entrada de la pantalla: cada parte del formulario
   /// aparece una tras otra a partir de [inicioEntrada].
   final Animation<double> entrada;
@@ -548,6 +552,7 @@ class _Formulario extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     required this.onOlvide,
+    required this.onRestauranteElegido,
     required this.entrada,
     required this.inicioEntrada,
   });
@@ -673,9 +678,9 @@ class _Formulario extends StatelessWidget {
             ],
           )),
           entra(const EtiquetaVersion()),
-          // Restaurantes donde se puede pedir (logo, nombre y ciudad), para
-          // que un cliente nuevo sepa dónde pedir sin conocer ningún código.
-          entra(const RestaurantesPublicos()),
+          // Restaurantes donde se puede pedir (logo, nombre, ciudad y su
+          // código): al tocar uno, su código queda elegido para entrar.
+          entra(RestaurantesPublicos(onElegido: onRestauranteElegido)),
           // Las mejores reseñas de los clientes, antes de entrar.
           entra(const ResenasDestacadas()),
         ],

@@ -13,19 +13,24 @@ class AppStatCard extends StatelessWidget {
   final String etiqueta;
   final Stream<int> stream;
 
+  /// Ancho fijo de la tarjeta; null = ocupa el ancho que le den (por
+  /// ejemplo, dentro de una grilla que llena la fila).
+  final double? ancho;
+
   const AppStatCard({
     super.key,
     required this.icon,
     required this.color,
     required this.etiqueta,
     required this.stream,
+    this.ancho = 168,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      width: 168,
+      width: ancho,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: context.brand.decoracionTarjeta(scheme),
       child: StreamBuilder<int>(
